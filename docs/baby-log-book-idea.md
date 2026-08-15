@@ -1,0 +1,20 @@
+- #baby-log-book
+	- log feeding start time and amount (with timestamp)
+	- log food when diversifying (with timestamp)
+	- log sleep start/end or duration (with timestamp)
+	- set feeding and sleep schedule
+	- notify when feeding or sleeping is needed soon
+	- log pee and poop (with timestamp)
+	- log weight (with timestamp)
+	- log height (with timestamp)
+	- provide stats for sleep, feeding, pee/poop (daily, weekly, monthly, yearly)
+	- Tech specs:
+		- implement as PWA
+		- use sveltekit
+		- use simple db
+		- deployment as docker container if possible include db/storage inside the one container for simpler handling
+    - design:
+        - use impeccable skill for layout
+        - don't use utility class heavy CSS, use pure CSS and custom properties.
+        - find a lighweight CSS framework for the UI elements which helps to get a uniform and good UI/UX
+
