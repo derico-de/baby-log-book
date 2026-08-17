@@ -1,0 +1,21 @@
+{
+  "name": "baby-log-book",
+  "workdir": "/workspaces/baby-log-book",
+  "dirs": [
+    "."
+  ],
+  "ports": [],
+  "tailscale": {
+    "enabled": true
+  },
+  "firewall": {
+    "enabled": true,
+    "allow": []
+  },
+  "resources": {
+    "cpus": 4,
+    "memory": "8GiB",
+    "disk": "40GiB"
+  },
+  "agent_credentials": true
+}
