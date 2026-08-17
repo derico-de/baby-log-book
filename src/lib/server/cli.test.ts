@@ -41,7 +41,7 @@ describe('the operator tool', () => {
 				'mum',
 				'h1',
 				'Mama',
-				'owner'
+				'parent'
 			);
 			db.close();
 
@@ -51,7 +51,7 @@ describe('the operator tool', () => {
 			const env = { ...process.env, DATA_DIR: dir, ORIGIN: 'https://log.example.com' };
 			const listed = execFileSync('node', ['bin/babylog.js', 'members'], { env, encoding: 'utf8' });
 			expect(listed).toContain('Mama');
-			expect(listed).toContain('owner');
+			expect(listed).toContain('parent');
 
 			/* Invoked through a symlink, exactly as the image does with
 			   /usr/local/bin/babylog — the raw argv there never ends in .js. */
@@ -91,7 +91,7 @@ describe('the operator tool', () => {
 				'mum',
 				'h1',
 				'Mama',
-				'owner'
+				'parent'
 			);
 			db.close();
 			loadSecret(`${dir}/secret.key`);

@@ -37,7 +37,7 @@ function withHousehold(): Db {
 		.run('h1', 'Zuhause', '05:00', BERLIN, NOW);
 	fresh
 		.prepare('INSERT INTO members (id, household_id, display_name, role) VALUES (?,?,?,?)')
-		.run('mum', 'h1', 'Mama', 'owner');
+		.run('mum', 'h1', 'Mama', 'parent');
 	return fresh;
 }
 
@@ -142,7 +142,7 @@ describe('an Invite', () => {
 			now: NOW
 		});
 
-	it('creates the Member on claim, carrying the name and role the Owner chose', () => {
+	it('creates the Member on claim, carrying the name and role the Parent chose', () => {
 		// So the timeline reads "Oma" from her first Entry rather than "Unnamed".
 		const result = claim(db, SECRET, { token: mint().token, deviceId: 'd1', zone: BERLIN, now: NOW });
 		expect(result.ok).toBe(true);
@@ -156,7 +156,7 @@ describe('an Invite', () => {
 		expect(listPendingInvites(db, 'h1', NOW)).toHaveLength(1);
 	});
 
-	it('syncs the new Member as a revision attributed to the inviting Owner', () => {
+	it('syncs the new Member as a revision attributed to the inviting Parent', () => {
 		const result = claim(db, SECRET, { token: mint().token, deviceId: 'd1', zone: BERLIN, now: NOW });
 		if (!result.ok) throw new Error('claim failed');
 		const [revision] = revisionsOf(db, 'h1', 'member', result.memberId);
@@ -188,7 +188,7 @@ describe('a Rescue Link', () => {
 });
 
 describe('bootstrap', () => {
-	it('creates the Household and the first Owner, with nothing to bind to', () => {
+	it('creates the Household and the first Parent, with nothing to bind to', () => {
 		const fresh = empty();
 		const link = mintBootstrap(fresh, SECRET, { origin: ORIGIN, now: NOW });
 		const result = claim(fresh, SECRET, {
@@ -201,7 +201,7 @@ describe('bootstrap', () => {
 		expect(result.ok).toBe(true);
 		expect(theHousehold(fresh)).toMatchObject({ zone: BERLIN, day_start: '05:00' });
 		expect(listMembers(fresh, (result as { householdId: string }).householdId)).toMatchObject([
-			{ display_name: 'Mama', role: 'owner' }
+			{ display_name: 'Mama', role: 'parent' }
 		]);
 	});
 
@@ -218,7 +218,7 @@ describe('bootstrap', () => {
 		expect(theHousehold(fresh)?.zone).toBe('Europe/Bucharest');
 	});
 
-	it('needs a name, because an Owner with no name has no timeline attribution', () => {
+	it('needs a name, because a Parent with no name has no timeline attribution', () => {
 		const fresh = empty();
 		const link = mintBootstrap(fresh, SECRET, { origin: ORIGIN, now: NOW });
 		expect(claim(fresh, SECRET, { token: link.token, deviceId: 'd1', zone: BERLIN, now: NOW })).toEqual({

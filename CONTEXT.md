@@ -16,14 +16,14 @@ _Avoid_: Child, infant, kid
 
 **Member**:
 A person with access to a Household. Every Entry records the Member who logged it.
-_Avoid_: User, parent, caregiver (as a synonym for Member)
+_Avoid_: User; Parent or Caregiver as a synonym for Member — those are roles a Member holds
 
-**Owner**:
+**Parent**:
 A Member who may manage the Household — invite people, add Babies, delete Entries.
-_Avoid_: Admin
+_Avoid_: Owner, admin
 
 **Caregiver**:
-A Member who may log and correct, but not manage the Household. Sees everything an Owner sees.
+A Member who may log and correct, but not manage the Household. Sees everything a Parent sees.
 _Avoid_: Guest, viewer, read-only member
 
 **Removed**:
@@ -49,11 +49,11 @@ The act of taking up a Claim Link, which is what puts a Member on a Device.
 _Avoid_: Sign up, register, log in
 
 **Invite**:
-A Claim Link an Owner creates for someone not yet in the Household, carrying the name and role they will have. Becomes a Member only when claimed.
+A Claim Link a Parent creates for someone not yet in the Household, carrying the name and role they will have. Becomes a Member only when claimed.
 _Avoid_: Invitation code, join link
 
 **Rescue Link**:
-A Claim Link minted from the server itself, re-binding a Member who exists to a new Device. For the phone that was lost when no Owner is left to send an Invite.
+A Claim Link minted from the server itself, re-binding a Member who exists to a new Device. For the phone that was lost when no Parent is left to send an Invite.
 _Avoid_: Recovery code, password reset, admin override
 
 ### What gets logged

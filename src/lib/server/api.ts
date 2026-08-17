@@ -65,9 +65,9 @@ export function isResponse(value: unknown): value is Response {
 	return value instanceof Response;
 }
 
-export function requireOwner(authed: Authed): Response | null {
-	if (authed.member.role === 'owner') return null;
-	return json({ code: 'forbidden', message: 'only an Owner may do that' }, { status: 403 });
+export function requireParent(authed: Authed): Response | null {
+	if (authed.member.role === 'parent') return null;
+	return json({ code: 'forbidden', message: 'only a Parent may do that' }, { status: 403 });
 }
 
 export async function readJson(event: RequestEvent): Promise<Record<string, unknown> | null> {

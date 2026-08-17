@@ -353,14 +353,14 @@ describe('the sync engine', () => {
 				? ok({
 						cursor: 1,
 						accepted: [],
-						rejected: [{ id, reason: 'only an Owner may delete an Entry' }],
+						rejected: [{ id, reason: 'only a Parent may delete an Entry' }],
 						merged: [],
 						...versionBlock
 					})
 				: ok({ revisions: [], cursor: 1, more: false, ...versionBlock })
 		);
 		await sync.sync();
-		expect(sync.getStatus().refused).toEqual([{ id, reason: 'only an Owner may delete an Entry' }]);
+		expect(sync.getStatus().refused).toEqual([{ id, reason: 'only a Parent may delete an Entry' }]);
 		expect(await db.outbox.count()).toBe(0);
 	});
 

@@ -55,7 +55,7 @@ These emerged separately and kept confirming each other. Treat them as invariant
 - **Export**: a zip of per-type CSVs, everything, always.
 - **Milestones** — in v1 rather than v2 because they are unrepeatable. A missed feed total is noise; a first tooth that happened while the app could not record it is gone. ([Stats and CSV export](issues/10-stats-and-export.md))
 - **Offline sync** with a full local replica, a durable outbox and silent conflict resolution.
-- **Claim Link** auth, Owner/Caregiver roles, Invites, the Rescue Link CLI.
+- **Claim Link** auth, Parent/Caregiver roles, Invites, the Rescue Link CLI.
 - **Three languages** (EN, DE, RO), metric only.
 - **PWA** install nudge, update strategy, appearance that follows the clock.
 - **Deployment** as one multi-arch container with boot migrations, backups and a health check.
@@ -71,7 +71,7 @@ Two constraints v1 must honour so v2 stays additive:
 
 The forgotten-Sleep notification comes free from the age-banded ceiling and the Meal contradiction (§6.6).
 
-Also deferred to v2: **an optional Device PIN or biometric lock**. With no password and no session expiry, a found unlocked phone is a signed-in Household. For v1 the answer is the phone's own lock screen plus an Owner revoking the Device.
+Also deferred to v2: **an optional Device PIN or biometric lock**. With no password and no session expiry, a found unlocked phone is a signed-in Household. For v1 the answer is the phone's own lock screen plus a Parent revoking the Device.
 
 ### v3 — not designed
 
@@ -102,7 +102,7 @@ Full vocabulary in [`CONTEXT.md`](../../CONTEXT.md). This section is the shape; 
 
 - **Household** — the boundary of all shared data. **One Household per deployment** ([ADR-0009](../../docs/adr/0009-one-household-per-deployment.md)): no selector, no multi-tenancy. Every row still carries a Household boundary, so a hosted version later is a deployment mode rather than a migration.
 - **Baby** — multi-baby is in the data model from day one; the UI hides the selector until a second Baby exists. Carries a birth date (used to seed Targets and the stale-Sleep ceiling, never to filter Milestone suggestions).
-- **Member** — a person with access. Roles: **Owner** and **Caregiver**. Every Entry records the Member who logged it. Removal is a *state*, never a deletion.
+- **Member** — a person with access. Roles: **Parent** and **Caregiver**. Every Entry records the Member who logged it. Removal is a *state*, never a deletion.
 - **Food** — a named item in the Household's growing catalogue, reusable across Meals. Mutable, Household-scoped reference data. **Not an Entry**; syncs alongside entries.
 - **Target** — one stated interval per activity per Baby (§6).
 
@@ -325,14 +325,14 @@ That detail is not a refinement, it is the difference between working and not: W
 
 Two flavours, differing only in what they bind to:
 
-- **Invite** — creates a Member. An Owner types the display name and picks the role up front, so the timeline reads "Oma" from her first Entry rather than "Unnamed". **7-day expiry** — you send it on Wednesday, she taps it on Sunday. The **Member row is created on claim**, so a pending Invite is never a half-real person in the Household; until then it sits in a pending list the Owner can revoke.
-- **Rescue Link** — re-binds a Device to a Member who *already exists*, minted from the container: `docker exec <container> babylog rescue <member>`. **15-minute expiry**, because you are standing at the terminal. It re-binds rather than creating a fresh Owner: a new row would leave two "Mamas" and split three years of attribution between them, since every Revision points at the old one.
+- **Invite** — creates a Member. A Parent types the display name and picks the role up front, so the timeline reads "Oma" from her first Entry rather than "Unnamed". **7-day expiry** — you send it on Wednesday, she taps it on Sunday. The **Member row is created on claim**, so a pending Invite is never a half-real person in the Household; until then it sits in a pending list the Parent can revoke.
+- **Rescue Link** — re-binds a Device to a Member who *already exists*, minted from the container: `docker exec <container> babylog rescue <member>`. **15-minute expiry**, because you are standing at the terminal. It re-binds rather than creating a fresh Parent: a new row would leave two "Mamas" and split three years of attribution between them, since every Revision points at the old one.
 
-**Bootstrap is the same mechanism with nothing to bind to.** On an empty Household the command creates the Household and the first Owner — and the app **prints that link to stdout at boot whenever there are zero Members**, so first run needs no command at all. Whatever the logging setup is, that line must be readable via `docker logs`.
+**Bootstrap is the same mechanism with nothing to bind to.** On an empty Household the command creates the Household and the first Parent — and the app **prints that link to stdout at boot whenever there are zero Members**, so first run needs no command at all. Whatever the logging setup is, that line must be readable via `docker logs`.
 
 **This is the only privileged path in. There is no public registration page.**
 
-> **Spec note carried from [Deployment shape](issues/12-deployment-shape.md).** The boot claim link and the Rescue Link CLI are **a stranger's onboarding path, not the author's private recovery hatch.** Their wording must read that way. The boot line is the first thing a new operator sees after `docker run` and has to stand alone with no surrounding documentation: it should say plainly what the link is, that it expires on use, and that it makes whoever opens it the Household's first Owner. The `babylog rescue` output is read by someone whose phone is gone and who is unlikely to have done this before: it should name the Member it re-binds, state the 15-minute expiry, and say that it re-binds an existing person rather than creating a new one. Neither may assume the reader wrote the app or has read a runbook.
+> **Spec note carried from [Deployment shape](issues/12-deployment-shape.md).** The boot claim link and the Rescue Link CLI are **a stranger's onboarding path, not the author's private recovery hatch.** Their wording must read that way. The boot line is the first thing a new operator sees after `docker run` and has to stand alone with no surrounding documentation: it should say plainly what the link is, that it expires on use, and that it makes whoever opens it the Household's first Parent. The `babylog rescue` output is read by someone whose phone is gone and who is unlikely to have done this before: it should name the Member it re-binds, state the 15-minute expiry, and say that it re-binds an existing person rather than creating a new one. Neither may assume the reader wrote the app or has read a runbook.
 
 ### 6.2 Sessions
 
@@ -348,7 +348,7 @@ Two flavours, differing only in what they bind to:
 
 Roles gate **writes and management, never reads**:
 
-| | Owner | Caregiver |
+| | Parent | Caregiver |
 |---|---|---|
 | Log Entries | ✅ | ✅ |
 | Correct anyone's Entry | ✅ | ✅ |
@@ -357,7 +357,7 @@ Roles gate **writes and management, never reads**:
 | Add and manage Babies | ✅ | — |
 | Household settings (Day Start, Household Zone, Targets) | ✅ | — |
 
-**Multiple Owners.** Both parents are Owners, and the one-Owner Household is one lost phone away from being unmanageable — the very case that produced the Rescue Link. One hard rule: **the last Owner can be neither demoted nor removed.**
+**Multiple Parents.** Both of a baby's parents hold the Parent role, and the one-Parent Household is one lost phone away from being unmanageable — the very case that produced the Rescue Link. One hard rule: **the last Parent can be neither demoted nor removed.**
 
 ### 6.4 Removal and revocation
 
@@ -438,7 +438,7 @@ The **Recording Zone** is set at creation from the creating Device and **a Revis
 **What is rendered**: **one configured Household Zone, and it is the single lens** for bucketing, the timeline, stats and export.
 
 - **One value, not a history.** Changing it re-buckets the past and the settings screen says so — identical to the Day Start change it sits beside. The Day Start *hour* is untouched: 05:00 stays 05:00.
-- **Suggested, never applied.** An Owner's Device reporting a different zone **on every sync for 48 hours** prompts once, dismissibly, and never again for that zone. A layover must not move a Household.
+- **Suggested, never applied.** A Parent's Device reporting a different zone **on every sync for 48 hours** prompts once, dismissibly, and never again for that zone. A layover must not move a Household.
 - **First boot**: the claiming Device's zone.
 - **Rejected**: printing each Entry's clock face in its own Recording Zone while bucketing by the Household Zone. Printed times inside one day group stop being monotonic — `20:00` then `03:00` in the same bucket.
 

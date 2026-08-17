@@ -15,7 +15,7 @@ import { mergeRevision, planSessionMerges, redirectRevision } from '$domain/sess
 import { PROTOCOL_VERSION, REVISION_KINDS, type PendingRevision, type Revision, type RevisionKind, type Role } from '$domain/types';
 import type { Db } from './db';
 import {
-	countActiveOwners,
+	countActiveParents,
 	currentCursor,
 	getEntry,
 	getMember,
@@ -93,7 +93,7 @@ function asIncoming(raw: unknown): PendingRevision | null {
 
 /** How long after logging a Member may take their own row back.
 
-    Roles say deleting Entries is the Owner's (spec §6.3), and the logging design
+    Roles say deleting Entries is the Parent's (spec §6.3), and the logging design
     says the FAB fan has no confirm step because *undo* covers a mistake — a rule
     written about nappies, which every Member logs (spec §8.5). Both hold if a
     Member may tombstone their own Entry for as long as the toast could plausibly
@@ -103,29 +103,29 @@ export const UNDO_WINDOW_MS = 5 * 60_000;
 
 /** Roles gate writes and management, never reads (spec §6.3). */
 function refuseByRole(kind: RevisionKind, fields: Record<string, unknown>, role: Role): string | null {
-	if (role === 'owner') return null;
+	if (role === 'parent') return null;
 	switch (kind) {
 		case 'entry':
 			/* Any Member may log and may correct anyone's Entry. Deleting is the
-			   Owner's — except the undo window, which is checked separately because
+			   Parent's — except the undo window, which is checked separately because
 			   it needs the Entry itself. */
-			return 'deleted_at' in fields ? 'only an Owner may delete an Entry' : null;
+			return 'deleted_at' in fields ? 'only a Parent may delete an Entry' : null;
 		case 'food':
 			/* A Caregiver logging a Meal grows the catalogue; removing from it is
 			   management. */
-			return 'deleted_at' in fields ? 'only an Owner may remove a Food' : null;
+			return 'deleted_at' in fields ? 'only a Parent may remove a Food' : null;
 		case 'member':
-			return 'only an Owner may manage Members';
+			return 'only a Parent may manage Members';
 		case 'baby':
-			return 'only an Owner may manage Babies';
+			return 'only a Parent may manage Babies';
 		case 'household':
-			return 'only an Owner may change Household settings';
+			return 'only a Parent may change Household settings';
 		case 'target':
-			return 'only an Owner may change Targets';
+			return 'only a Parent may change Targets';
 	}
 }
 
-/** The narrow exemption from Owner-only deletion: a Member taking back the row
+/** The narrow exemption from Parent-only deletion: a Member taking back the row
     they just logged, while the toast could still be on screen. Not a
     correction-of-anything-old, and never someone else's row. */
 function withinUndoWindow(
@@ -143,23 +143,23 @@ function withinUndoWindow(
 	return now - entry.logged_at <= UNDO_WINDOW_MS;
 }
 
-/** One hard rule: the last Owner can be neither demoted nor removed. */
-function refuseLastOwner(
+/** One hard rule: the last Parent can be neither demoted nor removed. */
+function refuseLastParent(
 	db: Db,
 	householdId: string,
 	revision: PendingRevision
 ): string | null {
 	if (revision.kind !== 'member') return null;
-	const demoting = revision.fields.role != null && revision.fields.role !== 'owner';
+	const demoting = revision.fields.role != null && revision.fields.role !== 'parent';
 	const removing = revision.fields.removed_at != null;
 	if (!demoting && !removing) return null;
 
 	const subject = getMember(db, revision.entity_id);
-	if (!subject || subject.role !== 'owner' || subject.removed_at != null) return null;
-	if (countActiveOwners(db, householdId, subject.id) > 0) return null;
+	if (!subject || subject.role !== 'parent' || subject.removed_at != null) return null;
+	if (countActiveParents(db, householdId, subject.id) > 0) return null;
 	return removing
-		? 'the last Owner cannot be removed'
-		: 'the last Owner cannot be demoted';
+		? 'the last Parent cannot be removed'
+		: 'the last Parent cannot be demoted';
 }
 
 /** Applies a batch. Everything below happens in one transaction, so a Device
@@ -220,9 +220,9 @@ export function push(db: Db, input: PushInput): PushResult {
 				author_id: memberId
 			};
 
-			const lastOwner = refuseLastOwner(db, householdId, revision);
-			if (lastOwner) {
-				rejected.push({ id: revision.id, reason: lastOwner });
+			const lastParent = refuseLastParent(db, householdId, revision);
+			if (lastParent) {
+				rejected.push({ id: revision.id, reason: lastParent });
 				continue;
 			}
 

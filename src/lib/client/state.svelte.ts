@@ -112,8 +112,8 @@ class AppState {
 		return this.members.filter((m) => m.removed_at == null);
 	}
 
-	get isOwner(): boolean {
-		return this.identity?.role === 'owner';
+	get isParent(): boolean {
+		return this.identity?.role === 'parent';
 	}
 
 	get babyEntries(): Entry[] {
@@ -276,7 +276,7 @@ class AppState {
 
 	/* --- the Household Zone suggestion -------------------------------- */
 
-	/** Suggested, never applied. An Owner's Device reporting a different zone on
+	/** Suggested, never applied. A Parent's Device reporting a different zone on
 	    every sync for 48 hours prompts once, dismissibly, and never again for
 	    that zone. */
 	async trackZone(): Promise<void> {

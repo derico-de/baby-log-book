@@ -15,7 +15,7 @@
      - Rescue    — re-binds a Device to a Member who already exists. 15 minutes,
                    because you are standing at the terminal.
      - Bootstrap — the same mechanism with nothing to bind to: on an empty
-                   Household it creates the Household and the first Owner. */
+                   Household it creates the Household and the first Parent. */
 
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_DAY_START, type Role } from '$domain/types';
@@ -105,7 +105,7 @@ export interface PendingInvite {
 	token_hash: string;
 }
 
-/** Until it is claimed an Invite sits in a list the Owner can revoke. */
+/** Until it is claimed an Invite sits in a list the Parent can revoke. */
 export function listPendingInvites(db: Db, householdId: string, now: number): PendingInvite[] {
 	return db
 		.prepare(
@@ -179,7 +179,7 @@ export interface ClaimInput {
 	    Zone (spec §7.3). */
 	zone: string;
 	/** Only a bootstrap claim asks for one; an Invite already carries the name an
-	    Owner typed, so the timeline reads "Oma" from her first Entry. */
+	    Parent typed, so the timeline reads "Oma" from her first Entry. */
 	displayName?: string;
 	now: number;
 }
@@ -244,8 +244,8 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 				householdId,
 				memberId,
 				displayName: name,
-				role: 'owner',
-				/* Self-created: the first Owner has nobody to be invited by, and this
+				role: 'parent',
+				/* Self-created: the first Parent has nobody to be invited by, and this
 				   is still not an app-authored revision. */
 				authorId: memberId,
 				deviceId: input.deviceId,
@@ -259,14 +259,14 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 				householdId,
 				memberId,
 				displayName: row.display_name ?? '',
-				role: row.role === 'owner' ? 'owner' : 'caregiver',
-				/* Attributed to the Owner who typed the name and picked the role. */
+				role: row.role === 'parent' ? 'parent' : 'caregiver',
+				/* Attributed to the Parent who typed the name and picked the role. */
 				authorId: row.created_by ?? memberId,
 				deviceId: input.deviceId,
 				now: input.now
 			});
 		} else {
-			/* Rescue re-binds rather than creating a fresh Owner: a new row would
+			/* Rescue re-binds rather than creating a fresh Parent: a new row would
 			   leave two "Mamas" and split three years of attribution between them,
 			   since every Revision points at the old one. */
 			if (!row.member_id) return { ok: false, reason: 'invalid' };

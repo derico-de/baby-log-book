@@ -177,8 +177,8 @@ export function cookieOptions(secure: boolean) {
 	};
 }
 
-export function isOwner(member: Member): boolean {
-	return member.role === 'owner';
+export function isParent(member: Member): boolean {
+	return member.role === 'parent';
 }
 
 export type { Role };

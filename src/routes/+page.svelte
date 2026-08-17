@@ -98,12 +98,12 @@
 		{#if !app.ready}
 			<p class="empty">{m.sync_catching_up()}</p>
 		{:else if !baby}
-			<!-- An Owner has to add a Baby before there is anything to log against.
+			<!-- A Parent has to add a Baby before there is anything to log against.
 			     Multi-baby is in the data model from day one; the selector only
 			     appears once a second Baby exists (spec §3.1). -->
 			<div class="empty">
 				<b>{m.timeline_no_baby()}</b>
-				{#if app.isOwner}
+				{#if app.isParent}
 					<form class="new-baby" onsubmit={createBaby}>
 						<label>
 							{m.settings_baby_name()}

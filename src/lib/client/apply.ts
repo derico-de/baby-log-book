@@ -53,7 +53,7 @@ async function materialise(db: ReplicaDb, householdId: string, kind: RevisionKin
 				id: entityId,
 				household_id: householdId,
 				display_name: str(state.display_name),
-				role: state.role === 'owner' ? 'owner' : 'caregiver',
+				role: state.role === 'parent' ? 'parent' : 'caregiver',
 				removed_at: num(state.removed_at),
 				locale: state.locale == null ? null : String(state.locale)
 			} satisfies MemberRecord);

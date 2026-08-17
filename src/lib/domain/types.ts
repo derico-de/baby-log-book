@@ -42,7 +42,7 @@ export type BottleContents = 'breast_milk' | 'formula' | 'other';
 /** Coarse amounts, never grams (spec §3.2). */
 export type MealAmount = 'tasted' | 'some' | 'lots';
 export type Consistency = 'soft' | 'firm' | 'runny' | 'hard';
-export type Role = 'owner' | 'caregiver';
+export type Role = 'parent' | 'caregiver';
 export type Activity = 'feed' | 'sleep';
 /** The Feed Interval runs from the previous Feed's start; the Wake Window
     from the last Sleep's end. Two anchors, deliberately (spec §6.5). */

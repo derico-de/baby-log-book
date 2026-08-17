@@ -19,7 +19,7 @@ function setup() {
 		.run('h1', 'Zuhause', '05:00', BERLIN, NOW);
 	fresh
 		.prepare('INSERT INTO members (id, household_id, display_name, role) VALUES (?,?,?,?)')
-		.run('mum', 'h1', 'Mama', 'owner');
+		.run('mum', 'h1', 'Mama', 'parent');
 	fresh
 		.prepare('INSERT INTO members (id, household_id, display_name, role) VALUES (?,?,?,?)')
 		.run('oma', 'h1', 'Oma', 'caregiver');
@@ -48,7 +48,7 @@ function rev(p: Partial<PendingRevision> & { entity_id: string; fields: Record<s
 	};
 }
 
-function asMember(revisions: unknown[], role: Role = 'owner', memberId = 'mum', deviceId = 'phone-a', now = NOW) {
+function asMember(revisions: unknown[], role: Role = 'parent', memberId = 'mum', deviceId = 'phone-a', now = NOW) {
 	return push(db, { householdId: 'h1', memberId, role, deviceId, revisions, now });
 }
 
@@ -147,7 +147,7 @@ describe('push', () => {
 			push(db, {
 				householdId: 'h1',
 				memberId: 'mum',
-				role: 'owner',
+				role: 'parent',
 				deviceId: 'phone-a',
 				revisions: [creation('e1', NOW)],
 				now: NOW,
@@ -170,7 +170,7 @@ describe('roles', () => {
 		asMember([creation('e1', NOW)]);
 		const result = asMember([rev({ entity_id: 'e1', fields: { deleted_at: NOW } })], 'caregiver', 'oma', 'phone-b');
 		expect(result.accepted).toEqual([]);
-		expect(result.rejected[0].reason).toMatch(/Owner/);
+		expect(result.rejected[0].reason).toMatch(/Parent/);
 		expect(getEntry(db, 'h1', 'e1')?.deleted_at).toBeNull();
 	});
 
@@ -190,16 +190,16 @@ describe('roles', () => {
 		expect(result.accepted).toHaveLength(1);
 	});
 
-	it('keep the last Owner: neither demoted nor removed', () => {
+	it('keep the last Parent: neither demoted nor removed', () => {
 		const demote = asMember([rev({ kind: 'member', entity_id: 'mum', fields: { role: 'caregiver' } })]);
-		expect(demote.rejected[0].reason).toMatch(/last Owner/);
+		expect(demote.rejected[0].reason).toMatch(/last Parent/);
 		const remove = asMember([rev({ kind: 'member', entity_id: 'mum', fields: { removed_at: NOW } })]);
-		expect(remove.rejected[0].reason).toMatch(/last Owner/);
-		expect(listMembers(db, 'h1').find((m) => m.id === 'mum')).toMatchObject({ role: 'owner', removed_at: null });
+		expect(remove.rejected[0].reason).toMatch(/last Parent/);
+		expect(listMembers(db, 'h1').find((m) => m.id === 'mum')).toMatchObject({ role: 'parent', removed_at: null });
 	});
 
-	it('allow demoting an Owner while another Owner remains', () => {
-		asMember([rev({ kind: 'member', entity_id: 'oma', fields: { role: 'owner', display_name: 'Oma' } })]);
+	it('allow demoting a Parent while another Parent remains', () => {
+		asMember([rev({ kind: 'member', entity_id: 'oma', fields: { role: 'parent', display_name: 'Oma' } })]);
 		const demote = asMember([rev({ kind: 'member', entity_id: 'mum', fields: { role: 'caregiver' } })]);
 		expect(demote.accepted).toHaveLength(1);
 	});
@@ -207,7 +207,7 @@ describe('roles', () => {
 
 describe('the Session Merge', () => {
 	it('reconciles two open Sleeps and keeps the earlier start', () => {
-		asMember([creation('s-early', NOW - 7200_000)], 'owner', 'mum', 'phone-a');
+		asMember([creation('s-early', NOW - 7200_000)], 'parent', 'mum', 'phone-a');
 		const result = asMember([creation('s-late', NOW - 3600_000)], 'caregiver', 'oma', 'phone-b');
 		expect(result.merged).toEqual([{ survivor_id: 's-early', loser_id: 's-late' }]);
 		expect(getEntry(db, 'h1', 's-late')).toMatchObject({ merged_into: 's-early' });
@@ -346,12 +346,12 @@ describe('the undo window', () => {
 			revisions: [rev({ entity_id: 'n1', fields: { deleted_at: NOW } })],
 			now: NOW + 3600_000
 		});
-		expect(later.rejected[0].reason).toMatch(/Owner/);
+		expect(later.rejected[0].reason).toMatch(/Parent/);
 	});
 
 	it('does not let a Caregiver take back somebody else s row', () => {
 		asMember([creation('s1', NOW)]);
 		const undo = asMember([rev({ entity_id: 's1', fields: { deleted_at: NOW } })], 'caregiver', 'oma', 'phone-b');
-		expect(undo.rejected[0].reason).toMatch(/Owner/);
+		expect(undo.rejected[0].reason).toMatch(/Parent/);
 	});
 });

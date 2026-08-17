@@ -48,7 +48,7 @@ function printBootstrapLink(url: string, expiresAt: number): void {
 	const expires = new Date(expiresAt).toISOString().replace('T', ' ').slice(0, 16);
 	log('');
 	log('No one has access to this Baby Log Book yet.');
-	log('Open this link to set it up. Whoever opens it becomes the first owner');
+	log('Open this link to set it up. Whoever opens it becomes the first parent');
 	log('of the household, and the link stops working once it has been used.');
 	log('');
 	log(`    ${url}`);

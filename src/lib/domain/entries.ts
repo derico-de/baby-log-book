@@ -127,7 +127,7 @@ const BABY_FIELD_CHECKS: Record<string, Check> = {
     ever syncs (spec §5.1). */
 const MEMBER_FIELD_CHECKS: Record<string, Check> = {
 	display_name: (v) => typeof v === 'string' && v.length > 0 && v.length <= MAX_NAME,
-	role: isOneOf(['owner', 'caregiver']),
+	role: isOneOf(['parent', 'caregiver']),
 	removed_at: isNullableInstant,
 	locale: isNullableOneOf(['en', 'de', 'ro'])
 };

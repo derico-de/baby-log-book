@@ -41,7 +41,7 @@ const input: ExportInput = {
 	household: { id: 'h1', name: 'Zuhause', day_start: '05:00', zone: BERLIN },
 	babies: [{ id: 'b1', household_id: 'h1', name: 'Lina', birth_date: '2026-02-17', deleted_at: null }],
 	members: [
-		{ id: 'mum', household_id: 'h1', display_name: 'Mama', role: 'owner', removed_at: null, locale: 'de' },
+		{ id: 'mum', household_id: 'h1', display_name: 'Mama', role: 'parent', removed_at: null, locale: 'de' },
 		{ id: 'oma', household_id: 'h1', display_name: 'Oma', role: 'caregiver', removed_at: null, locale: 'ro' }
 	],
 	foods: [{ id: 'f-broc', household_id: 'h1', name: 'Brokkoli', deleted_at: null }],

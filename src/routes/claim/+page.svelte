@@ -118,7 +118,7 @@
 			</p>
 
 			{#if preview.kind === 'bootstrap'}
-				<!-- An Invite already carries the name an Owner typed; the first Owner
+				<!-- An Invite already carries the name a Parent typed; the first Parent
 				     has to type their own. -->
 				<label>
 					{m.claim_name()}

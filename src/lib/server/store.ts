@@ -346,11 +346,11 @@ export function getMember(db: Db, id: string): MemberRecord | null {
 	);
 }
 
-export function countActiveOwners(db: Db, householdId: string, excluding?: string): number {
+export function countActiveParents(db: Db, householdId: string, excluding?: string): number {
 	const row = db
 		.prepare(
 			`SELECT COUNT(*) AS n FROM members
-			 WHERE household_id = ? AND role = 'owner' AND removed_at IS NULL AND id IS NOT ?`
+			 WHERE household_id = ? AND role = 'parent' AND removed_at IS NULL AND id IS NOT ?`
 		)
 		.get(householdId, excluding ?? null) as { n: number };
 	return row.n;

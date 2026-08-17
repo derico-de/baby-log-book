@@ -40,11 +40,11 @@ docker logs baby-log-book
 ```
 
 On an empty household the app prints a setup link. Open it on your phone: whoever
-opens it becomes the household's first owner, and the link stops working once it
+opens it becomes the household's first parent, and the link stops working once it
 has been used. Restart the container to get a new one.
 
-There is no public sign-up page. Everyone else gets in through an invite link an
-owner creates in Settings, or through a rescue link you mint from the container.
+There is no public sign-up page. Everyone else gets in through an invite link a
+parent creates in Settings, or through a rescue link you mint from the container.
 
 A [`compose.yaml`](compose.yaml) example is included. The container publishes no
 host port and ships no proxy configuration — put nginx, Caddy or Traefik in front
@@ -100,7 +100,7 @@ docker exec -e ORIGIN=https://log.example.com baby-log-book babylog rescue "Mama
 
 `rescue` mints a 15-minute link that signs a device back in **as an existing
 person**, so everything they have already logged stays theirs. Use it when a
-phone is lost and no owner is left to send an invite.
+phone is lost and no parent is left to send an invite.
 
 Both commands open the SQLite file directly, so they work whether or not the app
 is running. There is no HTTP admin endpoint: an admin route on a public-internet

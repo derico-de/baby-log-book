@@ -41,7 +41,7 @@
 
 	interface PendingInvite {
 		display_name: string;
-		role: 'owner' | 'caregiver';
+		role: 'parent' | 'caregiver';
 		created_at: number;
 		expires_at: number;
 		handle: string;
@@ -50,7 +50,7 @@
 	let appearance = $state<AppearanceOverride>('auto');
 	let invites = $state<PendingInvite[]>([]);
 	let inviteName = $state('');
-	let inviteRole = $state<'owner' | 'caregiver'>('caregiver');
+	let inviteRole = $state<'parent' | 'caregiver'>('caregiver');
 	let mintedUrl = $state<string | null>(null);
 	let mintedName = $state('');
 	let copied = $state(false);
@@ -62,7 +62,7 @@
 
 	const baby = $derived(app.baby);
 	const household = $derived(app.household);
-	const owner = $derived(app.isOwner);
+	const isParent = $derived(app.isParent);
 	const version = $derived(app.sync.version);
 
 	const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
@@ -71,7 +71,7 @@
 	$effect(() => {
 		appearance = appearanceOverride();
 		installed = isStandalone();
-		if (owner) void loadInvites();
+		if (isParent) void loadInvites();
 	});
 
 	async function loadInvites() {
@@ -217,7 +217,7 @@
 						<input
 							type="time"
 							value={household.day_start}
-							disabled={!owner}
+							disabled={!isParent}
 							onchange={(event) => void app.edit((w) => setDayStart(w, event.currentTarget.value))}
 						/>
 					</label>
@@ -229,13 +229,13 @@
 						<input
 							type="text"
 							value={household.zone}
-							disabled={!owner}
+							disabled={!isParent}
 							onchange={(event) => void app.edit((w) => setHouseholdZone(w, event.currentTarget.value))}
 						/>
 					</label>
 					<small class="hint">{m.settings_zone_hint()}</small>
 
-					{#if app.zoneSuggestion && owner}
+					{#if app.zoneSuggestion && isParent}
 						<!-- Suggested, never applied: a layover must not move a Household. -->
 						<p class="notice">
 							{m.settings_zone_suggest({ zone: app.zoneSuggestion })}
@@ -269,7 +269,7 @@
 										min="0"
 										max="12"
 										value={parts.hours}
-										disabled={!owner}
+										disabled={!isParent}
 										onchange={(event) =>
 											void saveTarget(activity as Activity, Number(event.currentTarget.value), parts.minutes)}
 									/>
@@ -280,7 +280,7 @@
 										max="59"
 										step="5"
 										value={parts.minutes}
-										disabled={!owner}
+										disabled={!isParent}
 										onchange={(event) =>
 											void saveTarget(activity as Activity, parts.hours, Number(event.currentTarget.value))}
 									/>
@@ -350,7 +350,7 @@
 							<input
 								type="text"
 								value={child.name}
-								disabled={!owner}
+								disabled={!isParent}
 								onchange={(event) => void app.edit((w) => updateBaby(w, child.id, { name: event.currentTarget.value }))}
 							/>
 						</label>
@@ -359,14 +359,14 @@
 							<input
 								type="date"
 								value={child.birth_date}
-								disabled={!owner}
+								disabled={!isParent}
 								onchange={(event) =>
 									void app.edit((w) => updateBaby(w, child.id, { birth_date: event.currentTarget.value }))}
 							/>
 						</label>
 					</div>
 				{/each}
-				{#if owner}
+				{#if isParent}
 					<form
 						onsubmit={async (event) => {
 							event.preventDefault();
@@ -399,20 +399,20 @@
 							<span>
 								{member.display_name}
 								<span class="role">
-									· {member.role === 'owner' ? m.settings_role_owner() : m.settings_role_caregiver()}
+									· {member.role === 'parent' ? m.settings_role_parent() : m.settings_role_caregiver()}
 									{#if member.removed_at != null}· {m.settings_removed()}{/if}
 									{#if member.id === app.identity?.memberId}· {m.settings_this_device()}{/if}
 								</span>
 							</span>
-							{#if owner && member.removed_at == null && member.id !== app.identity?.memberId}
+							{#if isParent && member.removed_at == null && member.id !== app.identity?.memberId}
 								<span class="member-acts">
 									<button
 										type="button"
 										class="secondary"
 										onclick={() =>
-											void app.edit((w) => setMemberRole(w, member.id, member.role === 'owner' ? 'caregiver' : 'owner'))}
+											void app.edit((w) => setMemberRole(w, member.id, member.role === 'parent' ? 'caregiver' : 'parent'))}
 									>
-										{member.role === 'owner' ? m.settings_member_demote() : m.settings_member_promote()}
+										{member.role === 'parent' ? m.settings_member_demote() : m.settings_member_promote()}
 									</button>
 									<button type="button" class="secondary" onclick={() => void removeThem(member.id, member.display_name)}>
 										{m.settings_member_remove()}
@@ -423,9 +423,9 @@
 					{/each}
 				</ul>
 				<!-- One hard rule, and the server enforces it too. -->
-				<small class="hint">{m.settings_last_owner()}</small>
+				<small class="hint">{m.settings_last_parent()}</small>
 
-				{#if owner}
+				{#if isParent}
 					<h3>{m.settings_invite()}</h3>
 					<form onsubmit={createInvite}>
 						<div class="pair">
@@ -437,7 +437,7 @@
 								{m.settings_invite_role()}
 								<select bind:value={inviteRole}>
 									<option value="caregiver">{m.settings_role_caregiver()}</option>
-									<option value="owner">{m.settings_role_owner()}</option>
+									<option value="parent">{m.settings_role_parent()}</option>
 								</select>
 							</label>
 						</div>
@@ -484,7 +484,7 @@
 									{food.name}
 									<Icon name="chev" />
 								</button>
-								{#if owner}
+								{#if isParent}
 									<span class="member-acts">
 										<button
 											type="button"
