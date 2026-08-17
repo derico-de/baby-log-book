@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+build
+.svelte-kit
+.data
+.scratch
+data
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+.DS_Store

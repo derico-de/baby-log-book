@@ -1,0 +1,11 @@
+/* The whole stylesheet, in two layers.
+
+   Pico goes into @layer framework, so nothing in @layer app ever has to
+   out-specify it and Pico's own 20 `!important` declarations become
+   irrelevant (spec §8.2). */
+
+@layer framework, app;
+
+@import '@picocss/pico/css/pico.min.css' layer(framework);
+@import './styles/tokens.css';
+@import './styles/components.css';

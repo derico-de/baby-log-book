@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1"
+		/>
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/icons/icon-192.png" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<!-- The OS launch screen paints before any of our code exists, so this is
+		     the deep-night ground permanently (ADR-0008, spec §9.3). The resolver
+		     below rewrites it at runtime so the status bar follows the clock. -->
+		<meta name="theme-color" content="#030202" />
+		<!-- The claim page must never be indexed (spec §6.1). Nothing in this app
+		     is worth crawling, so the whole shell says so. -->
+		<meta name="robots" content="noindex, nofollow" />
+
+		<!-- =============================================================
+		     The appearance resolver. ADR-0008.
+
+		     This is the only script in the app permitted to block first paint.
+		     A resolver that runs after paint produces exactly the white flash
+		     in a dark bedroom that the rule exists to prevent, and a clock
+		     cannot be read from CSS.
+
+		     Day Start is read as a NUMBER against this Device's own clock
+		     (spec §7.4) — bucketing resolves the same hour in the Household
+		     Zone, appearance never does.
+		     ============================================================= -->
+		<script>
+			(function () {
+				'use strict';
+
+				var DEEP_FROM = 23 * 60; /* 23:00 */
+				var MORNING = 7 * 60; /*  07:00 */
+				var EVENING = 19 * 60; /*  19:00 */
+
+				var GROUND = { day: '#f7f7f7', night: '#110f0d', deep: '#030202' };
+
+				function minutes(hhmm) {
+					var p = String(hhmm || '05:00').split(':');
+					var h = Number(p[0]);
+					var m = Number(p[1] || 0);
+					if (!isFinite(h) || !isFinite(m)) return 5 * 60;
+					return h * 60 + m;
+				}
+
+				function read(key, fallback) {
+					try {
+						return localStorage.getItem(key) || fallback;
+					} catch (e) {
+						return fallback;
+					}
+				}
+
+				/* `override` is this Device's Appearance setting: auto | day | night.
+				   There is deliberately no "deep" — deep night is a concession to a
+				   moment, not a taste. */
+				function resolve(now, dayStart, override) {
+					if (override === 'day') return 'day';
+					if (override === 'night') return 'night';
+
+					var m = now.getHours() * 60 + now.getMinutes();
+					var start = minutes(dayStart);
+
+					if (m >= DEEP_FROM || m < start) return 'deep';
+					if (m < MORNING || m >= EVENING) return 'night';
+
+					/* Daylight hours. The clock can only ever make it darker, never
+					   lighter, so a phone set to dark keeps a dark app at noon. */
+					return matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day';
+				}
+
+				function apply() {
+					var appearance = resolve(new Date(), read('blb.dayStart', '05:00'), read('blb.appearance', 'auto'));
+					var root = document.documentElement;
+
+					root.setAttribute('data-appearance', appearance);
+					/* Pico keys its select, date and time icon assets off data-theme,
+					   so the 86 tokens we do not map still land on the right side. */
+					root.setAttribute('data-theme', appearance === 'day' ? 'light' : 'dark');
+					root.style.colorScheme = appearance === 'day' ? 'light' : 'dark';
+
+					var meta = document.querySelector('meta[name="theme-color"]');
+					if (meta) meta.setAttribute('content', GROUND[appearance]);
+					return appearance;
+				}
+
+				apply();
+
+				/* The language of the first paint. The shell is prerendered, so no
+				   server saw this request; the cookie Paraglide writes is the only
+				   thing that knows. */
+				try {
+					var m = document.cookie.match(/(?:^|;\s*)blb_locale=([a-z-]+)/);
+					if (m) document.documentElement.lang = m[1];
+				} catch (e) {
+					/* a document with no cookies keeps the base locale */
+				}
+
+				/* 22:58 is night and 23:02 is deep night, under a Member who is
+				   already looking at the screen. */
+				var tick = setInterval(apply, 60000);
+				document.addEventListener('visibilitychange', function () {
+					if (!document.hidden) apply();
+				});
+				matchMedia('(prefers-color-scheme: dark)').addEventListener('change', apply);
+
+				window.__blbAppearance = { resolve: resolve, apply: apply, tick: tick };
+			})();
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="tap">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

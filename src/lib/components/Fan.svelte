@@ -1,0 +1,113 @@
+<script lang="ts">
+	/* The FAB fan. Spec §8.5.
+
+	   One FAB, bottom-right in thumb reach. Tapping it expands it in place into a
+	   stack of six direct actions, expanding upward — so the first item is the one
+	   nearest the thumb.
+
+	   Nappies log straight from the fan: no sheet, no confirm. A nappy is two taps
+	   and the second is a large target, and no sheet chrome ever renders for the
+	   app's most frequent, least informative action. Only Feeds, Measurements and
+	   Milestones open the sheet, because only they carry real data.
+
+	   While a Sleep runs the fan reflows and there is no ambiguous "Feed" item:
+	   *She's awake* ends the Sleep and the fan reflows **in place** to the awake
+	   set, so wake-then-feed is one FAB open and three taps rather than two
+	   trips. */
+	import * as m from '$lib/paraglide/messages';
+	import Icon, { type IconName } from './Icon.svelte';
+
+	interface Action {
+		key: string;
+		icon: IconName;
+		label: string;
+		sub?: string;
+		run: () => void;
+	}
+
+	interface Props {
+		asleep: boolean;
+		onPee: () => void;
+		onPoop: () => void;
+		onSleep: () => void;
+		onFeed: () => void;
+		onMeasurement: () => void;
+		onMilestone: () => void;
+		onAwake: () => void;
+		onFeedAsleep: () => void;
+	}
+	let props: Props = $props();
+
+	let open = $state(false);
+
+	/* Rendered top-to-bottom, so the array is reversed on screen: the first
+	   action in the list ends up closest to the FAB. */
+	const actions = $derived.by((): Action[] => {
+		const common: Action[] = [
+			{ key: 'pee', icon: 'nappy', label: m.fan_pee(), run: props.onPee },
+			{ key: 'poop', icon: 'nappy', label: m.fan_poop(), run: props.onPoop }
+		];
+		const tail: Action[] = [
+			{ key: 'measurement', icon: 'measure', label: m.fan_measurement(), run: props.onMeasurement },
+			/* Measurement holds the second-to-last slot and is just as rare as
+			   Milestone, which is why frequency is not the fan's admission test. */
+			{ key: 'milestone', icon: 'flag', label: m.fan_milestone(), run: props.onMilestone }
+		];
+
+		const middle: Action[] = props.asleep
+			? [
+					{ key: 'awake', icon: 'sleep', label: m.fan_awake(), sub: m.fan_awake_sub(), run: props.onAwake },
+					{
+						key: 'feed-asleep',
+						icon: 'feed',
+						label: m.fan_feed_asleep(),
+						sub: m.fan_feed_asleep_sub(),
+						run: props.onFeedAsleep
+					}
+				]
+			: [
+					{ key: 'sleep', icon: 'sleep', label: m.fan_sleep(), run: props.onSleep },
+					{ key: 'feed', icon: 'feed', label: m.fan_feed(), run: props.onFeed }
+				];
+
+		return [...common, ...middle, ...tail];
+	});
+
+	function pick(action: Action) {
+		/* *She's awake* keeps the fan open so it can reflow in place; every other
+		   action is finished with it. */
+		if (action.key !== 'awake') open = false;
+		action.run();
+	}
+</script>
+
+{#if open}
+	<button class="scrim" type="button" aria-label={m.fan_close()} onclick={() => (open = false)}></button>
+	<div class="fan" role="menu">
+		{#each [...actions].reverse() as action, index (action.key)}
+			<button
+				type="button"
+				role="menuitem"
+				style={`animation-delay:${index * 22}ms`}
+				onclick={() => pick(action)}
+			>
+				<span class="fan-glyph"><Icon name={action.icon} /></span>
+				<span>
+					<span class="fan-main">{action.label}</span>
+					{#if action.sub}<span class="fan-sub">{action.sub}</span>{/if}
+				</span>
+			</button>
+		{/each}
+	</div>
+{/if}
+
+<button
+	class="fab"
+	type="button"
+	data-open={open ? '1' : '0'}
+	aria-expanded={open}
+	aria-label={open ? m.fan_close() : m.fan_open()}
+	onclick={() => (open = !open)}
+>
+	<Icon name="plus" />
+</button>

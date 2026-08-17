@@ -1,0 +1,26 @@
+# An example, not a requirement. This app ships no proxy configuration and no
+# Traefik labels: nginx, Caddy and Traefik are equally supported and none of them
+# is configured by us. Put whichever one you already run in front of `app`.
+
+services:
+  app:
+    image: ghcr.io/mrtango/baby-log-book:1
+    restart: unless-stopped
+    environment:
+      # Required. The public URL Members will open, with no trailing slash.
+      # Every Claim Link is built from it, so a wrong value sends out invites
+      # that cannot be claimed — which is why the container refuses to start
+      # without it.
+      ORIGIN: https://log.example.com
+      # Off by default. Turn it on only if you know your proxy overwrites
+      # X-Forwarded-For; behind an unknown topology a forged client IP walks
+      # straight through the claim rate limit.
+      # TRUST_PROXY: "1"
+    volumes:
+      - data:/data
+    # No host port on purpose. Your proxy talks to app:3000 on this network.
+    expose:
+      - '3000'
+
+volumes:
+  data:
