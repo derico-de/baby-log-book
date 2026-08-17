@@ -22,7 +22,20 @@ const sha =
 		}
 	})();
 
+/* The dev server usually runs in a container and is reached under whatever
+   hostname the developer's machine answers to, which Vite rejects by default as
+   a DNS-rebinding guard. VITE_ALLOWED_HOSTS is a comma-separated list for
+   anything not covered here. */
+const allowedHosts = [
+	'localhost',
+	'powerman',
+	...(process.env.VITE_ALLOWED_HOSTS?.split(',')
+		.map((host) => host.trim())
+		.filter(Boolean) ?? [])
+];
+
 export default defineConfig({
+	server: { allowedHosts },
 	define: {
 		__APP_VERSION__: JSON.stringify(version),
 		__GIT_SHA__: JSON.stringify(sha)
