@@ -30,12 +30,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # Reads the version out of the "packageManager" field, so CI and the
+      # image resolve the same pnpm — the guarantee corepack gives inside the
+      # Dockerfile. Corepack cannot give it here: its shims land next to
+      # whichever node is active when it runs, which is not the node setup-node
+      # puts on PATH afterwards. It has to come before setup-node, because
+      # "cache: pnpm" shells out to pnpm to find the store.
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      # Corepack pins pnpm to the "packageManager" field, exactly as the
-      # Dockerfile does, so CI and the image resolve the same pnpm.
-      - run: corepack enable
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check
       - run: pnpm test
