@@ -132,6 +132,17 @@ Anything that runs Vite writes it — `dev`, `build`, `test` — so on a clone t
 has never done any of those, `check` is the one command that has to follow a
 `pnpm build`.
 
+To run the shipped image from your own checkout — the real entrypoint, the
+non-root user, the healthcheck, `babylog` — rather than the dev server:
+
+```sh
+docker compose -f compose.yaml -f compose.dev.yaml up --build
+```
+
+It builds instead of pulling, publishes the container on the port `ORIGIN` in
+your `.env` already names, and keeps its database in a volume of its own. Not a
+development loop: nothing hot-reloads and every change costs a rebuild.
+
 ### Releasing
 
 `.github/workflows/publish.yml` builds the multi-arch image and pushes it to

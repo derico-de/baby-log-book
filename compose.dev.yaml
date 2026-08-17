@@ -1,0 +1,32 @@
+# Runs the shipped image locally, built from this checkout instead of pulled.
+#
+#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+#
+# This is not a development loop. The image serves a production build, so every
+# change costs a rebuild and nothing hot-reloads — `pnpm dev` is still how you
+# develop. Use this to check the artifact a self-hoster actually gets: the real
+# entrypoint, the non-root user, the healthcheck, `docker exec … babylog`.
+#
+# Deliberately not named compose.override.yaml. That name is merged into every
+# `docker compose` command automatically, so anyone who cloned this repo to
+# self-host would silently get a source build instead of the published image.
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        GIT_SHA: dev
+    # Overrides the published name from compose.yaml, so a local build never
+    # sits in the image list wearing the tag strangers pull.
+    image: baby-log-book:dev
+    environment:
+      # Compose reads .env for interpolation, so this is the same ORIGIN the
+      # dev server uses. It has to be the address you type into the browser:
+      # Claim Links are absolute URLs built from it.
+      ORIGIN: ${ORIGIN:-http://localhost:5173}
+    # The sandbox forwards 5173 and nothing else, which is also where .env
+    # points ORIGIN — so the container takes the port the dev server would
+    # otherwise use. Only one of the two can run at a time.
+    ports:
+      - '5173:3000'
