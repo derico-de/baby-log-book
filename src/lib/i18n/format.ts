@@ -21,13 +21,20 @@ const CATEGORIES: Record<string, Intl.LDMLPluralRule[]> = {
 
 type PluralForms = Partial<Record<Intl.LDMLPluralRule, (args: { count: number }) => string>>;
 
-/** Picks the form a locale would actually use. Verified against Romanian:
-    20 → other, 1.5 → few, 101 → few. */
-export function plural(count: number, forms: PluralForms): string {
-	const locale = activeLocale();
+/** Which form a locale would actually use for this number.
+
+    Pure and exported so the spec's own stated verification can be a test rather
+    than a claim: Romanian gives 20 → other, 1.5 → few, 101 → few, and English and
+    German declare two categories where Romanian declares three. */
+export function pluralCategory(locale: string, count: number): Intl.LDMLPluralRule {
 	const declared = CATEGORIES[locale] ?? ['one', 'other'];
 	const selected = new Intl.PluralRules(locale).select(count);
-	const category = declared.includes(selected) ? selected : 'other';
+	return declared.includes(selected) ? selected : 'other';
+}
+
+/** Picks the form a locale would actually use. */
+export function plural(count: number, forms: PluralForms): string {
+	const category = pluralCategory(activeLocale(), count);
 	const fn = forms[category] ?? forms.other ?? forms.one;
 	return fn ? fn({ count }) : String(count);
 }

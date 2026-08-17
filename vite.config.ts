@@ -54,7 +54,7 @@ export default defineConfig({
 					name: 'client',
 					environment: 'node',
 					setupFiles: ['src/lib/client/test-setup.ts'],
-					include: ['src/lib/client/**/*.test.ts']
+					include: ['src/lib/client/**/*.test.ts', 'src/lib/i18n/**/*.test.ts']
 				}
 			},
 			{
