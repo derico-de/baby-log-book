@@ -115,10 +115,11 @@ cp .env.example .env   # ORIGIN and DATA_DIR for the dev server
 pnpm dev
 ```
 
-`ORIGIN` has to be the address you open in the browser, so if you reach the dev
-server from another device — `pnpm dev --host 0.0.0.0` — set it to that
-hostname (`ORIGIN=http://powerman:5173`) and add the hostname to
-`VITE_ALLOWED_HOSTS` if Vite refuses the request.
+The dev server listens on `0.0.0.0`, so a phone on the same network can open it
+— which is the only way to test a PWA. `ORIGIN` has to be the address you type
+into that phone, not localhost, because Claim Links are absolute URLs built from
+it (`ORIGIN=http://powerman:5173`). Add the hostname to `VITE_ALLOWED_HOSTS` if
+Vite refuses the request.
 
 ```sh
 pnpm test          # domain, server, client and component suites

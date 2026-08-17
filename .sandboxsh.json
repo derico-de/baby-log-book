@@ -4,7 +4,7 @@
   "dirs": [
     "."
   ],
-  "ports": [],
+  "ports": [5173],
   "tailscale": {
     "enabled": true
   },

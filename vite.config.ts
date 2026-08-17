@@ -25,7 +25,11 @@ const sha =
 /* The dev server usually runs in a container and is reached under whatever
    hostname the developer's machine answers to, which Vite rejects by default as
    a DNS-rebinding guard. VITE_ALLOWED_HOSTS is a comma-separated list for
-   anything not covered here. */
+   anything not covered here.
+
+   It also binds 0.0.0.0 rather than loopback, because testing a PWA means
+   opening it on a phone and a container's loopback is reachable from nothing.
+   This is the dev server only — the shipped image publishes no host port. */
 const allowedHosts = [
 	'localhost',
 	'powerman',
@@ -35,7 +39,7 @@ const allowedHosts = [
 ];
 
 export default defineConfig({
-	server: { allowedHosts },
+	server: { host: '0.0.0.0', allowedHosts },
 	define: {
 		__APP_VERSION__: JSON.stringify(version),
 		__GIT_SHA__: JSON.stringify(sha)
