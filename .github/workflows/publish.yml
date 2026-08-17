@@ -1,0 +1,112 @@
+# Builds the image the README tells strangers to run, and pushes it to the
+# GitHub Container Registry attached to this repository.
+#
+# A version tag publishes the four tags the README promises — `:1`, `:1.4`,
+# `:1.4.2` and `:latest` — so `git tag v1.4.2 && git push --tags` is the whole
+# release procedure. Every push to main publishes `:edge` instead, which is
+# never referenced by the docs and exists so there is something current to test
+# against between releases.
+name: Publish image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+# A second push while a build is still running makes the first one pointless.
+# Tags are never cancelled: a release build must finish.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  # The image is public and self-hosters update unattended, so a red test suite
+  # must not reach the registry.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      # Corepack pins pnpm to the "packageManager" field, exactly as the
+      # Dockerfile does, so CI and the image resolve the same pnpm.
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
+      - run: pnpm test
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # GITHUB_TOKEN can write packages under this repository's owner. That is
+      # the whole reason the image name is derived from github.repository and
+      # no secret needs to exist.
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+
+      # linux/arm64 is emulated, but only for the handful of `RUN` lines in the
+      # runtime stage: the build stage is pinned to the native platform, and its
+      # output — plain JS plus better-sqlite3's eight prebuilt addons — is the
+      # same bytes on every architecture.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # .dockerignore excludes .git, so the Dockerfile cannot read the SHA
+      # itself and it has to be handed in. Short form, because that is what the
+      # Settings page and every bug report show.
+      - id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          # "auto" means :latest moves on version tags and never on a main
+          # push, which is what the README's update instructions assume.
+          flavor: latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=edge,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=Baby Log Book
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GIT_SHA=${{ steps.sha.outputs.short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Lets anyone verify with `gh attestation verify` that this image came out
+      # of this repository, which is worth something for an image the README
+      # asks strangers to run.
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

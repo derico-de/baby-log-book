@@ -8,7 +8,11 @@
 #   docker buildx build --platform linux/amd64,linux/arm64 \
 #     --build-arg GIT_SHA=$(git rev-parse --short HEAD) -t baby-log-book:1 .
 
-FROM node:24-alpine AS build
+# Pinned to the builder's own architecture: this stage only runs pnpm and vite,
+# and its output — plain JS plus better-sqlite3's eight prebuilt addons — is
+# identical on every platform. Emulating it for arm64 would cost minutes and
+# change nothing.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS build
 WORKDIR /app
 
 # Corepack pins pnpm to the "packageManager" field in package.json, so the image

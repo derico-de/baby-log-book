@@ -30,7 +30,7 @@ docker run -d --name baby-log-book \
   -e ORIGIN=https://log.example.com \
   -v baby-log-book-data:/data \
   --restart unless-stopped \
-  ghcr.io/mrtango/baby-log-book:1
+  ghcr.io/derico-de/baby-log-book:1
 ```
 
 Then read the log:
@@ -126,6 +126,24 @@ pnpm test          # domain, server, client and component suites
 pnpm check         # svelte-check and TypeScript
 pnpm build         # production build into ./build
 ```
+
+### Releasing
+
+`.github/workflows/publish.yml` builds the multi-arch image and pushes it to
+`ghcr.io/derico-de/baby-log-book`. A push to `main` publishes `:edge`; a version
+tag publishes `:1`, `:1.4`, `:1.4.2` and `:latest`. Nothing is published unless
+`pnpm check` and `pnpm test` pass first.
+
+```sh
+# The version in package.json is baked into the UI, so it has to be bumped in
+# the same commit the tag points at.
+pnpm version 1.4.2 -m 'Release %s'
+git push --follow-tags
+```
+
+The package is public and needs no secrets: the workflow pushes with the
+built-in `GITHUB_TOKEN`. The very first release creates the package as private,
+so flip it to public once under **Packages → baby-log-book → Package settings**.
 
 The layers, and what each is allowed to know:
 
