@@ -1,0 +1,2301 @@
+<title>When Did She Eat Broccoli</title>
+
+<!--
+  PROTOTYPE — throwaway. Ticket 19: "when did she eat broccoli?"
+
+  The timeline IS the history (ticket 10). What it lacks is a filter. This
+  prototype only asks how that filter is entered, worn and — above all —
+  EXITED, because the trap named on the ticket is real:
+
+      A FILTERED TIMELINE THAT LOOKS LIKE AN UNFILTERED ONE IS A TRAP AT 3AM.
+      You would log a feed against what you thought was today.
+
+  D1 "Instrument" and bottom tabs are settled (ticket 11), so neither is an
+  axis here — this is the real surface with one thing changed. And D1 spends
+  its only hue on ACTIONS, so none of the three variants may signal
+  "filtered" with colour. Each signals it a different way:
+
+    A — INVERTED HEADER : the filter takes the header's place. The hero
+                          figure — the loudest thing on the screen — is
+                          GONE, and what replaces it is inverted ink. Same
+                          screen, same FAB, no mode. The signal is contrast.
+    B — CHIP RAIL       : filtering is a view state, not a mode. A rail of
+                          type chips lives under the header permanently; the
+                          live header stays live. Deliberately the WEAKEST
+                          signal — a standing bar and an indent rule are all
+                          it gets. This variant exists to find out whether
+                          the trap is real or theoretical.
+    C — FIND SURFACE    : filtering is not a state of the log at all. Search
+                          pushes a separate surface over the app: no FAB, no
+                          tab bar, no live figures, a different ground. You
+                          cannot mis-log into it because there is nothing to
+                          log with. Costs a mode and a way back.
+
+  ---- what to look for ----------------------------------------------------
+
+    1. Glance at each for one second. Which one could you mistake for today?
+    2. Press the FAB while filtered (A and B). Does it feel wrong? It should.
+    3. Settings → Foods → Broccoli. Three different answers to "is the Food
+       detail a screen or a pre-filtered timeline".
+    4. The header. A and C take the live figures away; B keeps them. One of
+       those is right.
+    5. Milestones (flag glyph) carry NO clock time and sit at the head of
+       their day. Judge how that row reads beside timed ones.
+
+  ---- axes ----------------------------------------------------------------
+
+    ?fv=    a | b | c             the three variants above
+    ?theme= auto | day | night | deep     auto runs ADR-0008's clock rule
+    ?wide=1                       desktop density
+    ?busy=1                       a heavier log
+
+  Facets are all four candidates at once — type, food, member, free text —
+  plus a date period marked CANDIDATE. Deciding which earn v1 is the point;
+  they are here to be argued down, not because they are all in.
+
+  ---- SETTLED, 2026-08-17 --------------------------------------------------
+
+  A WON. Two rules were then decided on top of it, and both are live in all
+  three variants below so the file records the behaviour rather than only
+  the chrome:
+
+    LOGGING CLEARS THE FILTER. The FAB is the one control that can write
+    something the current filter would hide, and a write with no row is how
+    you log a nappy twice at 3am. So the entry lands, the filter drops, and
+    you are back on today's log with the toast and Undo. Stopping or
+    correcting a row you are already LOOKING at does not clear anything —
+    that write is visible by definition.
+
+    A FILTER IS A LOOKUP, NOT A SETTING. It survives a trip to Stats or
+    Settings — the inverted header makes coming back legible, and the Food
+    catalogue route enters the filter from Settings — but never a cold
+    start. Nothing the app remembers overnight can surprise you.
+
+  State is in memory. Nothing persists. Refresh resets — which is also the
+  cold-start rule, for free.
+-->
+
+<style>
+  @layer framework, app;
+
+  /* @@PICO@@ */
+
+  @layer app {
+    /* ==================================================================
+       TOKENS — lifted verbatim from design/tokens.css (D1, ratified).
+       ================================================================== */
+
+    :root {
+      --sp-1: 0.25rem;
+      --sp-2: 0.5rem;
+      --sp-3: 0.75rem;
+      --sp-4: 1rem;
+      --sp-5: 1.5rem;
+      --sp-6: 2rem;
+      --sp-7: 3rem;
+
+      --fs-0: 0.75rem;
+      --fs-1: 0.8125rem;
+      --fs-2: 0.875rem;
+      --fs-3: 1rem;
+      --fs-4: 1.125rem;
+      --fs-5: 1.375rem;
+      --fs-6: 1.75rem;
+      --fs-7: 2.25rem;
+      --fs-8: 3rem;
+
+      --fw-normal: 400;
+      --fw-medium: 500;
+      --fw-bold: 650;
+
+      --hero-size: var(--fs-8);
+      --hero-weight: 300;
+
+      --r-1: 10px;
+      --r-2: 16px;
+      --r-3: 26px;
+
+      --tap: 48px;
+
+      --dur-1: 120ms;
+      --dur-2: 190ms;
+      --dur-3: 280ms;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+      --z-header: 10;
+      --z-nav: 20;
+      --z-scrim: 30;
+      --z-fab: 40;
+      --z-sheet: 50;
+      --z-toast: 60;
+      --z-find: 55;
+
+      --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --font-num: var(--font-ui);
+      --num-feature: "tnum" 1, "lnum" 1;
+
+      --row-pad: var(--sp-3) var(--sp-4);
+    }
+
+    .app {
+      --ground: oklch(0.975 0 0);
+      --surface: oklch(1 0 0);
+      --surface-2: oklch(0.945 0 0);
+      --line: oklch(0.9 0 0);
+      --line-strong: oklch(0.82 0 0);
+      --ink: oklch(0.22 0.008 60);
+      --ink-2: oklch(0.46 0.006 60);
+      --ink-3: oklch(0.58 0.005 60);
+      --accent: oklch(0.55 0.15 45);
+      --accent-ink: oklch(1 0 0);
+      --accent-soft: oklch(0.95 0.035 50);
+      --warn: var(--accent);
+      --live: var(--accent);
+
+      /* Entry types are told apart by glyph and label, never by colour.
+         A seventh type costs nothing because of this. */
+      --t-feed: var(--ink-2);
+      --t-sleep: var(--ink-2);
+      --t-nappy: var(--ink-2);
+      --t-meal: var(--ink-2);
+      --t-measure: var(--ink-2);
+      --t-milestone: var(--ink-2);
+
+      --shadow: 0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px oklch(0 0 0 / 0.06);
+    }
+
+    .app[data-theme="night"] {
+      --ground: oklch(0.17 0.006 60);
+      --surface: oklch(0.215 0.007 60);
+      --surface-2: oklch(0.26 0.008 60);
+      --line: oklch(0.32 0.008 60);
+      --line-strong: oklch(0.4 0.008 60);
+      --ink: oklch(0.95 0.006 70);
+      --ink-2: oklch(0.74 0.008 70);
+      --ink-3: oklch(0.6 0.008 70);
+      --accent: oklch(0.78 0.14 65);
+      --accent-ink: oklch(0.2 0.03 60);
+      --accent-soft: oklch(0.3 0.05 60);
+      --shadow: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.35);
+    }
+
+    .app[data-theme="deep"] {
+      --ground: oklch(0.09 0.005 60);
+      --surface: oklch(0.125 0.006 60);
+      --surface-2: oklch(0.16 0.006 60);
+      --line: oklch(0.21 0.006 60);
+      --line-strong: oklch(0.28 0.006 60);
+      --ink: oklch(0.78 0.02 70);
+      --ink-2: oklch(0.58 0.02 70);
+      --ink-3: oklch(0.44 0.015 70);
+      --accent: oklch(0.66 0.11 60);
+      --accent-ink: oklch(0.1 0.01 60);
+      --accent-soft: oklch(0.2 0.04 60);
+      --shadow: none;
+    }
+
+    :root {
+      --pico-background-color: var(--ground);
+      --pico-color: var(--ink);
+      --pico-muted-color: var(--ink-2);
+      --pico-muted-border-color: var(--line);
+      --pico-primary: var(--accent);
+      --pico-primary-background: var(--accent);
+      --pico-primary-border: var(--accent);
+      --pico-primary-inverse: var(--accent-ink);
+      --pico-primary-focus: color-mix(in oklch, var(--accent) 30%, transparent);
+      --pico-form-element-background-color: var(--surface);
+      --pico-form-element-border-color: var(--line-strong);
+      --pico-form-element-color: var(--ink);
+      --pico-form-element-placeholder-color: var(--ink-3);
+      --pico-form-element-active-background-color: var(--surface);
+      --pico-form-element-active-border-color: var(--accent);
+      --pico-form-element-focus-color: var(--accent);
+      --pico-border-radius: var(--r-1);
+      --pico-spacing: var(--sp-4);
+      --pico-form-element-spacing-vertical: var(--sp-3);
+      --pico-form-element-spacing-horizontal: var(--sp-3);
+      --pico-font-family: var(--font-ui);
+      --pico-font-size: 100%;
+      --pico-line-height: 1.45;
+      --pico-transition: var(--dur-1) var(--ease);
+      --pico-outline-width: 2px;
+      --pico-card-background-color: var(--surface);
+      --pico-card-border-color: var(--line);
+      --pico-box-shadow: var(--shadow);
+    }
+
+    html {
+      font-size: 16px;
+    }
+
+    /* ==================================================================
+       HARNESS  (not part of the design — the fake phone and the proto bar)
+       ================================================================== */
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-4);
+      padding: var(--sp-5) var(--sp-4) 116px;
+      background: #101014;
+      font-family: var(--font-ui);
+      color: #cfcfd6;
+    }
+
+    .stage-note {
+      max-width: 66ch;
+      font-size: var(--fs-1);
+      line-height: 1.55;
+      color: #8b8b96;
+      text-align: center;
+      margin: 0;
+    }
+    .stage-note b {
+      color: #e6e6ee;
+      font-weight: var(--fw-medium);
+    }
+
+    .frame {
+      width: 400px;
+      height: 780px;
+      max-height: calc(100vh - 210px);
+      border-radius: 30px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 0 0 1px #2c2c34, 0 30px 70px oklch(0 0 0 / 0.6);
+      isolation: isolate;
+    }
+    .frame[data-wide="1"] {
+      width: min(980px, 100%);
+      border-radius: 14px;
+    }
+
+    /* ==================================================================
+       APP SHELL
+       ================================================================== */
+
+    .app {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: var(--font-ui);
+      font-size: var(--fs-3);
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+    .app :is(button, input, select) {
+      font-family: inherit;
+    }
+    .app button:focus-visible,
+    .app input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .scroll {
+      flex: 1;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .pad-bottom {
+      height: 120px;
+    }
+
+    /* ---- header ---------------------------------------------------- */
+
+    .head {
+      position: relative;
+      z-index: var(--z-header);
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      padding: var(--sp-4);
+      flex: none;
+    }
+
+    .head-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-3);
+      min-height: 32px;
+    }
+    .head-top:last-child {
+      margin-bottom: 0;
+    }
+
+    .baby {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: var(--fs-2);
+      font-weight: var(--fw-medium);
+      color: var(--ink-2);
+    }
+    .baby-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      display: grid;
+      place-items: center;
+      font-size: var(--fs-0);
+      color: var(--ink-2);
+      font-weight: var(--fw-bold);
+    }
+
+    .head-actions {
+      display: flex;
+      gap: var(--sp-1);
+    }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: var(--r-1);
+      background: none;
+      color: var(--ink-2);
+      cursor: pointer;
+      padding: 0;
+      transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+    }
+    .icon-btn:hover {
+      background: var(--surface-2);
+      color: var(--ink);
+    }
+
+    .due-label {
+      font-size: var(--fs-1);
+      color: var(--ink-2);
+      margin-bottom: 2px;
+    }
+    .due-hero {
+      font-variant-numeric: tabular-nums lining-nums;
+      font-feature-settings: var(--num-feature);
+      font-size: var(--hero-size);
+      font-weight: var(--hero-weight);
+      line-height: 1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      display: block;
+    }
+    .due-next {
+      margin-top: var(--sp-2);
+      font-size: var(--fs-2);
+      color: var(--ink-2);
+      font-variant-numeric: tabular-nums;
+    }
+    .due-next[data-over="1"] {
+      color: var(--warn);
+      font-weight: var(--fw-medium);
+    }
+    .due-quiet {
+      margin-top: var(--sp-2);
+      padding-top: var(--sp-2);
+      border-top: 1px solid var(--line);
+      font-size: var(--fs-1);
+      color: var(--ink-3);
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      gap: var(--sp-3);
+      flex-wrap: wrap;
+    }
+
+    .screen-title {
+      font-size: var(--fs-5);
+      font-weight: var(--fw-bold);
+      letter-spacing: -0.015em;
+      margin: 0;
+      color: var(--ink);
+    }
+
+    /* ---- timeline -------------------------------------------------- */
+
+    .daymark {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      padding: var(--sp-4) var(--sp-4) var(--sp-2);
+      font-size: var(--fs-1);
+      color: var(--ink-3);
+      font-weight: var(--fw-medium);
+    }
+    .daymark::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .list {
+      list-style: none;
+      margin: 0 0 var(--sp-4);
+      padding: 0;
+      background: var(--surface);
+      border-block: 1px solid var(--line);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 38px 1fr auto;
+      align-items: center;
+      gap: var(--sp-3);
+      padding: var(--row-pad);
+      min-height: 62px;
+      position: relative;
+      color: var(--ink);
+    }
+    .row + .row::before {
+      content: "";
+      position: absolute;
+      inset-inline: calc(var(--sp-4) + 38px + var(--sp-3)) 0;
+      top: 0;
+      height: 1px;
+      background: var(--line);
+    }
+    .row-main {
+      min-width: 0;
+    }
+    .row-title {
+      font-size: var(--fs-3);
+      font-weight: var(--fw-medium);
+      letter-spacing: -0.005em;
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      flex-wrap: wrap;
+    }
+    .row-meta {
+      font-size: var(--fs-1);
+      color: var(--ink-3);
+      margin-top: 1px;
+      font-variant-numeric: tabular-nums;
+    }
+    .row-note {
+      font-size: var(--fs-1);
+      color: var(--ink-2);
+      margin-top: 3px;
+      font-style: italic;
+    }
+    .row-time {
+      font-variant-numeric: tabular-nums lining-nums;
+      font-size: var(--fs-2);
+      color: var(--ink-2);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .glyph {
+      display: grid;
+      place-items: center;
+      flex: none;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      color: var(--ink-2);
+    }
+    .glyph svg {
+      width: 19px;
+      height: 19px;
+    }
+
+    .note-mark {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--surface-2);
+      color: var(--ink-3);
+      flex: none;
+    }
+    .note-mark svg {
+      width: 11px;
+      height: 11px;
+    }
+
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: var(--fs-0);
+      font-weight: var(--fw-bold);
+      letter-spacing: 0.02em;
+      color: var(--live);
+      background: color-mix(in oklch, var(--live) 12%, transparent);
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .live-pill::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--live);
+      animation: pulse 2.4s var(--ease) infinite;
+    }
+    @keyframes pulse {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.25;
+      }
+    }
+
+    .stop-btn {
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      color: var(--ink);
+      border-radius: var(--r-3);
+      padding: 8px 14px;
+      font-size: var(--fs-2);
+      font-weight: var(--fw-medium);
+      cursor: pointer;
+      white-space: nowrap;
+      min-height: 40px;
+    }
+
+    /* The hit that matched a free-text search. Uses --accent-soft, which is
+       the ONE place a highlight can borrow the hue without becoming a
+       taxonomy colour — it marks a word, not a type. */
+    mark {
+      background: var(--accent-soft);
+      color: var(--ink);
+      border-radius: 3px;
+      padding: 0 2px;
+    }
+
+    .empty {
+      padding: var(--sp-7) var(--sp-5);
+      text-align: center;
+      color: var(--ink-3);
+      font-size: var(--fs-2);
+    }
+    .empty b {
+      display: block;
+      color: var(--ink-2);
+      font-size: var(--fs-3);
+      font-weight: var(--fw-medium);
+      margin-bottom: var(--sp-2);
+    }
+
+    /* ==================================================================
+       FILTER CHROME — the three variants disagree entirely below here
+       ================================================================== */
+
+    /* ---- chips (shared vocabulary, different homes) ---------------- */
+
+    .chips {
+      display: flex;
+      gap: var(--sp-2);
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding: var(--sp-2) var(--sp-4);
+      scroll-padding-inline: var(--sp-4);
+    }
+    .chips::-webkit-scrollbar {
+      display: none;
+    }
+    .chip {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 38px;
+      padding: 0 var(--sp-3);
+      border-radius: var(--r-3);
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      color: var(--ink-2);
+      font-size: var(--fs-2);
+      font-weight: var(--fw-medium);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+        border-color var(--dur-1) var(--ease);
+    }
+    .chip svg {
+      width: 15px;
+      height: 15px;
+    }
+    /* Active is an INK inversion, never the accent — the hue belongs to
+       actions, and a filter is not an action. */
+    .chip[aria-pressed="true"] {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--ground);
+    }
+    .chip[data-candidate="1"]::after {
+      content: "?";
+      font-size: 10px;
+      opacity: 0.5;
+    }
+
+    /* ---- A: the filter takes the header's place -------------------- */
+
+    .head-filter {
+      background: var(--ink);
+      color: var(--ground);
+      border-bottom: 0;
+      padding-bottom: var(--sp-2);
+    }
+    .head-filter .filter-top {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-3);
+    }
+    .head-filter .filter-what {
+      flex: 1;
+      min-width: 0;
+    }
+    .head-filter .filter-kicker {
+      font-size: var(--fs-0);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.6;
+    }
+    .head-filter .filter-title {
+      font-size: var(--fs-5);
+      font-weight: var(--fw-bold);
+      letter-spacing: -0.015em;
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .head-filter .filter-count {
+      font-size: var(--fs-1);
+      opacity: 0.7;
+      font-variant-numeric: tabular-nums;
+      margin-top: 2px;
+    }
+    .clear-btn {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 44px;
+      padding: 0 var(--sp-4);
+      border-radius: var(--r-3);
+      border: 1px solid color-mix(in oklch, var(--ground) 40%, transparent);
+      background: none;
+      color: var(--ground);
+      font-size: var(--fs-2);
+      font-weight: var(--fw-bold);
+      cursor: pointer;
+    }
+    .clear-btn svg {
+      width: 15px;
+      height: 15px;
+    }
+    /* bleed the rail to the header's edges so it can be scrolled from them */
+    .head-filter .chips {
+      margin-inline: calc(var(--sp-4) * -1);
+    }
+    .head-filter .chip {
+      background: none;
+      border-color: color-mix(in oklch, var(--ground) 32%, transparent);
+      color: color-mix(in oklch, var(--ground) 80%, transparent);
+    }
+    .head-filter .chip[aria-pressed="true"] {
+      background: var(--ground);
+      border-color: var(--ground);
+      color: var(--ink);
+    }
+
+    /* ---- B: the standing rail -------------------------------------- */
+
+    .rail {
+      flex: none;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      z-index: var(--z-header);
+    }
+    /* The whole signal B gets, besides the pressed chips. */
+    .rail-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-3);
+      padding: var(--sp-2) var(--sp-4) var(--sp-3);
+      background: var(--ink);
+      color: var(--ground);
+      font-size: var(--fs-1);
+      font-variant-numeric: tabular-nums;
+    }
+    .rail-status button {
+      border: 0;
+      background: none;
+      color: inherit;
+      font: inherit;
+      font-weight: var(--fw-bold);
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      min-height: 32px;
+      padding: 0 2px;
+    }
+    /* An indent rule down the results, so the scroll region itself is not
+       shaped like the unfiltered one. B's signal only — A's is the header,
+       and stacking both would muddy the comparison. */
+    [data-fv="b"] .scroll[data-filtered="1"] .list {
+      border-left: 3px solid var(--ink);
+    }
+
+    /* ---- C: the find surface --------------------------------------- */
+
+    .find {
+      position: absolute;
+      inset: 0;
+      z-index: var(--z-find);
+      display: flex;
+      flex-direction: column;
+      background: var(--surface-2);
+      animation: pushin var(--dur-3) var(--ease);
+    }
+    @keyframes pushin {
+      from {
+        transform: translateX(14%);
+        opacity: 0;
+      }
+    }
+    .find-bar {
+      flex: none;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      padding: var(--sp-3) var(--sp-3) var(--sp-2);
+    }
+    .find-row {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+    .find-row input {
+      flex: 1;
+      margin: 0;
+      min-height: 44px;
+    }
+    .find-results {
+      flex: 1;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .find-count {
+      padding: var(--sp-3) var(--sp-4) 0;
+      font-size: var(--fs-1);
+      color: var(--ink-3);
+      font-variant-numeric: tabular-nums;
+    }
+    .find .list {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-2);
+      margin: var(--sp-2) var(--sp-3) var(--sp-4);
+      overflow: hidden;
+    }
+    .find .daymark {
+      padding-inline: var(--sp-4);
+    }
+
+    /* ---- the "more facets" sheet ----------------------------------- */
+
+    .scrim {
+      position: absolute;
+      inset: 0;
+      background: oklch(0 0 0 / 0.42);
+      z-index: var(--z-scrim);
+      border: 0;
+      padding: 0;
+      cursor: default;
+      animation: fade var(--dur-2) var(--ease);
+    }
+    @keyframes fade {
+      from {
+        opacity: 0;
+      }
+    }
+    .sheet {
+      position: absolute;
+      inset-inline: 0;
+      bottom: 0;
+      z-index: var(--z-sheet);
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+      border-radius: var(--r-2) var(--r-2) 0 0;
+      padding: var(--sp-4) 0 var(--sp-5);
+      box-shadow: var(--shadow);
+      animation: slideup var(--dur-3) var(--ease);
+      max-height: 82%;
+      overflow-y: auto;
+    }
+    @keyframes slideup {
+      from {
+        transform: translateY(100%);
+      }
+    }
+    .sheet h3 {
+      margin: 0 var(--sp-4) var(--sp-3);
+      font-size: var(--fs-4);
+      font-weight: var(--fw-bold);
+      color: var(--ink);
+    }
+    .sheet h4 {
+      margin: var(--sp-4) var(--sp-4) var(--sp-2);
+      font-size: var(--fs-1);
+      font-weight: var(--fw-bold);
+      color: var(--ink-3);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .sheet .field {
+      padding: 0 var(--sp-4);
+    }
+    .sheet .field input {
+      margin: 0;
+    }
+    .sheet-acts {
+      display: flex;
+      gap: var(--sp-2);
+      padding: var(--sp-4) var(--sp-4) 0;
+    }
+    .sheet-acts button {
+      flex: 1;
+      min-height: 52px;
+      border-radius: var(--r-1);
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      color: var(--ink);
+      font-size: var(--fs-3);
+      font-weight: var(--fw-medium);
+      cursor: pointer;
+    }
+    .sheet-acts button[data-primary="1"] {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-ink);
+    }
+
+    /* ---- FAB + fan --------------------------------------------------- */
+
+    .fab {
+      position: absolute;
+      right: 18px;
+      bottom: var(--fab-bottom, 76px);
+      width: 62px;
+      height: 62px;
+      border-radius: var(--r-3);
+      border: 0;
+      background: var(--accent);
+      color: var(--accent-ink);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      z-index: var(--z-fab);
+      transition: transform var(--dur-2) var(--ease);
+    }
+    .fab svg {
+      width: 26px;
+      height: 26px;
+      transition: transform var(--dur-3) var(--ease);
+    }
+    .fab[data-open="1"] svg {
+      transform: rotate(45deg);
+    }
+    .fab:active {
+      transform: scale(0.94);
+    }
+    .fan {
+      position: absolute;
+      right: 18px;
+      bottom: calc(var(--fab-bottom, 76px) + 74px);
+      z-index: var(--z-fab);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: var(--sp-2);
+    }
+    .fan button {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      min-height: 54px;
+      padding: 0 var(--sp-4);
+      border-radius: var(--r-3);
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      text-align: left;
+      animation: rise var(--dur-3) var(--ease) backwards;
+    }
+    .fan-glyph {
+      width: 26px;
+      display: grid;
+      place-items: center;
+      color: var(--ink-2);
+    }
+    .fan-glyph svg {
+      width: 19px;
+      height: 19px;
+    }
+    .fan-main {
+      font-size: var(--fs-3);
+      font-weight: var(--fw-medium);
+    }
+    .fan-sub {
+      display: block;
+      font-size: var(--fs-0);
+      color: var(--ink-3);
+      font-weight: var(--fw-normal);
+    }
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.96);
+      }
+    }
+
+    .toast {
+      position: absolute;
+      left: var(--sp-3);
+      right: var(--sp-3);
+      bottom: calc(var(--fab-bottom, 76px) + 74px);
+      z-index: var(--z-toast);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+      border-radius: var(--r-2);
+      background: var(--ink);
+      color: var(--ground);
+      font-size: var(--fs-2);
+      box-shadow: var(--shadow);
+      animation: rise var(--dur-3) var(--ease);
+    }
+    .toast button {
+      border: 0;
+      background: none;
+      color: inherit;
+      font-weight: var(--fw-bold);
+      font-size: var(--fs-2);
+      cursor: pointer;
+      min-height: 40px;
+      padding: 0 var(--sp-3);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    /* ---- tab bar ------------------------------------------------------ */
+
+    .tabbar {
+      flex: none;
+      display: flex;
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+      z-index: var(--z-nav);
+      padding-bottom: 6px;
+    }
+    .tabbar button {
+      flex: 1;
+      border: 0;
+      background: none;
+      color: var(--ink-3);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-height: 54px;
+      font-size: var(--fs-0);
+      font-weight: var(--fw-medium);
+      cursor: pointer;
+      padding: var(--sp-2) 0 0;
+    }
+    .tabbar button[aria-current="page"] {
+      color: var(--accent);
+    }
+    .tabbar svg {
+      width: 21px;
+      height: 21px;
+    }
+
+    /* ---- stats + settings (context only, not the question) ----------- */
+
+    .cards {
+      padding: var(--sp-3);
+      display: grid;
+      gap: var(--sp-3);
+    }
+    [data-wide="1"] .cards {
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-2);
+      padding: var(--sp-4);
+    }
+    .card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: var(--sp-2);
+    }
+    .card-name {
+      font-size: var(--fs-2);
+      font-weight: var(--fw-medium);
+      color: var(--ink-2);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+    .card-value {
+      font-variant-numeric: tabular-nums lining-nums;
+      font-size: var(--fs-6);
+      font-weight: var(--hero-weight);
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .card-value small {
+      font-size: var(--fs-2);
+      font-weight: var(--fw-normal);
+      color: var(--ink-3);
+    }
+
+    .settings {
+      padding: var(--sp-4);
+      max-width: 640px;
+    }
+    .settings section {
+      margin-bottom: var(--sp-6);
+    }
+    .settings h3 {
+      font-size: var(--fs-2);
+      font-weight: var(--fw-bold);
+      color: var(--ink-2);
+      margin: 0 0 var(--sp-3);
+      padding-bottom: var(--sp-2);
+      border-bottom: 1px solid var(--line);
+    }
+    .settings .hint {
+      display: block;
+      font-size: var(--fs-1);
+      color: var(--ink-3);
+      margin-bottom: var(--sp-3);
+    }
+    .catalogue {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .catalogue li button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-3);
+      padding: var(--sp-3) 0;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: none;
+      color: var(--ink);
+      font-size: var(--fs-3);
+      text-align: left;
+      cursor: pointer;
+      min-height: var(--tap);
+    }
+    .catalogue .cat-meta {
+      font-size: var(--fs-1);
+      color: var(--ink-3);
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+    .catalogue .first {
+      font-size: var(--fs-0);
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      padding: 1px 7px;
+      color: var(--ink-2);
+    }
+
+    /* ==================================================================
+       PROTO BAR
+       ================================================================== */
+
+    .proto {
+      position: fixed;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: calc(100vw - 24px);
+      padding: 9px 14px;
+      border-radius: 14px;
+      background: #191920;
+      border: 1px solid #32323d;
+      box-shadow: 0 12px 40px oklch(0 0 0 / 0.55);
+      font-size: 12px;
+      color: #b6b6c2;
+    }
+    .proto-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .proto-group > span {
+      color: #6f6f7d;
+      margin-right: 2px;
+    }
+    .proto button {
+      border: 1px solid #35353f;
+      background: #23232c;
+      color: #c9c9d4;
+      border-radius: 7px;
+      padding: 5px 9px;
+      font: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .proto button[data-on="1"] {
+      background: #e8e8f0;
+      border-color: #e8e8f0;
+      color: #17171d;
+      font-weight: 600;
+    }
+    .proto .name {
+      color: #f0f0f6;
+      font-weight: 600;
+      min-width: 132px;
+      text-align: center;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  }
+</style>
+
+<p class="stage-note" id="note"></p>
+
+<div class="frame" id="frame">
+  <div class="app" id="app"></div>
+</div>
+
+<div class="proto" id="proto"></div>
+
+<script>
+  "use strict";
+
+  var MIN = 60000,
+    HOUR = 3600000,
+    DAY = 86400000;
+  var ME = "Mama";
+  var DAY_START_H = 5; /* ticket 09: the Household's Day Start, default 05:00 */
+  var uid = 0;
+  function nid() {
+    return ++uid;
+  }
+
+  /* ---------------- types ---------------- */
+
+  var TYPES = {
+    breast: { label: "Breast", glyph: "feed", facet: "feed" },
+    bottle: { label: "Bottle", glyph: "feed", facet: "feed" },
+    meal: { label: "Meal", glyph: "meal", facet: "meal" },
+    sleep: { label: "Sleep", glyph: "sleep", facet: "sleep" },
+    nappy: { label: "Nappy", glyph: "nappy", facet: "nappy" },
+    measurement: { label: "Measurement", glyph: "measure", facet: "measure" },
+    milestone: { label: "Milestone", glyph: "flag", facet: "milestone" }
+  };
+
+  /* The facets a chip rail would carry — Feed collapses breast+bottle,
+     because nobody at 3am thinks "breast OR bottle". */
+  var FACETS = [
+    { k: "feed", l: "Feeds", g: "feed" },
+    { k: "sleep", l: "Sleep", g: "sleep" },
+    { k: "nappy", l: "Nappies", g: "nappy" },
+    { k: "meal", l: "Meals", g: "meal" },
+    { k: "milestone", l: "Milestones", g: "flag" },
+    { k: "measure", l: "Measurements", g: "measure" }
+  ];
+
+  var ICONS = {
+    feed:
+      '<path d="M8 2h8M9 2v3.2a4 4 0 0 1-.6 2.1L7.6 8.6A4 4 0 0 0 7 10.7V19a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3v-8.3a4 4 0 0 0-.6-2.1l-.8-1.3A4 4 0 0 1 15 5.2V2"/><path d="M7 13h10"/>',
+    sleep: '<path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"/>',
+    nappy:
+      '<path d="M4 5h16v5a10 10 0 0 1-8 9.8A10 10 0 0 1 4 10Z"/><path d="M9 12.5c1.2 1 4.8 1 6 0"/>',
+    meal:
+      '<path d="M3.5 10.5h17a8.5 8.5 0 0 1-8.5 8.5 8.5 8.5 0 0 1-8.5-8.5Z"/><path d="M8 6.5c0-1.2 1-1.6 1-2.5M12 6c0-1.4 1-1.8 1-2.8M16 6.5c0-1.2 1-1.6 1-2.5"/>',
+    measure: '<path d="M3 8h18v8H3Z"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/>',
+    /* ticket 18: the Milestone glyph is a flag */
+    flag: '<path d="M5 21V4"/><path d="M5 4.5h11l-2 3.5 2 3.5H5"/>',
+    note: '<path d="M4 6h16M4 12h16M4 18h9"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    gear:
+      '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M21.5 12h-2.2M4.7 12H2.5M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6M18.7 18.7l-1.6-1.6M6.9 6.9 5.3 5.3"/>',
+    home: '<path d="M4 10.5 12 4l8 6.5V20H4Z"/><path d="M9.5 20v-6h5v6"/>',
+    search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
+    back: '<path d="M15 5l-7 7 7 7"/>',
+    chev: '<path d="M9 5l7 7-7 7"/>',
+    sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>'
+  };
+
+  function icon(name, size) {
+    return (
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' +
+      (size ? ' style="width:' + size + "px;height:" + size + 'px"' : "") +
+      ">" +
+      ICONS[name] +
+      "</svg>"
+    );
+  }
+
+  /* ---------------- fixtures ----------------
+     A month of log, because "when did she eat broccoli" is not answerable
+     over one day. Broccoli appears three times, weeks apart — the exact
+     shape of the question the ticket came from. */
+
+  var FOODS = ["Carrot", "Yoghurt", "Broccoli", "Pear", "Oat porridge", "Banana", "Sweet potato"];
+  /* Broccoli is placed by hand below and kept out of the rotation, so the
+     question the ticket came from has a SMALL answer — three meals weeks
+     apart. A food that turns up every other day answers nothing. */
+  var ROTATION = FOODS.filter(function (f) {
+    return f !== "Broccoli";
+  });
+  var MEMBERS = ["Mama", "Papa", "Oma"];
+
+  /* Start of the logical day containing ts (Day Start 05:00). */
+  function dayKey(ts) {
+    var d = new Date(ts - DAY_START_H * HOUR);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  /* The instant a back-dated Milestone is anchored to (ticket 18). */
+  function dayStartInstant(ts) {
+    var d = new Date(dayKey(ts));
+    d.setHours(DAY_START_H, 0, 0, 0);
+    return d.getTime();
+  }
+
+  function seed(busy) {
+    var now = Date.now();
+    var e = [];
+    var days = busy ? 34 : 26;
+
+    for (var d = 0; d < days; d++) {
+      var base = now - d * DAY;
+      var who = MEMBERS[d % 3];
+
+      /* feeds through the day */
+      var feedTimes = busy ? [1.4, 4.2, 7.1, 10, 13.4, 16.8] : [1.4, 5.2, 9.6, 14.2];
+      for (var i = 0; i < feedTimes.length; i++) {
+        var t = base - feedTimes[i] * HOUR;
+        if (t > now) continue;
+        if ((d + i) % 3 === 0) {
+          e.push({
+            id: nid(),
+            type: "bottle",
+            at: t,
+            by: MEMBERS[(d + i) % 3],
+            ml: 120 + ((d + i) % 3) * 30,
+            note: (d + i) % 11 === 0 ? "Took it all for once" : null
+          });
+        } else {
+          e.push({
+            id: nid(),
+            type: "breast",
+            at: t,
+            end: t + (18 + (i % 3) * 6) * MIN,
+            by: "Mama",
+            side: i % 2 ? "Left" : "Right",
+            note: (d + i) % 13 === 0 ? "Fell asleep on the breast" : null
+          });
+        }
+      }
+
+      /* sleeps */
+      e.push({ id: nid(), type: "sleep", at: base - 3.1 * HOUR, end: base - 2 * HOUR, by: who });
+      e.push({ id: nid(), type: "sleep", at: base - 11 * HOUR, end: base - 6.2 * HOUR, by: "Mama" });
+
+      /* nappies */
+      e.push({ id: nid(), type: "nappy", at: base - 0.6 * HOUR, by: who, nappy: d % 4 ? "Pee" : "Poop" });
+      e.push({ id: nid(), type: "nappy", at: base - 6.9 * HOUR, by: MEMBERS[(d + 1) % 3], nappy: "Pee" });
+      if (busy) e.push({ id: nid(), type: "nappy", at: base - 12.5 * HOUR, by: "Papa", nappy: "Poop" });
+
+      /* meals — solids only started three weeks ago */
+      if (d < 22) {
+        var f1 = ROTATION[d % ROTATION.length];
+        var f2 = ROTATION[(d * 3 + 1) % ROTATION.length];
+        var foods = f1 === f2 ? [f1] : [f1, f2];
+        e.push({
+          id: nid(),
+          type: "meal",
+          at: base - 5.4 * HOUR,
+          by: MEMBERS[(d + 2) % 3],
+          foods: foods,
+          amount: ["All of it", "Some", "A taste"][d % 3],
+          note: null
+        });
+      }
+    }
+
+    /* Broccoli, deliberately placed. The middle one carries the reaction
+       note that a bare results list would have thrown away — which is the
+       whole argument for filtering the timeline rather than querying it. */
+    e.push({
+      id: nid(), type: "meal", at: now - 3 * DAY - 5.6 * HOUR, by: "Papa",
+      foods: ["Broccoli", "Oat porridge"], amount: "A taste",
+      note: "Pulled a face but swallowed it"
+    });
+    e.push({
+      id: nid(), type: "meal", at: now - 12 * DAY - 5.5 * HOUR, by: "Oma",
+      foods: ["Broccoli"], amount: "Some",
+      note: "Red blotches round her mouth for an hour afterwards, gone by bath time"
+    });
+    e.push({
+      id: nid(), type: "meal", at: now - 19 * DAY - 5.3 * HOUR, by: "Mama",
+      foods: ["Broccoli", "Carrot"], amount: "A taste", note: "First go at it"
+    });
+
+    /* measurements */
+    e.push({ id: nid(), type: "measurement", at: now - 4 * DAY - 8 * HOUR, by: "Mama", kind: "Weight", value: "6.84 kg" });
+    e.push({ id: nid(), type: "measurement", at: now - 18 * DAY - 8 * HOUR, by: "Mama", kind: "Weight", value: "6.41 kg" });
+    e.push({ id: nid(), type: "measurement", at: now - 18 * DAY - 8 * HOUR, by: "Mama", kind: "Height", value: "63 cm" });
+
+    /* milestones — anchored to the Day Start of their date (ticket 18),
+       so they carry no clock time and sit at the head of their day */
+    e.push({ id: nid(), type: "milestone", at: dayStartInstant(now - 2 * DAY), by: "Oma", name: "First tooth" });
+    e.push({ id: nid(), type: "milestone", at: dayStartInstant(now - 9 * DAY), by: "Papa", name: "Rolled off the sofa", note: "She is fine. We are not." });
+    e.push({ id: nid(), type: "milestone", at: dayStartInstant(now - 21 * DAY), by: "Mama", name: "Laughed at the dog" });
+
+    /* one live sleep, so the running state is visible while filtered */
+    e.push({ id: nid(), type: "sleep", at: now - 42 * MIN, end: null, by: "Oma" });
+
+    return e
+      .filter(function (x) {
+        return x.at <= now;
+      })
+      .sort(function (a, b) {
+        return b.at - a.at;
+      });
+  }
+
+  /* ---------------- state ---------------- */
+
+  var qs = new URLSearchParams(location.search);
+  var VARIANTS = ["a", "b", "c"];
+  var V_NAMES = { a: "Inverted header", b: "Chip rail", c: "Find surface" };
+
+  function resolveAppearance(now) {
+    var m = now.getHours() * 60 + now.getMinutes();
+    if (m >= 23 * 60 || m < DAY_START_H * 60) return "deep";
+    if (m < 7 * 60 || m >= 19 * 60) return "night";
+    return matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "day";
+  }
+
+  var S = {
+    fv: VARIANTS.indexOf(qs.get("fv")) > -1 ? qs.get("fv") : "a",
+    theme: ["day", "night", "deep", "auto"].indexOf(qs.get("theme")) > -1 ? qs.get("theme") : "auto",
+    wide: qs.get("wide") === "1",
+    busy: qs.get("busy") === "1",
+    screen: 0,
+    /* the filter itself — identical model in all three variants */
+    f: { types: [], food: null, member: null, text: "", period: "any" },
+    /* A: is the filter header up at all. C: is the find surface up. */
+    open: false,
+    sheet: false,
+    fan: false,
+    toast: null,
+    entries: seed(qs.get("busy") === "1")
+  };
+
+  function anyFacet() {
+    var f = S.f;
+    return f.types.length > 0 || !!f.food || !!f.member || !!f.text || f.period !== "any";
+  }
+  /* Is the log surface itself showing filtered results right now? */
+  function filtering() {
+    if (S.fv === "c") return false; /* C never filters the log in place */
+    if (S.fv === "a") return S.open && anyFacet();
+    return anyFacet();
+  }
+
+  function sync() {
+    var p = new URLSearchParams();
+    p.set("fv", S.fv);
+    p.set("theme", S.theme);
+    if (S.wide) p.set("wide", "1");
+    if (S.busy) p.set("busy", "1");
+    history.replaceState(null, "", "?" + p.toString());
+  }
+
+  /* ---------------- helpers ---------------- */
+
+  function clock(ts) {
+    var d = new Date(ts);
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  function dur(ms) {
+    var m = Math.max(0, Math.round(ms / MIN));
+    var h = Math.floor(m / 60);
+    m = m % 60;
+    if (h === 0) return m + "m";
+    if (m === 0) return h + "h";
+    return h + "h " + m + "m";
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function highlight(s) {
+    var q = S.f.text.trim();
+    var safe = escapeHtml(s);
+    if (!q) return safe;
+    var re = new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig");
+    return safe.replace(re, "<mark>$1</mark>");
+  }
+  function dayLabel(key) {
+    var today = dayKey(Date.now());
+    if (key === today) return "Today";
+    if (key === today - DAY) return "Yesterday";
+    var d = new Date(key);
+    return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  }
+  function runningSleep() {
+    return S.entries.find(function (e) {
+      return e.type === "sleep" && "end" in e && e.end === null;
+    });
+  }
+  function lastFeed() {
+    return S.entries.find(function (e) {
+      return e.type === "breast" || e.type === "bottle";
+    });
+  }
+  function lastSleepEnd() {
+    var s = S.entries.find(function (e) {
+      return e.type === "sleep" && e.end;
+    });
+    return s ? s.end : null;
+  }
+  function nappiesToday() {
+    var k = dayKey(Date.now());
+    return S.entries.filter(function (e) {
+      return e.type === "nappy" && dayKey(e.at) === k;
+    }).length;
+  }
+  var FEED_TARGET = 3 * HOUR;
+  var WAKE_TARGET = 2 * HOUR;
+
+  /* ---------------- the filter ---------------- */
+
+  var PERIODS = [
+    { k: "any", l: "Anytime" },
+    { k: "7", l: "Last 7 days" },
+    { k: "30", l: "Last 30 days" }
+  ];
+
+  function matches(e) {
+    var f = S.f;
+    if (f.types.length && f.types.indexOf(TYPES[e.type].facet) === -1) return false;
+    if (f.member && e.by !== f.member) return false;
+    if (f.food && (e.type !== "meal" || e.foods.indexOf(f.food) === -1)) return false;
+    if (f.period !== "any" && Date.now() - e.at > Number(f.period) * DAY) return false;
+    if (f.text) {
+      var hay = [
+        TYPES[e.type].label,
+        e.note || "",
+        e.name || "",
+        e.nappy || "",
+        e.kind || "",
+        e.value || "",
+        e.amount || "",
+        e.by,
+        (e.foods || []).join(" ")
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (hay.indexOf(f.text.toLowerCase()) === -1) return false;
+    }
+    return true;
+  }
+
+  function results() {
+    return S.entries.filter(matches);
+  }
+
+  /* What the filter is called, in words, for the header and the strip. */
+  function filterLabel() {
+    var f = S.f;
+    var bits = [];
+    if (f.food) bits.push(f.food);
+    if (f.types.length) {
+      bits.push(
+        f.types
+          .map(function (k) {
+            return FACETS.find(function (x) {
+              return x.k === k;
+            }).l;
+          })
+          .join(" + ")
+      );
+    }
+    if (f.member) bits.push("by " + f.member);
+    if (f.text) bits.push('"' + f.text + '"');
+    if (f.period !== "any")
+      bits.push(
+        PERIODS.find(function (p) {
+          return p.k === f.period;
+        }).l.toLowerCase()
+      );
+    return bits.length ? bits.join(" · ") : "Everything";
+  }
+
+  function clearFilter() {
+    S.f = { types: [], food: null, member: null, text: "", period: "any" };
+  }
+
+  /* ---------------- rows ---------------- */
+
+  function rowParts(e) {
+    var t = TYPES[e.type];
+    var title = t.label;
+    var detail = "";
+    if (e.type === "bottle") detail = e.ml + " ml";
+    else if (e.type === "breast") detail = e.side;
+    else if (e.type === "nappy") {
+      title = e.nappy;
+    } else if (e.type === "meal") detail = e.foods.join(", ") + " · " + e.amount;
+    else if (e.type === "measurement") {
+      title = e.kind;
+      detail = e.value;
+    } else if (e.type === "sleep") detail = e.end ? dur(e.end - e.at) : "";
+    else if (e.type === "milestone") title = e.name;
+    return { type: t, title: title, detail: detail };
+  }
+
+  function renderRow(e) {
+    var p = rowParts(e);
+    var live = "end" in e && e.end === null;
+    var meta = [p.detail, e.by].filter(Boolean).join(" · ");
+    return (
+      '<li class="row">' +
+      '<span class="glyph">' + icon(p.type.glyph) + "</span>" +
+      '<div class="row-main">' +
+      '<div class="row-title">' + highlight(p.title) +
+      (live ? '<span class="live-pill">running</span>' : "") +
+      (e.note && !S.f.text ? '<span class="note-mark" title="' + escapeHtml(e.note) + '">' + icon("note") + "</span>" : "") +
+      "</div>" +
+      '<div class="row-meta">' + highlight(meta) + "</div>" +
+      /* The reason filtering lives in the timeline: the note comes with it.
+         Shown in full whenever a filter is on, collapsed to a dot otherwise. */
+      (e.note && (filtering() || S.fv === "c") ? '<div class="row-note">' + highlight(e.note) + "</div>" : "") +
+      "</div>" +
+      (live
+        ? '<button class="stop-btn" data-stop="' + e.id + '">She&rsquo;s awake</button>'
+        : e.type === "milestone"
+        ? '<div class="row-time" style="color:var(--ink-3)">&mdash;</div>'
+        : '<div class="row-time">' + clock(e.at) + "</div>") +
+      "</li>"
+    );
+  }
+
+  /* Groups entries into days. Milestones carry no clock time, so they are
+     pinned to the head of their day rather than sorted among timed rows. */
+  function renderGroups(list) {
+    if (!list.length) return "";
+    var groups = [];
+    var byKey = {};
+    list.forEach(function (e) {
+      var k = dayKey(e.at);
+      if (!byKey[k]) {
+        byKey[k] = [];
+        groups.push(k);
+      }
+      byKey[k].push(e);
+    });
+    return groups
+      .map(function (k) {
+        var rows = byKey[k].slice().sort(function (a, b) {
+          var am = a.type === "milestone" ? 1 : 0;
+          var bm = b.type === "milestone" ? 1 : 0;
+          if (am !== bm) return bm - am;
+          return b.at - a.at;
+        });
+        return (
+          '<div class="daymark">' + dayLabel(k) + "</div>" +
+          '<ul class="list">' + rows.map(renderRow).join("") + "</ul>"
+        );
+      })
+      .join("");
+  }
+
+  /* ---------------- headers ---------------- */
+
+  function headerLive() {
+    var lf = lastFeed();
+    var sleeping = runningSleep();
+    var elapsed = lf ? Date.now() - lf.at : null;
+    var over = elapsed !== null && elapsed > FEED_TARGET;
+    var hero = elapsed === null ? "—" : dur(elapsed);
+    var next =
+      elapsed === null
+        ? "no feed logged yet"
+        : over
+        ? dur(elapsed - FEED_TARGET) + " overdue"
+        : "next due in " + dur(FEED_TARGET - elapsed);
+
+    var quiet = [];
+    if (sleeping) quiet.push("asleep " + dur(Date.now() - sleeping.at));
+    else {
+      var lse = lastSleepEnd();
+      if (lse) {
+        var awake = Date.now() - lse;
+        quiet.push(
+          '<span style="' + (awake > WAKE_TARGET ? "color:var(--warn)" : "") + '">awake ' + dur(awake) + "</span>"
+        );
+      }
+    }
+    quiet.push(nappiesToday() + " nappies");
+
+    return (
+      '<header class="head">' +
+      '<div class="head-top">' +
+      '<div class="baby"><span class="baby-dot">L</span>Lina · 4 months</div>' +
+      '<div class="head-actions">' +
+      '<button class="icon-btn" data-find="1" aria-label="Search the log">' + icon("search") + "</button>" +
+      "</div></div>" +
+      '<div class="due-label">since last feed</div>' +
+      '<b class="due-hero">' + hero + "</b>" +
+      '<div class="due-next" data-over="' + (over ? 1 : 0) + '">' + next + "</div>" +
+      '<div class="due-quiet">' + quiet.join("") + "</div>" +
+      "</header>"
+    );
+  }
+
+  /* A: the live block is REPLACED. The hero figure is gone, and what stands
+     in its place is inverted — the strongest achromatic signal available. */
+  function headerFilterA(n) {
+    var armed = anyFacet();
+    return (
+      '<header class="head head-filter">' +
+      '<div class="filter-top">' +
+      '<div class="filter-what">' +
+      '<div class="filter-kicker">' + (armed ? "Filtered" : "Filter the log") + "</div>" +
+      '<div class="filter-title">' +
+      (armed ? escapeHtml(filterLabel()) : "Everything") + "</div>" +
+      '<div class="filter-count">' +
+      (armed ? n + " of " + S.entries.length + " entries" : "pick a kind of entry, or search") +
+      "</div>" +
+      "</div>" +
+      '<button class="clear-btn" data-clear="1">' + icon("x") + "Clear</button>" +
+      "</div>" +
+      chipRail(true) +
+      "</header>"
+    );
+  }
+
+  function chipRail(inverted) {
+    var chips = FACETS.map(function (f) {
+      var on = S.f.types.indexOf(f.k) > -1;
+      return (
+        '<button class="chip" data-type="' + f.k + '" aria-pressed="' + on + '">' +
+        icon(f.g) + f.l + "</button>"
+      );
+    }).join("");
+    var extras = "";
+    if (S.f.food)
+      extras += '<button class="chip" data-food="" aria-pressed="true">' + escapeHtml(S.f.food) + " ✕</button>";
+    if (S.f.member)
+      extras += '<button class="chip" data-member="" aria-pressed="true">' + escapeHtml(S.f.member) + " ✕</button>";
+    var more =
+      '<button class="chip" data-sheet="1" aria-pressed="false">' + icon("sliders") + "More</button>";
+    return '<div class="chips">' + extras + chips + more + "</div>";
+  }
+
+  /* ---------------- screens ---------------- */
+
+  function screenLog() {
+    var list = filtering() ? results() : S.entries;
+    var head = S.fv === "a" && S.open ? headerFilterA(list.length) : headerLive();
+
+    /* B: the rail is permanent furniture, and the status strip appears only
+       when something is on. */
+    var rail = "";
+    if (S.fv === "b") {
+      rail =
+        '<div class="rail">' +
+        chipRail(false) +
+        (filtering()
+          ? '<div class="rail-status"><span>Showing ' + escapeHtml(filterLabel()) + " — " +
+            list.length + " of " + S.entries.length + '</span><button data-clear="1">Clear</button></div>'
+          : "") +
+        "</div>";
+    }
+
+    var body = list.length
+      ? renderGroups(list)
+      : '<div class="empty"><b>Nothing matches.</b>Try dropping a filter.</div>';
+
+    return (
+      '<section class="screen">' +
+      head +
+      rail +
+      '<div class="scroll" data-filtered="' + (filtering() ? 1 : 0) + '">' +
+      body +
+      '<div class="pad-bottom"></div>' +
+      "</div></section>"
+    );
+  }
+
+  var STAT_CARDS = [
+    { name: "Feeds", g: "feed", v: "7", u: "today · 6.8 avg" },
+    { name: "Sleep", g: "sleep", v: "13h 05m", u: "today · 13h 40m avg" },
+    { name: "Nappies", g: "nappy", v: "6", u: "today · 7.1 avg" },
+    { name: "Meals", g: "meal", v: "2", u: "today · 1.9 avg" }
+  ];
+
+  function screenStats() {
+    return (
+      '<section class="screen">' +
+      '<header class="head"><div class="head-top"><h2 class="screen-title">Stats</h2></div></header>' +
+      '<div class="scroll"><div class="cards">' +
+      STAT_CARDS.map(function (c) {
+        return (
+          '<div class="card"><div class="card-head">' +
+          '<div class="card-name">' + icon(c.g, 15) + c.name + "</div></div>" +
+          '<div class="card-value">' + c.v + " <small>" + c.u + "</small></div></div>"
+        );
+      }).join("") +
+      '</div><p class="empty">Stats is a trend screen and only that (ticket 10).<br>History is the timeline&rsquo;s job — which is what this prototype is about.</p>' +
+      '<div class="pad-bottom"></div></div></section>'
+    );
+  }
+
+  /* The Food catalogue. Tapping a Food is the ticket's "Food detail view"
+     question, and each variant answers it with its own machinery. */
+  function foodStats(name) {
+    var meals = S.entries.filter(function (e) {
+      return e.type === "meal" && e.foods.indexOf(name) > -1;
+    });
+    var first = meals.length ? meals[meals.length - 1].at : null;
+    return { n: meals.length, first: first };
+  }
+
+  function screenSettings() {
+    var items = FOODS.map(function (f) {
+      var s = foodStats(f);
+      if (!s.n) return "";
+      var d = new Date(s.first);
+      return (
+        "<li><button data-food-open=\"" + escapeHtml(f) + "\">" +
+        "<span>" + escapeHtml(f) + "</span>" +
+        '<span class="cat-meta"><span class="first">first ' +
+        d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + "</span>" +
+        s.n + "×" + icon("chev", 15) + "</span></button></li>"
+      );
+    }).join("");
+
+    return (
+      '<section class="screen">' +
+      '<header class="head"><div class="head-top"><h2 class="screen-title">Settings</h2></div></header>' +
+      '<div class="scroll"><div class="settings">' +
+      "<section><h3>Foods</h3>" +
+      '<span class="hint">The household&rsquo;s catalogue. First exposure is derived, never stored.</span>' +
+      '<ul class="catalogue">' + items + "</ul></section>" +
+      "<section><h3>Members</h3>" +
+      '<span class="hint">Mama (owner) · Papa (owner) · Oma (caregiver)</span></section>' +
+      "</div>" +
+      '<div class="pad-bottom"></div></div></section>'
+    );
+  }
+
+  /* ---------------- C: the find surface ---------------- */
+
+  function findSurface() {
+    if (S.fv !== "c" || !S.open) return "";
+    var list = anyFacet() ? results() : [];
+    var body = !anyFacet()
+      ? '<div class="empty"><b>Search the log.</b>Type a word, or pick a kind of entry.</div>'
+      : list.length
+      ? renderGroups(list)
+      : '<div class="empty"><b>Nothing matches.</b>Try dropping a filter.</div>';
+
+    return (
+      '<div class="find" role="dialog" aria-label="Find in the log">' +
+      '<div class="find-bar">' +
+      '<div class="find-row">' +
+      '<button class="icon-btn" data-close-find="1" aria-label="Back to the log">' + icon("back") + "</button>" +
+      '<input type="search" id="findq" placeholder="Search notes, foods, milestones…" value="' +
+      escapeHtml(S.f.text) + '">' +
+      "</div>" +
+      chipRail(false) +
+      "</div>" +
+      '<div class="find-results">' +
+      (anyFacet()
+        ? '<div class="find-count">' + list.length + " of " + S.entries.length + " entries · " +
+          escapeHtml(filterLabel()) + "</div>"
+        : "") +
+      body +
+      '<div class="pad-bottom" style="height:40px"></div>' +
+      "</div></div>"
+    );
+  }
+
+  /* ---------------- the facet sheet ---------------- */
+
+  function facetSheet() {
+    if (!S.sheet) return "";
+    var foods = FOODS.filter(function (f) {
+      return foodStats(f).n;
+    })
+      .map(function (f) {
+        return (
+          '<button class="chip" data-food="' + escapeHtml(f) + '" aria-pressed="' +
+          (S.f.food === f) + '">' + escapeHtml(f) + "</button>"
+        );
+      })
+      .join("");
+    var members = MEMBERS.map(function (m) {
+      return (
+        '<button class="chip" data-member="' + m + '" aria-pressed="' + (S.f.member === m) + '">' + m + "</button>"
+      );
+    }).join("");
+    var periods = PERIODS.map(function (p) {
+      return (
+        '<button class="chip" data-candidate="1" data-period="' + p.k + '" aria-pressed="' +
+        (S.f.period === p.k) + '">' + p.l + "</button>"
+      );
+    }).join("");
+
+    return (
+      '<div class="sheet" role="dialog" aria-label="More filters">' +
+      "<h3>Filter the log</h3>" +
+      /* C carries free text in its own bar; A and B have nowhere else for it */
+      (S.fv !== "c"
+        ? '<h4>Free text</h4><div class="field"><input type="search" id="sheetq" placeholder="e.g. blotches" value="' +
+          escapeHtml(S.f.text) + '"></div>'
+        : "") +
+      "<h4>Food</h4>" + '<div class="chips">' + foods + "</div>" +
+      "<h4>Logged by</h4>" + '<div class="chips">' + members + "</div>" +
+      "<h4>Period <span style=\"opacity:.55\">— candidate</span></h4>" + '<div class="chips">' + periods + "</div>" +
+      '<div class="sheet-acts">' +
+      '<button data-clear="1">Clear all</button>' +
+      '<button data-primary="1" data-close-sheet="1">Show results</button>' +
+      "</div></div>"
+    );
+  }
+
+  /* ---------------- fan, tabs ---------------- */
+
+  function fanItems() {
+    var sleeping = runningSleep();
+    var items = [
+      { act: 'data-nappy="Pee"', main: "Pee", sub: "logs now", g: "nappy" },
+      { act: 'data-nappy="Poop"', main: "Poop", sub: "logs now", g: "nappy" }
+    ];
+    if (sleeping) items.push({ act: 'data-stop="' + sleeping.id + '"', main: "She&rsquo;s awake", sub: "ends the sleep", g: "sleep" });
+    else items.push({ act: 'data-sleep="1"', main: "Sleep", sub: "start timer", g: "sleep" });
+    items.push({ act: 'data-feed="1"', main: "Feed", sub: "breast · bottle · food", g: "feed" });
+    items.push({ act: 'data-milestone="1"', main: "Milestone", sub: "type what she did", g: "flag" });
+    return items
+      .map(function (it, i) {
+        return (
+          "<button " + it.act + ' style="animation-delay:' + i * 26 + 'ms">' +
+          '<span class="fan-glyph">' + icon(it.g) + "</span>" +
+          '<span class="fan-main">' + it.main + '<span class="fan-sub">' + it.sub + "</span></span></button>"
+        );
+      })
+      .join("");
+  }
+
+  function tabbar() {
+    var items = [
+      { i: 0, l: "Log", g: "home" },
+      { i: 1, l: "Stats", g: "stats" },
+      { i: 2, l: "Settings", g: "gear" }
+    ];
+    return (
+      '<nav class="tabbar">' +
+      items
+        .map(function (t) {
+          return (
+            '<button data-goto="' + t.i + '" ' + (S.screen === t.i ? 'aria-current="page"' : "") + ">" +
+            icon(t.g) + "<span>" + t.l + "</span></button>"
+          );
+        })
+        .join("") +
+      "</nav>"
+    );
+  }
+
+  /* ---------------- render ---------------- */
+
+  var memo = 0;
+
+  function render() {
+    var app = document.getElementById("app");
+    var frame = document.getElementById("frame");
+    var prev = app.querySelector(".scroll");
+    if (prev) memo = prev.scrollTop;
+
+    var look = S.theme === "auto" ? resolveAppearance(new Date()) : S.theme;
+    frame.setAttribute("data-wide", S.wide ? "1" : "0");
+    app.setAttribute("data-theme", look);
+    app.setAttribute("data-fv", S.fv);
+    app.setAttribute("data-wide", S.wide ? "1" : "0");
+    document.documentElement.setAttribute("data-theme", look === "day" ? "light" : "dark");
+    app.style.colorScheme = look === "day" ? "light" : "dark";
+
+    var screen = S.screen === 0 ? screenLog() : S.screen === 1 ? screenStats() : screenSettings();
+
+    /* C takes the FAB away entirely while finding — you cannot mis-log into
+       a surface that has nothing to log with. A and B keep it, which is the
+       risk they are here to expose. */
+    var fabVisible = S.screen === 0 && !(S.fv === "c" && S.open);
+
+    app.innerHTML =
+      screen +
+      (fabVisible
+        ? '<button class="fab" data-fab="1" data-open="' + (S.fan ? 1 : 0) + '" aria-label="Log something">' +
+          icon("plus") + "</button>"
+        : "") +
+      (S.fv === "c" && S.open ? "" : tabbar()) +
+      findSurface() +
+      (S.fan || S.sheet ? '<button class="scrim" data-close="1" aria-label="Close"></button>' : "") +
+      (S.fan ? '<div class="fan">' + fanItems() + "</div>" : "") +
+      facetSheet() +
+      (S.toast
+        ? '<div class="toast"><span>' + S.toast + "</span>" +
+          (S.undo ? '<button data-undo="1">Undo</button>' : "") + "</div>"
+        : "");
+
+    var now = app.querySelector(".scroll");
+    if (now) now.scrollTop = memo;
+
+    var note = document.getElementById("note");
+    var blurb = {
+      a: "<b>SETTLED.</b> The filter takes the header's place — the hero figure is gone and inverted ink stands where it was. Same screen, same FAB, no mode. Logging clears the filter, so the FAB can never write a row you cannot see; the filter survives a tab switch but not a cold start.",
+      b: "Filtering is a <b>view state, not a mode</b>: the rail is permanent, the live header stays live. This is deliberately the weakest signal — glance at it for one second and decide whether you could mistake it for today.",
+      c: "Find is a <b>separate surface</b> pushed over the app: no FAB, no tab bar, no live figures. Mis-logging is structurally impossible. Costs a mode, a way back, and one more tap to reach."
+    }[S.fv];
+    note.innerHTML =
+      "<b>Variant " + S.fv.toUpperCase() + " — " + V_NAMES[S.fv] + "</b> · " +
+      { day: "day", night: "night", deep: "deep night" }[look] +
+      (S.theme === "auto" ? " (on the clock)" : " (forced)") +
+      "<br>" + blurb +
+      "<br><b>Try:</b> search icon → Meals → More → Broccoli. Or Settings → Foods → Broccoli.";
+
+    renderProto();
+    sync();
+  }
+
+  function group(label, key, opts) {
+    return (
+      '<div class="proto-group"><span>' + label + "</span>" +
+      opts
+        .map(function (o) {
+          return '<button data-set="' + key + '" data-val="' + o[0] + '" data-on="' + (S[key] === o[0] ? 1 : 0) + '">' + o[1] + "</button>";
+        })
+        .join("") +
+      "</div>"
+    );
+  }
+
+  function renderProto() {
+    document.getElementById("proto").innerHTML =
+      '<div class="proto-group"><button data-cycle="-1">&larr;</button>' +
+      '<span class="name">' + S.fv.toUpperCase() + " " + V_NAMES[S.fv] + "</span>" +
+      '<button data-cycle="1">&rarr;</button></div>' +
+      group("theme", "theme", [["auto", "on the clock"], ["day", "day"], ["night", "night"], ["deep", "deep"]]) +
+      '<div class="proto-group"><span>check</span>' +
+      '<button data-toggle="wide" data-on="' + (S.wide ? 1 : 0) + '">desktop</button>' +
+      '<button data-toggle="busy" data-on="' + (S.busy ? 1 : 0) + '">heavy log</button>' +
+      '<button data-preset="broccoli">"broccoli?"</button>' +
+      '<button data-preset="oma">"what did Oma log?"</button>' +
+      "</div>";
+  }
+
+  /* ---------------- actions ---------------- */
+
+  function toast(msg, undo) {
+    S.toast = msg;
+    S.undo = undo;
+    clearTimeout(S.toastT);
+    S.toastT = setTimeout(function () {
+      S.toast = null;
+      render();
+    }, 4200);
+  }
+
+  function add(e) {
+    e.id = nid();
+    e.by = ME;
+    S.entries.unshift(e);
+    S.entries.sort(function (a, b) {
+      return b.at - a.at;
+    });
+    return e;
+  }
+
+  /* The FAB is the one control that can write a row the current filter would
+     hide, so it drops the filter. Stopping a session or correcting a row you
+     are already looking at does NOT — that write is visible by definition. */
+  function afterLog() {
+    S.fan = false;
+    clearFilter();
+    S.open = false;
+    S.sheet = false;
+  }
+
+  /* Opening the filter, whatever "open" means for this variant. */
+  function openFilter() {
+    S.screen = 0;
+    if (S.fv === "b") S.sheet = true;
+    else S.open = true;
+  }
+
+  document.addEventListener("click", function (ev) {
+    var t = ev.target.closest("button");
+    if (!t) return;
+    var d = t.dataset;
+
+    /* ---- proto bar ---- */
+    if (d.cycle) {
+      S.fv = VARIANTS[(VARIANTS.indexOf(S.fv) + Number(d.cycle) + 3) % 3];
+      S.open = false;
+      S.sheet = false;
+      clearFilter();
+      return render();
+    }
+    if (d.set) {
+      S[d.set] = d.val;
+      return render();
+    }
+    if (d.toggle === "wide") {
+      S.wide = !S.wide;
+      return render();
+    }
+    if (d.toggle === "busy") {
+      S.busy = !S.busy;
+      S.entries = seed(S.busy);
+      return render();
+    }
+    if (d.preset === "broccoli") {
+      clearFilter();
+      S.f.food = "Broccoli";
+      openFilter();
+      S.sheet = false;
+      S.open = true;
+      return render();
+    }
+    if (d.preset === "oma") {
+      clearFilter();
+      S.f.member = "Oma";
+      openFilter();
+      S.sheet = false;
+      S.open = true;
+      return render();
+    }
+
+    /* ---- filter ---- */
+    if (d.find) {
+      openFilter();
+      return render();
+    }
+    if (d.type !== undefined) {
+      var i = S.f.types.indexOf(d.type);
+      if (i > -1) S.f.types.splice(i, 1);
+      else S.f.types.push(d.type);
+      if (S.fv === "a") S.open = true;
+      return render();
+    }
+    if (d.food !== undefined) {
+      S.f.food = d.food || null;
+      if (S.fv === "a") S.open = true;
+      return render();
+    }
+    if (d.member !== undefined) {
+      S.f.member = S.f.member === d.member ? null : d.member || null;
+      if (S.fv === "a") S.open = true;
+      return render();
+    }
+    if (d.period) {
+      S.f.period = d.period;
+      return render();
+    }
+    if (d.foodOpen) {
+      /* the ticket's Food detail view — same filter, three doors */
+      clearFilter();
+      S.f.food = d.foodOpen;
+      S.screen = 0;
+      S.open = true;
+      S.sheet = false;
+      return render();
+    }
+    if (d.sheet) {
+      S.sheet = true;
+      return render();
+    }
+    if (d.closeSheet) {
+      S.sheet = false;
+      if (S.fv === "a" && anyFacet()) S.open = true;
+      return render();
+    }
+    if (d.clear) {
+      clearFilter();
+      S.open = false;
+      S.sheet = false;
+      return render();
+    }
+    if (d.closeFind) {
+      S.open = false;
+      clearFilter();
+      return render();
+    }
+
+    /* ---- log ---- */
+    if (d.goto !== undefined) {
+      S.screen = Number(d.goto);
+      S.fan = false;
+      return render();
+    }
+    if (d.fab) {
+      S.fan = !S.fan;
+      return render();
+    }
+    if (d.close) {
+      S.fan = false;
+      S.sheet = false;
+      return render();
+    }
+    if (d.nappy) {
+      add({ type: "nappy", at: Date.now(), nappy: d.nappy });
+      afterLog();
+      toast(d.nappy + " logged", true);
+      return render();
+    }
+    if (d.sleep) {
+      add({ type: "sleep", at: Date.now(), end: null });
+      afterLog();
+      toast("Sleep started", true);
+      return render();
+    }
+    if (d.feed) {
+      add({ type: "bottle", at: Date.now(), ml: 150 });
+      afterLog();
+      toast("Bottle 150 ml logged", true);
+      return render();
+    }
+    if (d.milestone) {
+      add({ type: "milestone", at: dayStartInstant(Date.now()), name: "Sat up unaided" });
+      afterLog();
+      toast("Milestone logged", true);
+      return render();
+    }
+    if (d.stop) {
+      var e = S.entries.find(function (x) {
+        return x.id === Number(d.stop);
+      });
+      if (e) e.end = Date.now();
+      S.fan = false;
+      toast("Sleep ended", false);
+      return render();
+    }
+    if (d.undo) {
+      S.entries.shift();
+      S.toast = null;
+      return render();
+    }
+  });
+
+  /* free text, live */
+  document.addEventListener("input", function (ev) {
+    if (ev.target.id === "findq" || ev.target.id === "sheetq") {
+      S.f.text = ev.target.value;
+      var id = ev.target.id;
+      var pos = ev.target.selectionStart;
+      render();
+      var el = document.getElementById(id);
+      if (el) {
+        el.focus();
+        try {
+          el.setSelectionRange(pos, pos);
+        } catch (x) {}
+      }
+    }
+  });
+
+  document.addEventListener("keydown", function (ev) {
+    if (/^(INPUT|TEXTAREA)$/.test(ev.target.tagName)) {
+      if (ev.key === "Escape") ev.target.blur();
+      return;
+    }
+    if (ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
+      S.fv = VARIANTS[(VARIANTS.indexOf(S.fv) + (ev.key === "ArrowRight" ? 1 : -1) + 3) % 3];
+      S.open = false;
+      S.sheet = false;
+      clearFilter();
+      render();
+    }
+    if (ev.key === "Escape") {
+      S.open = false;
+      S.sheet = false;
+      S.fan = false;
+      clearFilter();
+      render();
+    }
+  });
+
+  setInterval(function () {
+    if (!S.fan && !S.sheet && !S.open && S.screen === 0) render();
+  }, 30000);
+
+  render();
+</script>

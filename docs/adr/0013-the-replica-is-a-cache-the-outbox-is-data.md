@@ -1,0 +1,11 @@
+# The replica is a cache; the outbox is data
+
+The two local stores look alike — both are IndexedDB, both are written by the same sync code — and they have **opposite** durability rules, so we state the asymmetry rather than leave it to be inferred. The local replica may be destroyed at any time and re-pulled from cursor 0; that is the reset lever, and its cheapness is why [building the sync engine beat buying one](../../.scratch/baby-log-book/issues/01-local-first-sync-engine.md). The outbox may **never** be destroyed, because for an Entry that has not yet synced it is the only copy of that Entry in existence.
+
+## Consequences
+
+- **A new client must be able to read an older client's outbox records. Forward compatibility is a contract, not an aspiration.** Without it, an app version that changes the local schema collides with the reset lever's refusal to run while the outbox is non-empty, and the only exit from that collision is to destroy Entries a Member typed. A schema change to the replica is free; a schema change to the outbox is a migration that must be written.
+- **An update never waits for the outbox to drain.** Waiting deadlocks the exact case that most needs the update: a protocol-version bump *is* the condition "the outbox cannot drain until after the update", and a Device offline for a week is the same shape. The carry-across costs nothing, since a service worker update does not touch IndexedDB.
+- **It is the reason the install nudge is not cosmetic.** An uninstalled browser tab holding an undrained outbox is a data-loss risk rather than a merely worse experience, which is why `navigator.storage.persist()` is called unconditionally after a [Claim](../../CONTEXT.md) and does not wait for anyone to accept an install.
+- **It sharpens [ADR-0007](0007-export-is-an-escape-hatch.md)'s boundary.** An Export is taken from the server and can only ever contain what has synced; a Device with a full outbox holds Entries no Export can see. The two facts are consistent only because the outbox is guaranteed to survive until it drains.
+- **It gives "reset" an honest precondition.** The reset lever refuses while the outbox is non-empty and offers to sync first, rather than warning about data loss — the guard is structural, not a confirmation dialog.

@@ -1,0 +1,287 @@
+/* =====================================================================
+   Baby Log Book — design tokens
+   Direction D1 "Instrument", ratified 2026-08-16.
+   Settled by .scratch/baby-log-book/issues/11-visual-design-direction.md
+   Appearance rule: docs/adr/0008-appearance-follows-the-clock.md
+
+   This file is the whole of the visual system. Nothing else in the app may
+   name a colour, a radius or a font size directly. Lift it as-is.
+
+   It expects two attributes on <html>, both written by the appearance
+   resolver before first paint:
+
+       data-appearance = "day" | "night" | "deep"
+       data-theme      = "light" | "dark"      (for Pico's own icon assets)
+
+   ===================================================================== */
+
+@layer framework, app;
+
+@import url("@picocss/pico/css/pico.min.css") layer(framework);
+
+@layer app {
+  /* ===================================================================
+     1. SCALE — appearance-independent. Open Props shaped, trimmed to what
+     this app actually uses. Adding a step is a design decision, not a
+     convenience.
+     =================================================================== */
+
+  :root {
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+    --sp-7: 3rem;
+
+    --fs-0: 0.75rem;
+    --fs-1: 0.8125rem;
+    --fs-2: 0.875rem;
+    --fs-3: 1rem;
+    --fs-4: 1.125rem;
+    --fs-5: 1.375rem;
+    --fs-6: 1.75rem;
+    --fs-7: 2.25rem;
+    --fs-8: 3rem;
+
+    --fw-normal: 400;
+    --fw-medium: 500;
+    --fw-bold: 650;
+
+    /* The hero figure — "2h 10m" — is the loudest thing on the screen, and
+       it is loud through size at a LIGHT weight. Bold at 3rem shouts. */
+    --hero-size: var(--fs-8);
+    --hero-weight: 300;
+
+    --r-1: 10px;
+    --r-2: 16px;
+    --r-3: 26px;
+
+    /* Floor, not target. The FAB is 62px and the fan items are 54px. */
+    --tap: 48px;
+
+    --dur-1: 120ms;
+    --dur-2: 190ms;
+    --dur-3: 280ms;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quint */
+
+    --z-header: 10;
+    --z-nav: 20;
+    --z-scrim: 30;
+    --z-fab: 40;
+    --z-sheet: 50;
+    --z-toast: 60;
+
+    /* One family, in several weights — a product UI does not need a display
+       face, and a webfont is a request the service worker has to cache and
+       the 3am first paint has to wait for. */
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-num: var(--font-ui);
+    --num-feature: "tnum" 1, "lnum" 1;
+  }
+
+  /* ===================================================================
+     2. COLOUR — three appearances. Every one of these names is defined in
+     every appearance; nothing is left to inherit.
+
+     Surfaces sit at chroma 0. All the warmth in this app is in the accent
+     and nowhere else — a warm background plus a warm accent is the thing
+     that makes an interface look generated.
+     =================================================================== */
+
+  /* --- day: a sunlit kitchen table at 11am --------------------------- */
+  :root,
+  :root[data-appearance="day"] {
+    --ground: oklch(0.975 0 0);
+    --surface: oklch(1 0 0);
+    --surface-2: oklch(0.945 0 0);
+    --line: oklch(0.9 0 0);
+    --line-strong: oklch(0.82 0 0);
+
+    --ink: oklch(0.22 0.008 60); /* 15.9:1 on --surface */
+    --ink-2: oklch(0.46 0.006 60); /*  8.3:1 — secondary text  */
+    --ink-3: oklch(0.58 0.005 60); /*  5.1:1 — still body-legible */
+
+    --accent: oklch(0.55 0.15 45);
+    --accent-ink: oklch(1 0 0); /* 4.8:1 on --accent */
+    --accent-soft: oklch(0.95 0.035 50);
+
+    /* Overdue is the number adopting the brand colour. There is no second
+       escalation colour and there is no red: this app has exactly one hue,
+       so it can report but never nag. */
+    --warn: var(--accent);
+    --live: var(--accent);
+
+    /* Entry types are told apart by glyph and label, never by colour.
+       These exist so the rule is enforced by the token layer rather than by
+       memory — and so a seventh type costs nothing. */
+    --t-feed: var(--ink-2);
+    --t-sleep: var(--ink-2);
+    --t-nappy: var(--ink-2);
+    --t-meal: var(--ink-2);
+    --t-measure: var(--ink-2);
+    --t-milestone: var(--ink-2);
+
+    --shadow: 0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px oklch(0 0 0 / 0.06);
+  }
+
+  /* --- night: lamps on, she is going down ---------------------------- */
+  :root[data-appearance="night"] {
+    --ground: oklch(0.17 0.006 60);
+    --surface: oklch(0.215 0.007 60);
+    --surface-2: oklch(0.26 0.008 60);
+    --line: oklch(0.32 0.008 60);
+    --line-strong: oklch(0.4 0.008 60);
+
+    --ink: oklch(0.95 0.006 70);
+    --ink-2: oklch(0.74 0.008 70);
+    --ink-3: oklch(0.6 0.008 70);
+
+    --accent: oklch(0.78 0.14 65);
+    --accent-ink: oklch(0.2 0.03 60);
+    --accent-soft: oklch(0.3 0.05 60);
+
+    --shadow: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.35);
+  }
+
+  /* --- deep night: 23:00 to Day Start, an unlit room ------------------
+     Peak luminance is capped: --ink is 0.78, not 1.0. Contrast against the
+     ground is still 10.7:1, so nothing here is a legibility compromise —
+     the page is printed in a quieter register, not greyed out. Shadows go
+     entirely; on a near-black ground they are only noise. */
+  :root[data-appearance="deep"] {
+    --ground: oklch(0.09 0.005 60);
+    --surface: oklch(0.125 0.006 60);
+    --surface-2: oklch(0.16 0.006 60);
+    --line: oklch(0.21 0.006 60);
+    --line-strong: oklch(0.28 0.006 60);
+
+    --ink: oklch(0.78 0.02 70);
+    --ink-2: oklch(0.58 0.02 70);
+    --ink-3: oklch(0.44 0.015 70);
+
+    --accent: oklch(0.66 0.11 60);
+    --accent-ink: oklch(0.1 0.01 60);
+    --accent-soft: oklch(0.2 0.04 60);
+
+    --shadow: none;
+  }
+
+  /* ===================================================================
+     3. PICO — the plug-in point.
+
+     63 of Pico's 149 `--pico-*` tokens are mapped here. The other 86
+     (invalid-field colours, the loading spinner, tooltips, accordions,
+     progress, text selection, and the select / date / time icon data URIs)
+     are left to track `:root[data-theme]`, which is why the resolver writes
+     that attribute as well as `data-appearance`.
+
+     Because Pico is imported into @layer framework, nothing below needs to
+     out-specify it, and the app ships no `!important` outside the
+     reduced-motion block.
+     =================================================================== */
+
+  :root {
+    --pico-background-color: var(--ground);
+    --pico-color: var(--ink);
+    --pico-muted-color: var(--ink-2);
+    --pico-muted-border-color: var(--line);
+    --pico-h1-color: var(--ink);
+    --pico-h2-color: var(--ink);
+    --pico-h3-color: var(--ink);
+    --pico-h4-color: var(--ink);
+    --pico-h5-color: var(--ink);
+    --pico-h6-color: var(--ink);
+
+    --pico-primary: var(--accent);
+    --pico-primary-background: var(--accent);
+    --pico-primary-border: var(--accent);
+    --pico-primary-hover: var(--accent);
+    --pico-primary-hover-background: var(--accent);
+    --pico-primary-hover-border: var(--accent);
+    --pico-primary-inverse: var(--accent-ink);
+    --pico-primary-focus: color-mix(in oklch, var(--accent) 30%, transparent);
+    --pico-primary-underline: color-mix(in oklch, var(--accent) 40%, transparent);
+
+    --pico-secondary: var(--ink-2);
+    --pico-secondary-background: var(--surface-2);
+    --pico-secondary-border: var(--line);
+    --pico-secondary-hover: var(--ink);
+    --pico-secondary-hover-background: var(--surface-2);
+    --pico-secondary-hover-border: var(--line-strong);
+    --pico-secondary-inverse: var(--ink);
+
+    --pico-form-element-background-color: var(--surface);
+    --pico-form-element-border-color: var(--line-strong);
+    --pico-form-element-color: var(--ink);
+    --pico-form-element-placeholder-color: var(--ink-3);
+    --pico-form-element-active-background-color: var(--surface);
+    --pico-form-element-active-border-color: var(--accent);
+    --pico-form-element-focus-color: var(--accent);
+    --pico-switch-background-color: var(--line-strong);
+    --pico-switch-checked-background-color: var(--accent);
+    --pico-switch-color: var(--surface);
+
+    --pico-card-background-color: var(--surface);
+    --pico-card-border-color: var(--line);
+    --pico-card-sectioning-background-color: var(--surface-2);
+    --pico-code-background-color: var(--surface-2);
+    --pico-code-color: var(--ink-2);
+    --pico-mark-background-color: var(--accent-soft);
+    --pico-mark-color: var(--ink);
+    --pico-del-color: var(--warn);
+    --pico-ins-color: var(--ink-2);
+    --pico-blockquote-border-color: var(--line);
+    --pico-dropdown-background-color: var(--surface);
+    --pico-dropdown-border-color: var(--line);
+    --pico-dropdown-color: var(--ink);
+    --pico-dropdown-hover-background-color: var(--surface-2);
+    --pico-box-shadow: var(--shadow);
+
+    --pico-border-radius: var(--r-1);
+    --pico-spacing: var(--sp-4);
+    --pico-typography-spacing-vertical: var(--sp-4);
+    --pico-block-spacing-vertical: var(--sp-4);
+    --pico-block-spacing-horizontal: var(--sp-4);
+    --pico-form-element-spacing-vertical: var(--sp-3);
+    --pico-form-element-spacing-horizontal: var(--sp-3);
+    --pico-font-family: var(--font-ui);
+    --pico-font-size: 100%;
+    --pico-line-height: 1.45;
+    --pico-transition: var(--dur-1) var(--ease);
+    --pico-outline-width: 2px;
+  }
+
+  /* The one place we fight the framework rather than configure it: Pico
+     scales the root font size to 131.25% on wide viewports, which is right
+     for a document and wrong for an application. */
+  html {
+    font-size: 16px;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Every figure in this app lines up in a column somewhere. */
+  .num,
+  input[type="number"],
+  time {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: var(--num-feature);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

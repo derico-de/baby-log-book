@@ -1,0 +1,1451 @@
+<title>One-Thumb Logging</title>
+
+<!--
+  PROTOTYPE — throwaway. Answers: what does the primary logging surface look and
+  feel like, one-handed, at 3am?
+
+  Three structurally different variants on one screen, switchable via ?variant=
+  and the floating bar at the bottom.
+
+    A — Status board   : three big numbers on top, timeline below, fixed action bar
+    B — Timeline first : the log IS the screen, one FAB opens everything
+    C — Split thumb    : one dominant number up top, instant-log grid in thumb reach
+    D — CHOSEN         : B's structure with C's due information (ticket 08)
+
+  ---- Ticket 16 extension -------------------------------------------------
+
+  D is settled, so it is now the fixed stage for two further questions, each on
+  its own axis. Both only apply to D.
+
+  CHOSEN: fab=F2, stale=S1 — both are now the defaults.
+
+  ?fab=   what is one tap away — how much does the highest-frequency, lowest-
+          information action (a nappy) get privileged?
+    F1 — One sheet, tiered      : nothing privileged. FAB opens one sheet;
+                                  nappies are instant chips inside it.
+    F2 — Fan of direct actions  : FAB expands into direct actions in thumb
+                                  reach; nappies log without a sheet.
+    F3 — Nappy has its own button : a permanent second control. One tap logs.
+                                  Long-press for poop/both.
+
+  ?stale= recovering a Sleep nobody stopped
+    S1 — Passive banner         : prompts, never acts. Picker defaults to now.
+    S2 — Auto-close, ask forgiveness : ends it at her usual wake time, marks it
+                                  ESTIMATED, offers a quiet correction.
+    S3 — Interception on open   : a modal that must be answered first.
+
+  Proto-bar controls exist for the sub-questions the ticket names: undo toast
+  vs confirm step, and whether the intervention threshold is fixed or derived
+  from the baby's own sleeps. "Forgotten feed" injects a 6h-old running feed to
+  check the asymmetry — a feed left running must NOT get the sleep treatment.
+
+  Visual design is deliberately neutral here — that is a separate ticket. Judge
+  structure, hierarchy and reach, not colour and type.
+
+  State is in memory. Nothing persists. Refresh resets.
+-->
+
+<style>
+  /* ---- tokens: light is the base, dark overrides below ------------------- */
+  :root {
+    color-scheme: light;
+    --ground: #F6F3EF;
+    --surface: #FFFFFF;
+    --surface-2: #EFEAE4;
+    --line: #DDD5CB;
+    --ink: #22201D;
+    --ink-2: #6B635A;
+    --ink-3: #9A9088;
+
+    --accent: #B26A12;          /* warm amber — low-blue, kind at night */
+    --accent-ink: #FFFFFF;
+
+    --feed: #B26A12;
+    --sleep: #4E5AA8;
+    --nappy: #4C7A52;
+    --meal: #A2542C;
+    --measure: #6B635A;
+
+    --danger: #A33A2E;
+
+    --r-sm: 8px;
+    --r-md: 14px;
+    --r-lg: 22px;
+
+    --tap: 56px;                /* minimum comfortable one-thumb target */
+    --frame: 420px;
+
+    --font-ui: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-num: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #151311;
+      --surface: #1E1A17;
+      --surface-2: #272220;
+      --line: #352F2B;
+      --ink: #F2EDE8;
+      --ink-2: #A79E96;
+      --ink-3: #776E67;
+
+      --accent: #E8A33D;
+      --accent-ink: #1A1512;
+
+      --feed: #E8A33D;
+      --sleep: #8B94D8;
+      --nappy: #86AE8C;
+      --meal: #D98A5C;
+      --measure: #A79E96;
+
+      --danger: #E0705F;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #151311;
+    --surface: #1E1A17;
+    --surface-2: #272220;
+    --line: #352F2B;
+    --ink: #F2EDE8;
+    --ink-2: #A79E96;
+    --ink-3: #776E67;
+
+    --accent: #E8A33D;
+    --accent-ink: #1A1512;
+
+    --feed: #E8A33D;
+    --sleep: #8B94D8;
+    --nappy: #86AE8C;
+    --meal: #D98A5C;
+    --measure: #A79E96;
+
+    --danger: #E0705F;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 84px;
+  }
+
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+  button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---- prototype chrome -------------------------------------------------- */
+  .proto-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 16px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-2);
+  }
+  .proto-tag {
+    font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .proto-bar label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .proto-spacer { flex: 1; }
+  .proto-btn {
+    padding: 5px 11px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    font-size: 12px;
+  }
+
+  /* ---- phone frame ------------------------------------------------------- */
+  .stage { display: flex; justify-content: center; padding: 20px 16px 0; }
+  .phone {
+    width: 100%; max-width: var(--frame);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    min-height: 720px;
+    position: relative;
+  }
+  @media (max-width: 480px) {
+    .stage { padding: 0; }
+    .phone { border-radius: 0; border-left: 0; border-right: 0; min-height: calc(100vh - 130px); }
+  }
+
+  .status-strip {
+    display: flex; justify-content: space-between;
+    padding: 10px 20px 2px;
+    font-size: 12px; color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .screen-head { padding: 4px 20px 0; }
+  .baby-name { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+  .baby-sub { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+
+  .scroll { flex: 1; overflow-y: auto; }
+
+  /* ---- shared pieces ----------------------------------------------------- */
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dot.breast, .dot.bottle { background: var(--feed); }
+  .dot.sleep  { background: var(--sleep); }
+  .dot.nappy  { background: var(--nappy); }
+  .dot.meal   { background: var(--meal); }
+  .dot.measurement { background: var(--measure); }
+
+  .note-btn {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ink-3); flex: none;
+  }
+  .note-btn.has-note { color: var(--accent); }
+  .note-btn svg { width: 15px; height: 15px; }
+
+  .live {
+    display: flex; align-items: center; gap: 12px;
+    margin: 14px 16px 0; padding: 14px 16px;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    border-left: 3px solid var(--sleep);
+  }
+  .live.feed-live { border-left-color: var(--feed); }
+  .live-label { font-size: 12px; color: var(--ink-2); }
+  .live-time { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .live-stop {
+    margin-left: auto; padding: 12px 20px; min-height: 46px;
+    border-radius: 999px; background: var(--ink); color: var(--ground);
+    font-weight: 700; font-size: 14px;
+  }
+
+  .stale {
+    margin: 14px 16px 0; padding: 14px 16px;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    border-left: 3px solid var(--danger);
+  }
+  .stale-title { font-size: 14px; font-weight: 700; color: var(--danger); }
+  .stale-body { font-size: 13px; color: var(--ink-2); margin-top: 4px; line-height: 1.45; }
+  .stale-acts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .stale-acts button {
+    padding: 10px 14px; min-height: 44px; border-radius: 999px;
+    border: 1px solid var(--line); font-size: 13px; font-weight: 600;
+  }
+  .stale-acts .primary { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+
+  /* timeline (used by A and B, styled per variant) */
+  .tl-day {
+    display: flex; align-items: center; gap: 10px;
+    padding: 18px 20px 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .tl-day::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  .tl-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tl-time {
+    font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+    width: 44px; flex: none;
+  }
+  .tl-main { flex: 1; min-width: 0; }
+  .tl-what { font-size: 15px; font-weight: 600; }
+  .tl-who { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .tl-note { font-size: 13px; color: var(--ink-2); margin-top: 4px; font-style: italic; }
+
+  /* ---- variant A --------------------------------------------------------- */
+  .a-tiles {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+    padding: 14px 16px 4px;
+  }
+  .a-tile {
+    background: var(--surface-2); border-radius: var(--r-md);
+    padding: 14px 10px; text-align: center;
+  }
+  .a-tile-label { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+  .a-tile-value {
+    font-size: 26px; font-weight: 700; margin-top: 6px;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  }
+  .a-tile-sub { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+  .a-tile.warn .a-tile-value { color: var(--accent); }
+
+  .a-actions {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .a-action {
+    min-height: var(--tap); border-radius: var(--r-md);
+    background: var(--surface-2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-size: 14px; font-weight: 700;
+  }
+  .a-action span { font-size: 10px; font-weight: 500; color: var(--ink-3); }
+  .a-action.primary { background: var(--accent); color: var(--accent-ink); }
+  .a-action.primary span { color: var(--accent-ink); opacity: .75; }
+
+  /* ---- variant B --------------------------------------------------------- */
+  .b-strip {
+    display: flex; gap: 0; align-items: stretch;
+    padding: 10px 16px 12px;
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 2;
+    background: var(--surface);
+  }
+  .b-stat { flex: 1; padding: 0 8px; border-left: 1px solid var(--line); }
+  .b-stat:first-child { border-left: 0; padding-left: 0; }
+  .b-stat-label { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .b-stat-value { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 3px; }
+
+  .b-fab {
+    position: absolute; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom));
+    width: 68px; height: 68px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-ink);
+    font-size: 32px; font-weight: 400; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px rgba(0,0,0,.28);
+    z-index: 3;
+  }
+
+  /* ---- variant D — the merge: B's timeline, C's due info ------------------ */
+  .d-head {
+    padding: 14px 20px 14px;
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 2;
+    background: var(--surface);
+  }
+  .d-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .d-since {
+    font-size: 42px; font-weight: 800; line-height: 1; margin-top: 6px;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.04em;
+  }
+  .d-since.due { color: var(--accent); }
+  .d-due { font-size: 14px; color: var(--ink-2); margin-top: 8px; }
+  .d-due.overdue { color: var(--accent); font-weight: 600; }
+  .d-second {
+    display: flex; gap: 20px; margin-top: 12px;
+    font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- variant C --------------------------------------------------------- */
+  .c-top {
+    padding: 26px 20px 22px; text-align: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .c-eyebrow { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .c-huge {
+    font-size: 68px; font-weight: 800; line-height: .95; margin-top: 10px;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.045em;
+  }
+  .c-huge.due { color: var(--accent); }
+  .c-caption { font-size: 14px; color: var(--ink-2); margin-top: 10px; }
+  .c-second {
+    display: flex; justify-content: center; gap: 22px; margin-top: 16px;
+    font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums;
+  }
+
+  .c-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    padding: 14px 16px;
+  }
+  .c-cell {
+    min-height: 84px; border-radius: var(--r-md);
+    background: var(--surface-2);
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+    padding: 0 16px; gap: 4px;
+  }
+  .c-cell-main { font-size: 17px; font-weight: 700; }
+  .c-cell-sub { font-size: 11px; color: var(--ink-3); }
+  .c-cell.wide { grid-column: span 2; min-height: 68px; }
+  .c-cell.hot { background: var(--accent); color: var(--accent-ink); }
+  .c-cell.hot .c-cell-sub { color: var(--accent-ink); opacity: .75; }
+  .c-stop {
+    grid-column: span 2; min-height: 120px; border-radius: var(--r-lg);
+    background: var(--ink); color: var(--ground);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  }
+  .c-stop-main { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+  .c-stop-sub { font-size: 13px; opacity: .7; font-variant-numeric: tabular-nums; }
+  .c-recent { padding: 0 20px 20px; font-size: 12px; color: var(--ink-3); line-height: 1.7; }
+
+  /* ---- sheet ------------------------------------------------------------- */
+  .sheet-scrim {
+    position: absolute; inset: 0; background: rgba(0,0,0,.5);
+    display: flex; align-items: flex-end; z-index: 5;
+  }
+  .sheet {
+    width: 100%; background: var(--surface);
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+  }
+  .sheet-grab { width: 38px; height: 4px; border-radius: 2px; background: var(--line); margin: 6px auto 14px; }
+  .sheet-title { font-size: 17px; font-weight: 700; margin-bottom: 14px; }
+
+  .seg { display: flex; gap: 6px; background: var(--surface-2); padding: 4px; border-radius: 999px; }
+  .seg button {
+    flex: 1; min-height: 46px; border-radius: 999px; font-size: 14px; font-weight: 600;
+    color: var(--ink-2);
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+  .field-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .chip {
+    flex: 1; min-width: 74px; min-height: var(--tap); border-radius: var(--r-md);
+    background: var(--surface-2); font-size: 15px; font-weight: 600;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+  .sheet-foot { display: flex; gap: 10px; margin-top: 18px; align-items: center; }
+  .sheet-confirm {
+    flex: 1; min-height: var(--tap); border-radius: var(--r-md);
+    background: var(--accent); color: var(--accent-ink); font-size: 16px; font-weight: 700;
+  }
+  .sheet-cancel { min-height: var(--tap); padding: 0 18px; border-radius: var(--r-md); color: var(--ink-2); font-size: 15px; }
+  .sheet-hint { font-size: 12px; color: var(--ink-3); margin-top: 12px; line-height: 1.5; }
+
+  /* ---- toast ------------------------------------------------------------- */
+  .toast {
+    position: absolute; left: 16px; right: 16px; bottom: 96px; z-index: 6;
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 16px; border-radius: var(--r-md);
+    background: var(--ink); color: var(--ground);
+    font-size: 14px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3);
+  }
+  .toast button { margin-left: auto; font-weight: 700; color: var(--ground); text-decoration: underline; min-height: 32px; }
+
+  /* ======================================================================== */
+  /* ticket 16 — FAB behaviour                                                */
+  /* ======================================================================== */
+
+  /* F2 — fan of direct actions */
+  .fan {
+    position: absolute; right: 18px; bottom: calc(96px + env(safe-area-inset-bottom));
+    z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  }
+  .fan-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 18px 0 16px; min-height: 54px; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    font-size: 15px; font-weight: 700;
+    box-shadow: 0 4px 14px rgba(0,0,0,.22);
+  }
+  .fan-item .fan-sub { font-size: 11px; font-weight: 500; color: var(--ink-3); }
+  .fan-item .dot { width: 8px; height: 8px; }
+  .fan-scrim { position: absolute; inset: 0; z-index: 3; background: rgba(0,0,0,.35); }
+  .b-fab.open { transform: rotate(45deg); }
+
+  /* F3 — nappy gets its own permanent control */
+  .nappy-fab {
+    position: absolute; right: 26px; bottom: calc(96px + env(safe-area-inset-bottom));
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--nappy); color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; letter-spacing: .02em;
+    box-shadow: 0 4px 14px rgba(0,0,0,.26);
+    z-index: 3;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  .nappy-fab.holding { background: var(--accent); }
+  .fab-hint {
+    position: absolute; right: 90px; bottom: calc(110px + env(safe-area-inset-bottom));
+    z-index: 3; font-size: 11px; color: var(--ink-3); text-align: right; line-height: 1.4;
+    max-width: 150px;
+  }
+
+  /* quick row inside the sheet (F1) */
+  .quick-label {
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); margin: 2px 0 8px;
+  }
+  .quick-row { display: flex; gap: 8px; }
+  .quick-row button {
+    flex: 1; min-height: var(--tap); border-radius: var(--r-md);
+    background: var(--surface-2); border: 1px solid var(--line);
+    font-size: 15px; font-weight: 700;
+  }
+  .sheet-rule { height: 1px; background: var(--line); margin: 18px 0 14px; }
+
+  /* confirm-instead-of-undo step */
+  .confirm-box { padding: 4px 0 0; }
+  .confirm-q { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+  .confirm-sub { font-size: 13px; color: var(--ink-2); }
+
+  /* ======================================================================== */
+  /* ticket 16 — stale sleep recovery                                         */
+  /* ======================================================================== */
+
+  /* S2 — the quiet correction chip */
+  .est-chip {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 14px 16px 0; padding: 12px 14px;
+    border-radius: var(--r-md);
+    background: var(--surface-2); border: 1px dashed var(--line);
+    font-size: 13px; color: var(--ink-2);
+  }
+  .est-chip strong { color: var(--ink); font-weight: 700; }
+  .est-chip button {
+    margin-left: auto; min-height: 40px; padding: 0 14px; border-radius: 999px;
+    border: 1px solid var(--line); font-size: 13px; font-weight: 600;
+  }
+  .tl-est {
+    font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; margin-left: 8px; vertical-align: 1px;
+  }
+
+  /* S3 — interception modal */
+  .modal-scrim {
+    position: absolute; inset: 0; z-index: 7;
+    background: rgba(0,0,0,.62);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal {
+    width: 100%; background: var(--surface);
+    border-radius: var(--r-lg); padding: 22px 20px;
+    border: 1px solid var(--line);
+    box-shadow: 0 20px 50px rgba(0,0,0,.5);
+  }
+  .modal-eyebrow {
+    font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--danger);
+  }
+  .modal-title { font-size: 21px; font-weight: 800; margin-top: 8px; line-height: 1.2; letter-spacing: -0.01em; }
+  .modal-body { font-size: 14px; color: var(--ink-2); margin-top: 8px; line-height: 1.5; }
+  .modal-acts { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+  .modal-acts button {
+    min-height: var(--tap); border-radius: var(--r-md);
+    border: 1px solid var(--line); font-size: 15px; font-weight: 600;
+  }
+  .modal-acts .primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+  .modal-acts .quiet { border: 0; color: var(--ink-3); font-size: 14px; min-height: 44px; }
+
+  /* time picker (shared by all three stale variants) */
+  .timepick {
+    display: flex; align-items: center; gap: 10px; margin-top: 14px;
+    padding: 10px 12px; border-radius: var(--r-md);
+    background: var(--surface-2); border: 1px solid var(--line);
+  }
+  .timepick button {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--line);
+    font-size: 20px; font-weight: 700; flex: none;
+  }
+  .timepick-val {
+    flex: 1; text-align: center;
+    font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+  .timepick-sub { font-size: 11px; color: var(--ink-3); text-align: center; margin-top: 2px; }
+
+  /* ---- variant switcher -------------------------------------------------- */
+  .switcher {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: 16px; z-index: 50;
+    display: flex; flex-direction: column; gap: 2px;
+    background: #101010; color: #fff;
+    border: 1px solid #2E2E2E;
+    border-radius: 22px; padding: 5px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.45);
+    font-family: var(--font-ui);
+  }
+  .switch-row { display: flex; align-items: center; gap: 4px; }
+  .switcher button {
+    width: 36px; height: 36px; border-radius: 50%; color: #fff;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    flex: none;
+  }
+  .switcher button:hover { background: #262626; }
+  .switcher .label {
+    flex: 1; padding: 0 10px; font-size: 12px; font-weight: 600;
+    white-space: nowrap; text-align: center;
+  }
+  .switcher .key { color: #E8A33D; }
+  .switcher .axis {
+    font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+    color: #6E6E6E; width: 46px; flex: none; padding-left: 8px;
+  }
+  .switch-row.muted { opacity: .4; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="proto-bar">
+  <span class="proto-tag">Prototype</span>
+  <span>One-thumb logging · structure only, not visual design</span>
+  <span class="proto-spacer"></span>
+  <label><input type="checkbox" id="staleToggle"> Forgotten sleep</label>
+  <label><input type="checkbox" id="feedToggle"> Forgotten feed</label>
+  <label><input type="checkbox" id="confirmToggle"> Confirm instead of undo</label>
+  <label>Threshold
+    <select class="proto-btn" id="thresholdSel">
+      <option value="fixed">fixed · 5h</option>
+      <option value="derived">1.5× her usual sleep</option>
+    </select>
+  </label>
+  <button class="proto-btn" id="themeBtn">Light</button>
+  <button class="proto-btn" id="resetBtn">Reset</button>
+</div>
+
+<div class="stage">
+  <div class="phone" id="phone"></div>
+</div>
+
+<div class="switcher" id="switcher"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- fake clock + seed data ---------------------------------------------
+  var MIN = 60000, HOUR = 60 * MIN;
+  var BABY = "Lina", AGE = "5 months";
+  var ME = "Papa";
+  var TARGET_FEED = 3 * HOUR;
+
+  var uid = 0;
+  function nextId() { uid += 1; return "e" + uid; }
+
+  function seed() {
+    var now = Date.now();
+    return [
+      { id: nextId(), type: "nappy",   at: now - 35 * MIN,  end: null,             by: "Oma",  nappy: "Pee",       note: "" },
+      { id: nextId(), type: "sleep",   at: now - 2.6 * HOUR, end: now - 70 * MIN,  by: "Mama", note: "" },
+      { id: nextId(), type: "bottle",  at: now - 2.9 * HOUR, end: null,            by: "Oma",  ml: 150, note: "Took it all for once" },
+      { id: nextId(), type: "meal",    at: now - 5.2 * HOUR, end: null,            by: "Papa", foods: ["Carrot", "Yoghurt"], amount: "Some", note: "" },
+      { id: nextId(), type: "nappy",   at: now - 5.6 * HOUR, end: null,            by: "Papa", nappy: "Poop",      note: "" },
+      { id: nextId(), type: "breast",  at: now - 6.1 * HOUR, end: now - 5.8 * HOUR, by: "Mama", side: "Left", note: "" },
+      { id: nextId(), type: "sleep",   at: now - 11 * HOUR,  end: now - 6.4 * HOUR, by: "Mama", note: "" },
+      { id: nextId(), type: "breast",  at: now - 11.4 * HOUR, end: now - 11.1 * HOUR, by: "Mama", side: "Right", note: "" }
+    ];
+  }
+
+  var state = {
+    entries: seed(),
+    sheet: null,        // { kind, mode, ml, side, amount }
+    toast: null,
+    staleId: null,
+    feedId: null,       // forgotten (still running) feed, for the asymmetry check
+    // ---- ticket 16 ----
+    fanOpen: false,     // F2
+    pendingNappy: null, // confirm-instead-of-undo step
+    confirmMode: false,
+    threshold: "fixed",
+    autoClosedId: null, // S2 — the sleep the app ended by itself
+    modalDone: false,   // S3 — modal answered or dismissed this run
+    pick: null          // time picker value (ms), shared by all stale variants
+  };
+
+  // ---- helpers -------------------------------------------------------------
+  function byTime(a, b) { return b.at - a.at; }
+
+  function label(e) {
+    if (e.type === "breast") return "Breast · " + e.side;
+    if (e.type === "bottle") return "Bottle · " + e.ml + " ml";
+    if (e.type === "meal")   return "Food · " + e.foods.join(", ");
+    if (e.type === "sleep")  return e.end ? "Slept " + dur(e.at, e.end) : "Sleeping";
+    if (e.type === "nappy")  return "Nappy · " + e.nappy;
+    return "Measurement";
+  }
+
+  // ---- ticket 16: when is a sleep stale, and when did she probably wake? ----
+
+  // median length of completed sleeps — stands in for "her usual"
+  function usualSleepLen() {
+    var lens = state.entries
+      .filter(function (e) { return e.type === "sleep" && e.end && !e.estimated; })
+      .map(function (e) { return e.end - e.at; })
+      .sort(function (a, b) { return a - b; });
+    if (!lens.length) return 3 * HOUR;
+    return lens[Math.floor(lens.length / 2)];
+  }
+
+  // the clock time she usually wakes from a long sleep — the honest default
+  // for "she woke at…", and much better than "now" at 11am
+  function usualWake(s) {
+    var longs = state.entries.filter(function (e) {
+      return e.type === "sleep" && e.end && !e.estimated && (e.end - e.at) > 4 * HOUR;
+    }).sort(byTime);
+    if (!longs.length) return s.at + usualSleepLen();
+    var d = new Date(longs[0].end);
+    var guess = new Date(s.at);
+    guess.setHours(d.getHours(), d.getMinutes(), 0, 0);
+    if (guess.getTime() < s.at) guess.setTime(guess.getTime() + 24 * HOUR);
+    return Math.min(guess.getTime(), Date.now());
+  }
+
+  function staleThreshold() {
+    return state.threshold === "derived"
+      ? Math.max(2 * HOUR, 1.5 * usualSleepLen())
+      : 5 * HOUR;
+  }
+
+  function thresholdLabel() {
+    return state.threshold === "derived"
+      ? "1.5× her usual " + dur(0, usualSleepLen())
+      : "the fixed 5h mark";
+  }
+
+  function clock(ts) {
+    var d = new Date(ts);
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+
+  function dur(from, to) {
+    var ms = Math.max(0, to - from);
+    var h = Math.floor(ms / HOUR), m = Math.round((ms % HOUR) / MIN);
+    if (m === 60) { h += 1; m = 0; }
+    if (h === 0) return m + "m";
+    return h + "h " + m + "m";
+  }
+
+  function since(ts) { return dur(ts, Date.now()); }
+
+  function lastOfTypes(types) {
+    var list = state.entries.filter(function (e) { return types.indexOf(e.type) >= 0; }).sort(byTime);
+    return list[0] || null;
+  }
+
+  function openSession() {
+    return state.entries.filter(function (e) {
+      return (e.type === "sleep" || e.type === "breast") && e.end === null && e.type === "sleep";
+    }).sort(byTime)[0] || null;
+  }
+
+  function openFeed() {
+    return state.entries.filter(function (e) {
+      return e.type === "breast" && e.end === null;
+    }).sort(byTime)[0] || null;
+  }
+
+  function nappiesToday() {
+    var cutoff = Date.now() - 14 * HOUR;   // stands in for the configured Day Start
+    return state.entries.filter(function (e) { return e.type === "nappy" && e.at >= cutoff; }).length;
+  }
+
+  // "since last feed" counts breast, bottle and meal — and measures from the START
+  function lastFeed() { return lastOfTypes(["breast", "bottle", "meal"]); }
+  function lastSleepEnd() {
+    var s = state.entries.filter(function (e) { return e.type === "sleep" && e.end; }).sort(byTime)[0];
+    return s ? s.end : null;
+  }
+
+  function dueIn() {
+    var f = lastFeed();
+    if (!f) return null;
+    return (f.at + TARGET_FEED) - Date.now();
+  }
+
+  var NOTE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>';
+
+  // ---- actions -------------------------------------------------------------
+  function add(entry) {
+    entry.id = nextId();
+    state.entries.push(entry);
+    toast(label(entry) + " logged", entry.id);
+  }
+
+  function toast(text, undoId) {
+    state.toast = { text: text, undoId: undoId };
+    render();
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { state.toast = null; render(); }, 4000);
+  }
+
+  function undo(id) {
+    state.entries = state.entries.filter(function (e) { return e.id !== id; });
+    state.toast = null;
+    render();
+  }
+
+  function startSleep() {
+    add({ type: "sleep", at: Date.now(), end: null, by: ME, note: "" });
+  }
+  function stopSession(id) {
+    var e = state.entries.filter(function (x) { return x.id === id; })[0];
+    if (e) { e.end = Date.now(); }
+    state.toast = null;
+    render();
+  }
+  function logNappy(kind) {
+    // The explicit trade in the ticket: confirm prevents an error and costs a
+    // tap every single time; undo costs nothing normally but needs you to
+    // notice. The toggle exists so both can be felt, not argued about.
+    if (state.confirmMode) {
+      state.pendingNappy = kind;
+      state.fanOpen = false;
+      render();
+      return;
+    }
+    state.fanOpen = false;
+    add({ type: "nappy", at: Date.now(), end: null, by: ME, nappy: kind, note: "" });
+  }
+
+  function commitNappy() {
+    var kind = state.pendingNappy;
+    state.pendingNappy = null;
+    state.entries.push({ id: nextId(), type: "nappy", at: Date.now(), end: null, by: ME, nappy: kind, note: "" });
+    state.toast = null;
+    render();
+  }
+
+  function openSheet(kind) {
+    state.sheet = { kind: kind, mode: "Bottle", ml: 120, side: "Left", amount: "Some" };
+    render();
+  }
+  function closeSheet() { state.sheet = null; state.fanOpen = false; render(); }
+
+  function confirmSheet() {
+    var s = state.sheet;
+    if (s.mode === "Breast") {
+      add({ type: "breast", at: Date.now(), end: null, by: ME, side: s.side, note: "" });
+    } else if (s.mode === "Bottle") {
+      add({ type: "bottle", at: Date.now(), end: null, by: ME, ml: s.ml, note: "" });
+    } else {
+      add({ type: "meal", at: Date.now(), end: null, by: ME, foods: ["Carrot"], amount: s.amount, note: "" });
+    }
+    state.sheet = null;
+    render();
+  }
+
+  // stale sleep injection
+  function setStale(on) {
+    if (on && !state.staleId) {
+      var e = { id: nextId(), type: "sleep", at: Date.now() - 9.5 * HOUR, end: null, by: "Oma", note: "" };
+      state.entries.push(e);
+      state.staleId = e.id;
+    } else if (!on && state.staleId) {
+      state.entries = state.entries.filter(function (x) { return x.id !== state.staleId; });
+      state.staleId = null;
+      state.autoClosedId = null;
+      state.modalDone = false;
+      state.pick = null;
+    }
+    render();
+  }
+
+  function staleSleep() {
+    var s = openSession();
+    if (s && Date.now() - s.at > staleThreshold()) return s;
+    return null;
+  }
+
+  // forgotten FEED injection — the asymmetry check. A running feed is not a
+  // problem: nothing downstream depends on when a feed ended. It should show
+  // as a live session and get no recovery treatment whatsoever.
+  function setForgottenFeed(on) {
+    if (on && !state.feedId) {
+      var e = { id: nextId(), type: "breast", at: Date.now() - 6 * HOUR, end: null, by: "Mama", side: "Left", note: "" };
+      state.entries.push(e);
+      state.feedId = e.id;
+    } else if (!on && state.feedId) {
+      state.entries = state.entries.filter(function (x) { return x.id !== state.feedId; });
+      state.feedId = null;
+    }
+    render();
+  }
+
+  // S2 — the app ends the sleep itself rather than losing the record
+  function autoCloseIfNeeded() {
+    if (currentStale() !== "S2") return;
+    var s = staleSleep();
+    if (!s) return;
+    s.end = usualWake(s);
+    s.estimated = true;
+    state.autoClosedId = s.id;
+  }
+
+  function autoClosed() {
+    if (!state.autoClosedId) return null;
+    return state.entries.filter(function (e) { return e.id === state.autoClosedId; })[0] || null;
+  }
+
+  // ---- shared fragments ----------------------------------------------------
+  function h(html) { var d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
+
+  function statusStrip() {
+    var d = new Date();
+    return '<div class="status-strip"><span>' + clock(d.getTime()) + '</span><span>' + BABY + ' · ' + AGE + '</span></div>';
+  }
+
+  function liveBanner() {
+    var sleep = openSession(), feed = openFeed();
+    var s = sleep || feed;
+    if (!s) return "";
+    if (staleSleep() === s) return "";
+    var isFeed = s.type === "breast";
+    return '<div class="live ' + (isFeed ? "feed-live" : "") + '">' +
+      '<div><div class="live-label">' + (isFeed ? "Breast · " + s.side : "Asleep since " + clock(s.at)) + '</div>' +
+      '<div class="live-time">' + since(s.at) + '</div></div>' +
+      '<button class="live-stop" data-stop="' + s.id + '">Stop</button></div>';
+  }
+
+  function timelineRows(limit) {
+    var list = state.entries.slice().sort(byTime);
+    if (limit) list = list.slice(0, limit);
+    var out = '<div class="tl-day">Today</div>';
+    list.forEach(function (e) {
+      out += '<div class="tl-row">' +
+        '<div class="tl-time">' + clock(e.at) + '</div>' +
+        '<div class="dot ' + e.type + '"></div>' +
+        '<div class="tl-main">' +
+          '<div class="tl-what">' + label(e) +
+            (e.estimated ? '<span class="tl-est">estimated</span>' : '') + '</div>' +
+          '<div class="tl-who">' + e.by + (e.end === null && e.type === "sleep" ? " · running" : "") + '</div>' +
+          (e.note ? '<div class="tl-note">' + e.note + '</div>' : '') +
+        '</div>' +
+        '<button class="note-btn ' + (e.note ? "has-note" : "") + '" title="Note">' + NOTE_ICON + '</button>' +
+      '</div>';
+    });
+    return out;
+  }
+
+  function sheet() {
+    var s = state.sheet;
+    if (!s) return "";
+    var body = "";
+    if (s.mode === "Breast") {
+      body = '<div class="field-row">' +
+        ["Left", "Right", "Both"].map(function (x) {
+          return '<button class="chip" aria-pressed="' + (s.side === x) + '" data-side="' + x + '">' + x + '</button>';
+        }).join("") + '</div>' +
+        '<div class="sheet-hint">Starts a running timer. Stopping it is optional — nothing downstream depends on when a feed ended.</div>';
+    } else if (s.mode === "Bottle") {
+      body = '<div class="field-row">' +
+        [60, 90, 120, 150, 180].map(function (x) {
+          return '<button class="chip" aria-pressed="' + (s.ml === x) + '" data-ml="' + x + '">' + x + '</button>';
+        }).join("") + '</div>' +
+        '<div class="sheet-hint">Millilitres. Tap once and confirm.</div>';
+    } else {
+      body = '<div class="field-row">' +
+        ["Tasted", "Some", "Lots"].map(function (x) {
+          return '<button class="chip" aria-pressed="' + (s.amount === x) + '" data-amount="' + x + '">' + x + '</button>';
+        }).join("") + '</div>' +
+        '<div class="sheet-hint">Food picker, first-exposure flag and reaction note would live here — the reason Food carries more fields than the other two.</div>';
+    }
+
+    // F1 puts everything behind this one sheet, so the instant actions ride on
+    // top of it: tapping one logs immediately and closes. No confirm step.
+    var quick = "";
+    if (s.kind === "all") {
+      var sleep = openSession();
+      quick = '<div class="quick-label">One tap, logs straight away</div>' +
+        '<div class="quick-row">' +
+          '<button data-nappy="Pee">Pee</button>' +
+          '<button data-nappy="Poop">Poop</button>' +
+          (sleep
+            ? '<button data-stop="' + sleep.id + '">She\'s awake</button>'
+            : '<button data-sleep="1">Sleep</button>') +
+        '</div><div class="sheet-rule"></div>';
+    }
+
+    return '<div class="sheet-scrim" data-scrim="1"><div class="sheet">' +
+      '<div class="sheet-grab"></div>' + quick +
+      '<div class="sheet-title">' + (s.kind === "all" ? "Or log a feed" : "Log a feed") + '</div>' +
+      '<div class="seg">' +
+        ["Breast", "Bottle", "Food"].map(function (m) {
+          return '<button aria-pressed="' + (s.mode === m) + '" data-mode="' + m + '">' + m + '</button>';
+        }).join("") +
+      '</div>' + body +
+      '<div class="sheet-foot">' +
+        '<button class="sheet-cancel" data-cancel="1">Cancel</button>' +
+        '<button class="sheet-confirm" data-confirm="1">' + (s.mode === "Breast" ? "Start" : "Log") + '</button>' +
+        '<button class="note-btn" title="Add note">' + NOTE_ICON + '</button>' +
+      '</div></div></div>';
+  }
+
+  // ========================================================================
+  // ticket 16, question 1 — what is one tap away?
+  // ========================================================================
+
+  // F1 — nothing privileged. One sheet holds everything; nappies are instant
+  // chips inside it. Nappy = 2 taps, no confirm. Timeline stays clean.
+  function fabF1() {
+    return '<button class="b-fab" data-sheet="all" aria-label="Log something">+</button>';
+  }
+
+  // F2 — the FAB expands in place into direct actions, all in thumb reach.
+  // Nappy = 2 taps, but the second is a big target and no sheet ever renders.
+  function fabF2() {
+    var sleep = openSession();
+    if (!state.fanOpen) {
+      return '<button class="b-fab" data-fan="1" aria-label="Log something">+</button>';
+    }
+    var items = [
+      { act: 'data-nappy="Pee"',  main: "Pee",  sub: "logs now", type: "nappy" },
+      { act: 'data-nappy="Poop"', main: "Poop", sub: "logs now", type: "nappy" },
+      sleep
+        ? { act: 'data-stop="' + sleep.id + '"', main: "She's awake", sub: "stop the timer", type: "sleep" }
+        : { act: 'data-sleep="1"', main: "Sleep", sub: "start timer", type: "sleep" },
+      { act: 'data-sheet="feed"', main: "Feed", sub: "breast · bottle · food", type: "bottle" },
+      { act: 'data-measure="1"', main: "Measurement", sub: "weight · height · head", type: "measurement" }
+    ];
+    return '<div class="fan-scrim" data-fanclose="1"></div><div class="fan">' +
+      items.map(function (i) {
+        return '<button class="fan-item" ' + i.act + '>' +
+          '<span class="dot ' + i.type + '"></span>' +
+          '<span>' + i.main + ' <span class="fan-sub">' + i.sub + '</span></span></button>';
+      }).join("") +
+      '</div><button class="b-fab open" data-fanclose="1" aria-label="Close">+</button>';
+  }
+
+  // F3 — the highest-frequency action gets its own permanent control. One tap
+  // logs a pee; press and hold offers poop/both. Costs permanent furniture,
+  // and the long-press is the discoverability gamble the ticket flags.
+  function fabF3() {
+    return '<div class="fab-hint">one tap = pee<br>hold for poop</div>' +
+      '<button class="nappy-fab" id="nappyFab" aria-label="Log a nappy">NAP</button>' +
+      '<button class="b-fab" data-sheet="feed" aria-label="Log something else">+</button>';
+  }
+
+  var FABS = {
+    F1: { name: "One sheet, tiered",        render: fabF1 },
+    F2: { name: "Fan of direct actions",    render: fabF2 },
+    F3: { name: "Nappy has its own button", render: fabF3 }
+  };
+  var FAB_KEYS = ["F1", "F2", "F3"];
+
+  // the confirm step, when the proto-bar toggle turns undo into confirm
+  function confirmSheetEl() {
+    if (!state.pendingNappy) return "";
+    return '<div class="sheet-scrim" data-cancelnappy="1"><div class="sheet">' +
+      '<div class="sheet-grab"></div>' +
+      '<div class="confirm-box">' +
+        '<div class="confirm-q">Log a ' + state.pendingNappy.toLowerCase() + ' nappy?</div>' +
+        '<div class="confirm-sub">' + clock(Date.now()) + ' · logged as ' + ME + '</div>' +
+      '</div>' +
+      '<div class="sheet-foot">' +
+        '<button class="sheet-cancel" data-cancelnappy="1">Cancel</button>' +
+        '<button class="sheet-confirm" data-okname="1">Log it</button>' +
+      '</div></div></div>';
+  }
+
+  // ========================================================================
+  // ticket 16, question 2 — recovering a Stale Session
+  // ========================================================================
+
+  function pickVal(s, fallback) {
+    if (state.pick === null) state.pick = fallback;
+    return state.pick;
+  }
+
+  function timepick(s, fallback, caption) {
+    var v = pickVal(s, fallback);
+    return '<div class="timepick">' +
+        '<button data-pick="-5" aria-label="5 minutes earlier">−</button>' +
+        '<div><div class="timepick-val">' + clock(v) + '</div>' +
+        '<div class="timepick-sub">' + caption + '</div></div>' +
+        '<button data-pick="5" aria-label="5 minutes later">+</button>' +
+      '</div>';
+  }
+
+  // S1 — prompts, never acts. Picker defaults to NOW, which is honest about
+  // knowing nothing but is usually wrong: she woke hours ago.
+  function staleS1() {
+    var s = staleSleep();
+    if (!s) return "";
+    var body = '<div class="stale">' +
+      '<div class="stale-title">Still asleep since ' + clock(s.at) + '?</div>' +
+      '<div class="stale-body">That is ' + since(s.at) + ', past ' + thresholdLabel() +
+        '. Nobody pressed stop, so this sleep has no end — and without one it will not count towards anything.</div>';
+    if (state.pick !== null) {
+      // The picker default was still open after S1 won. "Now" is the honest
+      // "we know nothing" answer and is almost always wrong — she woke hours
+      // ago. Her usual wake time makes the common case a single tap.
+      body += timepick(s, usualWake(s), "her usual wake time") +
+        '<div class="stale-acts">' +
+          '<button class="primary" data-stale-save="' + s.id + '">Save</button>' +
+          '<button data-stale-cancel="1">Cancel</button>' +
+        '</div>';
+    } else {
+      body += '<div class="stale-acts">' +
+        '<button class="primary" data-stale-open="' + s.id + '">She woke at…</button>' +
+        '<button data-stale-keep="' + s.id + '">Still asleep</button>' +
+        '<button data-stale-drop="' + s.id + '">Delete</button>' +
+      '</div>';
+    }
+    return body + '</div>';
+  }
+
+  // S2 — the app ends it at her usual wake time and marks it ESTIMATED. The
+  // record survives by default; the parent corrects rather than reconstructs.
+  function staleS2() {
+    var e = autoClosed();
+    if (!e) return "";
+    if (state.pick !== null) {
+      return '<div class="stale">' +
+        '<div class="stale-title">When did she wake?</div>' +
+        timepick(e, e.end, "was estimated from her usual wake time") +
+        '<div class="stale-acts">' +
+          '<button class="primary" data-est-save="' + e.id + '">Save</button>' +
+          '<button data-stale-cancel="1">Cancel</button>' +
+        '</div></div>';
+    }
+    return '<div class="est-chip">' +
+      '<span>Nobody stopped this sleep, so we ended it at <strong>' + clock(e.end) +
+        '</strong> — her usual wake time. Marked estimated.</span>' +
+      '<button data-est-open="' + e.id + '">Fix</button>' +
+    '</div>';
+  }
+
+  // S3 — a modal that must be answered before the timeline is usable. Picker
+  // defaults to her usual wake time, already showing, so the common case is
+  // one tap.
+  function staleS3() {
+    var s = staleSleep();
+    if (!s || state.modalDone) return "";
+    return '<div class="modal-scrim"><div class="modal">' +
+      '<div class="modal-eyebrow">Unfinished sleep</div>' +
+      '<div class="modal-title">' + BABY + ' has been asleep for ' + since(s.at) + '.</div>' +
+      '<div class="modal-body">Started ' + clock(s.at) + ' by Oma, past ' + thresholdLabel() +
+        '. A sleep with no end does not count towards anything, so this one is worth a moment.</div>' +
+      timepick(s, usualWake(s), "her usual wake time") +
+      '<div class="modal-acts">' +
+        '<button class="primary" data-stale-save="' + s.id + '">She woke at ' + clock(pickVal(s, usualWake(s))) + '</button>' +
+        '<button data-stale-keep="' + s.id + '">She is still asleep</button>' +
+        '<button class="quiet" data-stale-drop="' + s.id + '">Delete this sleep</button>' +
+      '</div></div></div>';
+  }
+
+  var STALES = {
+    S1: { name: "Passive banner",           render: staleS1 },
+    S2: { name: "Auto-close, ask forgiveness", render: staleS2 },
+    S3: { name: "Interception on open",     render: staleS3 }
+  };
+  var STALE_KEYS = ["S1", "S2", "S3"];
+
+  function toastEl() {
+    if (!state.toast) return "";
+    return '<div class="toast"><span>' + state.toast.text + '</span>' +
+      '<button data-undo="' + state.toast.undoId + '">Undo</button></div>';
+  }
+
+  // ---- VARIANT A — status board -------------------------------------------
+  function variantA() {
+    var f = lastFeed(), se = lastSleepEnd();
+    var due = dueIn();
+    var overdue = due !== null && due < 0;
+
+    return statusStrip() +
+      '<div class="screen-head"><div class="baby-name">' + BABY + '</div>' +
+      '<div class="baby-sub">' + (overdue ? "Feed overdue by " + dur(0, -due) : due !== null ? "Next feed in " + dur(0, due) : "No feeds yet") + '</div></div>' +
+      '<div class="a-tiles">' +
+        '<div class="a-tile' + (overdue ? " warn" : "") + '"><div class="a-tile-label">Since feed</div>' +
+          '<div class="a-tile-value">' + (f ? since(f.at) : "—") + '</div>' +
+          '<div class="a-tile-sub">' + (f ? label(f).split(" · ")[0] : "") + '</div></div>' +
+        '<div class="a-tile"><div class="a-tile-label">Since sleep</div>' +
+          '<div class="a-tile-value">' + (se ? since(se) : "—") + '</div>' +
+          '<div class="a-tile-sub">' + (se ? "awake" : "") + '</div></div>' +
+        '<div class="a-tile"><div class="a-tile-label">Nappies</div>' +
+          '<div class="a-tile-value">' + nappiesToday() + '</div>' +
+          '<div class="a-tile-sub">today</div></div>' +
+      '</div>' +
+      staleS1() + liveBanner() +
+      '<div class="scroll">' + timelineRows() + '</div>' +
+      '<div class="a-actions">' +
+        '<button class="a-action primary" data-sheet="feed">Feed<span>breast · bottle · food</span></button>' +
+        '<button class="a-action" data-sleep="1">Sleep<span>start timer</span></button>' +
+        '<button class="a-action" data-nappy="Pee">Nappy<span>pee · poop</span></button>' +
+      '</div>';
+  }
+
+  // ---- VARIANT B — timeline first ------------------------------------------
+  function variantB() {
+    var f = lastFeed(), se = lastSleepEnd();
+    return statusStrip() +
+      '<div class="b-strip">' +
+        '<div class="b-stat"><div class="b-stat-label">Since feed</div><div class="b-stat-value">' + (f ? since(f.at) : "—") + '</div></div>' +
+        '<div class="b-stat"><div class="b-stat-label">Since sleep</div><div class="b-stat-value">' + (se ? since(se) : "—") + '</div></div>' +
+        '<div class="b-stat"><div class="b-stat-label">Nappies</div><div class="b-stat-value">' + nappiesToday() + '</div></div>' +
+      '</div>' +
+      staleS1() + liveBanner() +
+      '<div class="scroll">' + timelineRows() + '</div>' +
+      '<button class="b-fab" data-sheet="feed" aria-label="Log something">+</button>';
+  }
+
+  // ---- VARIANT C — split thumb ---------------------------------------------
+  function variantC() {
+    var f = lastFeed(), se = lastSleepEnd(), sleep = openSession();
+    var due = dueIn();
+    var overdue = due !== null && due < 0;
+    var big = f ? since(f.at) : "—";
+
+    var grid;
+    if (sleep && !staleSleep()) {
+      grid = '<div class="c-grid">' +
+        '<button class="c-stop" data-stop="' + sleep.id + '">' +
+          '<div class="c-stop-main">She\'s awake</div>' +
+          '<div class="c-stop-sub">asleep ' + since(sleep.at) + '</div></button>' +
+        '<button class="c-cell" data-sheet="feed"><div class="c-cell-main">Feed</div><div class="c-cell-sub">breast · bottle · food</div></button>' +
+        '<button class="c-cell" data-nappy="Pee"><div class="c-cell-main">Nappy</div><div class="c-cell-sub">one tap, undo after</div></button>' +
+      '</div>';
+    } else {
+      grid = '<div class="c-grid">' +
+        '<button class="c-cell hot" data-sheet="feed"><div class="c-cell-main">Feed</div><div class="c-cell-sub">breast · bottle · food</div></button>' +
+        '<button class="c-cell" data-sleep="1"><div class="c-cell-main">Sleep</div><div class="c-cell-sub">start timer</div></button>' +
+        '<button class="c-cell" data-nappy="Pee"><div class="c-cell-main">Pee</div><div class="c-cell-sub">one tap</div></button>' +
+        '<button class="c-cell" data-nappy="Poop"><div class="c-cell-main">Poop</div><div class="c-cell-sub">one tap</div></button>' +
+        '<button class="c-cell wide" data-measure="1"><div class="c-cell-main">Add measurement</div><div class="c-cell-sub">weight · height · head</div></button>' +
+      '</div>';
+    }
+
+    var recent = state.entries.slice().sort(byTime).slice(0, 3).map(function (e) {
+      return clock(e.at) + "  " + label(e) + "  ·  " + e.by;
+    }).join("<br>");
+
+    return statusStrip() +
+      '<div class="c-top">' +
+        '<div class="c-eyebrow">Since last feed</div>' +
+        '<div class="c-huge' + (overdue ? " due" : "") + '">' + big + '</div>' +
+        '<div class="c-caption">' + (overdue ? "Target was " + dur(0, TARGET_FEED) : due !== null ? "Next due in " + dur(0, due) : "") + '</div>' +
+        '<div class="c-second"><span>Awake ' + (se ? since(se) : "—") + '</span><span>' + nappiesToday() + ' nappies</span></div>' +
+      '</div>' +
+      staleS1() +
+      grid +
+      '<div class="c-recent">' + recent + '</div>';
+  }
+
+  // ---- VARIANT D — the chosen merge ----------------------------------------
+  // B's structure (the log is the screen, one FAB) with C's due information
+  // promoted into a sticky header, so the number you check constantly is
+  // always visible without giving up the timeline.
+  function variantD() {
+    var f = lastFeed(), se = lastSleepEnd();
+    var due = dueIn();
+    var overdue = due !== null && due < 0;
+
+    return statusStrip() +
+      '<div class="d-head">' +
+        '<div class="d-label">Since last feed</div>' +
+        '<div class="d-since' + (overdue ? " due" : "") + '">' + (f ? since(f.at) : "—") + '</div>' +
+        '<div class="d-due' + (overdue ? " overdue" : "") + '">' +
+          (due === null ? "No feeds yet"
+            : overdue ? "Overdue by " + dur(0, -due)
+            : "Next due in " + dur(0, due)) +
+        '</div>' +
+        '<div class="d-second">' +
+          '<span>Awake ' + (se ? since(se) : "—") + '</span>' +
+          '<span>' + nappiesToday() + ' nappies today</span>' +
+        '</div>' +
+      '</div>' +
+      STALES[currentStale()].render() + liveBanner() +
+      '<div class="scroll">' + timelineRows() + '</div>' +
+      FABS[currentFab()].render();
+  }
+
+  var VARIANTS = {
+    D: { name: "Timeline + due (chosen)", render: variantD },
+    A: { name: "Status board",            render: variantA },
+    B: { name: "Timeline first",          render: variantB },
+    C: { name: "Split thumb",             render: variantC }
+  };
+  var KEYS = ["D", "A", "B", "C"];
+
+  function param(name) { return (new URLSearchParams(location.search)).get(name); }
+
+  function currentVariant() {
+    var v = param("variant");
+    return VARIANTS[v] ? v : "D";
+  }
+  function currentFab() {
+    var v = param("fab");
+    return FABS[v] ? v : "F2";   // chosen, ticket 16
+  }
+  function currentStale() {
+    var v = param("stale");
+    return STALES[v] ? v : "S1"; // chosen, ticket 16
+  }
+
+  function setParam(name, k) {
+    var u = new URL(location.href);
+    u.searchParams.set(name, k);
+    history.replaceState(null, "", u);
+    // switching axis resets any half-finished interaction
+    state.fanOpen = false; state.pick = null; state.pendingNappy = null;
+    render();
+  }
+  function setVariant(k) { setParam("variant", k); }
+
+  function cycle(name, keys, current, dir) {
+    var i = keys.indexOf(current);
+    setParam(name, keys[(i + dir + keys.length) % keys.length]);
+  }
+
+  // ---- render --------------------------------------------------------------
+  function render() {
+    var k = currentVariant();
+    autoCloseIfNeeded();
+    var phone = document.getElementById("phone");
+    phone.innerHTML = VARIANTS[k].render() + sheet() + confirmSheetEl() + toastEl();
+
+    // three axes: the layout question is settled, so the two ticket-16 axes
+    // are the live ones. They only apply to D.
+    var onD = k === "D";
+    function row(axis, name, keys, cur, names, muted) {
+      return '<div class="switch-row' + (muted ? " muted" : "") + '">' +
+        '<span class="axis">' + axis + '</span>' +
+        '<button data-cyc="' + name + '" data-dir="-1" aria-label="Previous">‹</button>' +
+        '<span class="label"><span class="key">' + cur + '</span> — ' + names[cur].name + '</span>' +
+        '<button data-cyc="' + name + '" data-dir="1" aria-label="Next">›</button>' +
+      '</div>';
+    }
+    document.getElementById("switcher").innerHTML =
+      row("Layout", "variant", KEYS, k, VARIANTS, false) +
+      row("FAB", "fab", FAB_KEYS, currentFab(), FABS, !onD) +
+      row("Stale", "stale", STALE_KEYS, currentStale(), STALES, !onD);
+  }
+
+  // ---- events --------------------------------------------------------------
+  document.addEventListener("click", function (ev) {
+    var t = ev.target.closest("button, [data-scrim]");
+    if (!t) return;
+    var d = t.dataset;
+
+    if (d.cyc) {
+      var dir = Number(d.dir);
+      if (d.cyc === "variant") cycle("variant", KEYS, currentVariant(), dir);
+      else if (d.cyc === "fab") cycle("fab", FAB_KEYS, currentFab(), dir);
+      else cycle("stale", STALE_KEYS, currentStale(), dir);
+    }
+    // ---- ticket 16 wiring ----
+    else if (d.fan) { state.fanOpen = true; render(); }
+    else if (d.fanclose) { state.fanOpen = false; render(); }
+    else if (d.cancelnappy) { state.pendingNappy = null; render(); }
+    else if (d.okname) commitNappy();
+    else if (d.pick) {
+      state.pick += Number(d.pick) * MIN;
+      render();
+    }
+    else if (d.staleOpen) {
+      var so = state.entries.filter(function (x) { return x.id === d.staleOpen; })[0];
+      state.pick = so ? usualWake(so) : Date.now();
+      render();
+    }
+    else if (d.estOpen) { var ac = autoClosed(); state.pick = ac ? ac.end : Date.now(); render(); }
+    else if (d.staleCancel) { state.pick = null; render(); }
+    else if (d.staleSave) {
+      var ss = state.entries.filter(function (x) { return x.id === d.staleSave; })[0];
+      if (ss) { ss.end = state.pick; ss.estimated = false; }
+      state.pick = null; state.modalDone = true; state.staleId = null;
+      document.getElementById("staleToggle").checked = false;
+      render();
+    }
+    else if (d.estSave) {
+      var es = state.entries.filter(function (x) { return x.id === d.estSave; })[0];
+      if (es) { es.end = state.pick; es.estimated = false; }
+      state.pick = null; state.autoClosedId = null;
+      document.getElementById("staleToggle").checked = false;
+      render();
+    }
+    else if (d.sheet) openSheet(d.sheet);
+    else if (d.cancel || d.scrim) closeSheet();
+    else if (d.confirm) confirmSheet();
+    else if (d.mode) { state.sheet.mode = d.mode; render(); }
+    else if (d.side) { state.sheet.side = d.side; render(); }
+    else if (d.ml) { state.sheet.ml = Number(d.ml); render(); }
+    else if (d.amount) { state.sheet.amount = d.amount; render(); }
+    else if (d.sleep) startSleep();
+    else if (d.nappy) logNappy(d.nappy);
+    else if (d.stop) stopSession(d.stop);
+    else if (d.undo) undo(d.undo);
+    else if (d.staleKeep) {
+      // "still asleep" — the sleep is genuine, so leave it running and stop
+      // asking. Restart the clock so the threshold does not fire again at once.
+      var s = state.entries.filter(function (x) { return x.id === d.staleKeep; })[0];
+      if (s) { s.at = Date.now() - 20 * MIN; }
+      state.modalDone = true; state.staleId = null; state.pick = null;
+      document.getElementById("staleToggle").checked = false;
+      render();
+    }
+    else if (d.staleDrop) {
+      state.modalDone = true; state.staleId = null; state.pick = null;
+      document.getElementById("staleToggle").checked = false;
+      undo(d.staleDrop);
+    }
+    else if (d.measure) toast("Measurement sheet would open here", null);
+  });
+
+  // ← → cycle the FAB axis (question 1), ↑ ↓ the stale axis (question 2),
+  // since the layout question is already settled.
+  document.addEventListener("keydown", function (ev) {
+    var tag = (document.activeElement || {}).tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    if (ev.key === "ArrowLeft")  cycle("fab", FAB_KEYS, currentFab(), -1);
+    if (ev.key === "ArrowRight") cycle("fab", FAB_KEYS, currentFab(), 1);
+    if (ev.key === "ArrowUp")   { ev.preventDefault(); cycle("stale", STALE_KEYS, currentStale(), -1); }
+    if (ev.key === "ArrowDown") { ev.preventDefault(); cycle("stale", STALE_KEYS, currentStale(), 1); }
+  });
+
+  // F3's long-press. The gamble the ticket names: is a gesture anybody finds
+  // at 3am? Hold 400ms for the poop/both choice.
+  (function () {
+    var timer = null, held = false;
+    function start(ev) {
+      var el = ev.target.closest("#nappyFab");
+      if (!el) return;
+      held = false;
+      el.classList.add("holding");
+      timer = setTimeout(function () {
+        held = true;
+        el.classList.remove("holding");
+        state.pendingNappy = null;
+        toast("Held — the poop / both picker would open here", null);
+      }, 400);
+    }
+    function end(ev) {
+      var el = ev.target.closest("#nappyFab");
+      clearTimeout(timer);
+      if (!el) return;
+      el.classList.remove("holding");
+      if (!held) logNappy("Pee");
+      held = false;
+    }
+    document.addEventListener("pointerdown", start);
+    document.addEventListener("pointerup", end);
+    document.addEventListener("pointercancel", function () { clearTimeout(timer); });
+  })();
+
+  document.getElementById("staleToggle").addEventListener("change", function (e) {
+    state.modalDone = false; state.autoClosedId = null; state.pick = null;
+    setStale(e.target.checked);
+  });
+  document.getElementById("feedToggle").addEventListener("change", function (e) { setForgottenFeed(e.target.checked); });
+  document.getElementById("confirmToggle").addEventListener("change", function (e) { state.confirmMode = e.target.checked; });
+  document.getElementById("thresholdSel").addEventListener("change", function (e) {
+    state.threshold = e.target.value;
+    state.modalDone = false; state.autoClosedId = null;
+    render();
+  });
+
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var dark = document.documentElement.getAttribute("data-theme") !== "light";
+    document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+    this.textContent = dark ? "Dark" : "Light";
+  });
+
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    state.entries = seed(); state.sheet = null; state.toast = null; state.staleId = null;
+    state.feedId = null; state.fanOpen = false; state.pendingNappy = null;
+    state.autoClosedId = null; state.modalDone = false; state.pick = null;
+    document.getElementById("staleToggle").checked = false;
+    document.getElementById("feedToggle").checked = false;
+    render();
+  });
+
+  // night-first: default to dark unless the viewer has explicitly chosen light
+  document.documentElement.setAttribute("data-theme", "dark");
+
+  setInterval(function () { if (!state.sheet) render(); }, 30000);
+  render();
+})();
+</script>

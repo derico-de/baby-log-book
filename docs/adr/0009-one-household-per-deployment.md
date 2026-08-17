@@ -1,0 +1,16 @@
+# One Household per deployment, and the deployment is a stranger's
+
+A container runs exactly one Household. There is no household selector, no tenant column consulted at query time, and no way to reach a second Household from a running instance — the boot-time claim link fires when the Household is empty, and after that the instance is that family's. We chose this over a multi-tenant schema kept "just in case" because the artefact being shipped is a **self-hosted AGPL image pulled by strangers**, not a service we operate: for the person self-hosting, "this container is my family's data, full stop" is most of the reason they self-host at all, and a tenancy boundary they can never use is a tax every one of them pays for a hosted product that may never exist.
+
+The second half matters as much as the first. Because the operator is a stranger, anything the deployment needs done correctly must be done *by the app*, not documented as a step for them to get right — they have no support channel, and a misconfiguration surfaces as data loss weeks later.
+
+## Consequences
+
+- **The app cannot discover its own public URL, so it demands it.** `ORIGIN` is required and the container refuses to boot without it. A Claim Link is an absolute URL sent over WhatsApp; a wrong origin mints dead invites silently, and a boot failure is the only failure mode cheap enough to diagnose.
+- **Nothing may be delegated to the reverse proxy.** The image is proxy-agnostic — nginx, Caddy, Traefik, all equally supported and none configured by us — so rate limiting on the claim endpoint moved *into* the app. This overturns [ADR-0005](0005-claim-links-instead-of-passwords.md)'s assumption that the proxy would own it.
+- **`X-Forwarded-For` is not trusted by default.** Behind an unknown proxy topology, an untrusted forwarded header is a forged client IP walking through the rate limit. `TRUST_PROXY` is opt-in.
+- **The session signing key lives in the volume, not the environment.** An env var invites the one accident that cannot be absorbed — a redeploy without it signs out every Device in the Household at once, and recovery is one Rescue Link per person, minted by a CLI only the operator can reach.
+- **Operators skip versions and run unattended updaters.** Migrations are cumulative from any older version and never destructive within a major, and the app **backs the database up immediately before applying any migration**. That is what gives "roll back to the previous tag" a real answer rather than a promise the schema quietly voided.
+- **The image is multi-arch.** Self-hosters run ARM NASes and Raspberry Pis; better-sqlite3 already ships `linuxmusl-arm64`, so this costs a build matrix and is expensive to retrofit once people are running it.
+- **AGPL §13 has to be satisfied for the operator, automatically.** The running app carries a source link and its exact version, because a self-hoster who has to remember to publish an offer is a self-hoster who is non-compliant by default.
+- **A hosted multi-tenant version is a different deployment mode, not a v1 schema.** The door is not nailed shut — every row already carries a Household boundary, since [ADR-0001](0001-single-entries-table.md) needed one anyway — but nothing in v1 pays for it.

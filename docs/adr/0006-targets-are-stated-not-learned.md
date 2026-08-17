@@ -1,0 +1,11 @@
+# A Target is a number the parent states, and the app only ever computes against it
+
+A Target — the Feed Interval and the Wake Window — is an explicit value a Member sets per Baby, seeded once from an age table when the Baby is created and never re-derived afterwards. Nothing about a schedule is materialised: no expected Entry is ever written, and every "due in 20m" or "40m overdue" is computed at display time by folding the log against that number. We chose this over learning "her usual" from the log — the obvious move, and what most baby apps do — because a rolling average over a log that is sparse, heavily corrected and changing fast in month two moves the goalposts without anyone asking, and because a threshold nobody can reproduce cannot be explained to the parent it just interrupted.
+
+## Consequences
+
+- **A stale Target is the parent's to notice.** A newborn's seed goes wrong at three months and the app will not fix it. The mitigation is a static hint beside the field in schedule settings showing the current age band's typical value — rendered from the same table, holding no state, never surfacing on the home screen.
+- **Anything wanting "her usual" must find another mechanism.** The Stale Session threshold is the case that already hit this: it cannot be a multiple of an average, so it became a hidden age-banded ceiling plus a contradiction rule instead.
+- **This is the same principle as [ADR-0002](0002-append-only-revisions.md)'s attribution rule, reaching a different part of the app** — the app does not author data, and it does not author the numbers it judges data against either.
+- **v2 notifications need no schema.** A duration plus an anchor is enough to compute a due instant, and [ADR-0003](0003-revisions-are-the-sync-unit.md) already syncs Targets as revisions, so every Device computes the same instant without coordinating. The constraint this places on the code is that the due-instant computation lives in one shared module, called by the header now and by a notifier later.
+- **Clock-time schedules ("nap at 12:30") are not foreclosed but are not supported.** A Target stores a duration and the anchor it is measured from, so a second anchor kind can be added later; v1 ships only the two.
