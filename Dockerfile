@@ -11,8 +11,12 @@
 FROM node:24-alpine AS build
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+# Corepack pins pnpm to the "packageManager" field in package.json, so the image
+# and a developer's machine resolve the same pnpm without a version repeated
+# here to drift.
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
 # Baked in and shown in the UI beside a source link, which is how AGPL §13 is
@@ -20,7 +24,7 @@ COPY . .
 # non-compliant by default.
 ARG GIT_SHA=unknown
 ENV GIT_SHA=${GIT_SHA}
-RUN npm run build && npm prune --omit=dev --ignore-scripts
+RUN pnpm run build && pnpm prune --prod --ignore-scripts
 
 
 FROM node:24-alpine

@@ -109,20 +109,21 @@ app is a door that only ever needs to exist for five minutes a year.
 ## Developing
 
 ```sh
-npm install
+corepack enable        # pnpm, at the version package.json pins
+pnpm install
 cp .env.example .env   # ORIGIN and DATA_DIR for the dev server
-npm run dev
+pnpm dev
 ```
 
 `ORIGIN` has to be the address you open in the browser, so if you reach the dev
-server from another device — `npm run dev -- --host 0.0.0.0` — set it to that
+server from another device — `pnpm dev --host 0.0.0.0` — set it to that
 hostname (`ORIGIN=http://powerman:5173`) and add the hostname to
 `VITE_ALLOWED_HOSTS` if Vite refuses the request.
 
 ```sh
-npm test          # domain, server, client and component suites
-npm run check     # svelte-check and TypeScript
-npm run build     # production build into ./build
+pnpm test          # domain, server, client and component suites
+pnpm check         # svelte-check and TypeScript
+pnpm build         # production build into ./build
 ```
 
 The layers, and what each is allowed to know:

@@ -1,0 +1,10 @@
+# Not a workspace — this is where pnpm 11 keeps settings that used to live in
+# .npmrc.
+#
+# better-sqlite3 carries a binding.gyp, so pnpm asks whether it may build. It
+# may not, and it does not need to: 13.x declares "gypfile": false, has no
+# install script, and ships prebuilt Node-API addons for every platform we
+# target. Answering "false" here is the same statement .npmrc makes with
+# ignore-scripts, written where pnpm will otherwise stop and ask.
+allowBuilds:
+  better-sqlite3: false
