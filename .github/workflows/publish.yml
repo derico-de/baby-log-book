@@ -42,6 +42,13 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The i18n messages under src/lib/paraglide are generated, and the only
+      # place their compiler options live is the paraglide plugin in
+      # vite.config.ts — so they are compiled by running vite, never by a second
+      # CLI invocation that would have to repeat the strategy and cookie name.
+      # It costs ten seconds and it fails here rather than four architectures
+      # deep into the image build.
+      - run: pnpm build
       - run: pnpm run check
       - run: pnpm test
 

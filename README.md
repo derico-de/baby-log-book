@@ -127,6 +127,11 @@ pnpm check         # svelte-check and TypeScript
 pnpm build         # production build into ./build
 ```
 
+`src/lib/paraglide/` holds the compiled messages and is generated, not committed.
+Anything that runs Vite writes it — `dev`, `build`, `test` — so on a clone that
+has never done any of those, `check` is the one command that has to follow a
+`pnpm build`.
+
 ### Releasing
 
 `.github/workflows/publish.yml` builds the multi-arch image and pushes it to
