@@ -26,7 +26,7 @@
 		setAppearanceOverride,
 		type AppearanceOverride
 	} from '$client/device';
-	import { canPromptInstall, isStandalone, promptInstall } from '$client/pwa';
+	import { canPromptInstall, isStandalone, promptInstall, requestUpdate } from '$client/pwa';
 	import { ANCHOR_FOR, bottleTargetOf, typicalFor } from '$domain/targets';
 	import { ageInMonths } from '$domain/time';
 	import { EMPTY_FILTER } from '$domain/filter';
@@ -550,6 +550,15 @@
 			</section>
 
 			<section>
+				<h3>{m.settings_update()}</h3>
+				<!-- The same takeover the client_behind notice offers, reachable on
+				     purpose: a waiting worker holds the old shell until a cold launch,
+				     and this button is the door for whoever will not wait for one. -->
+				<small class="hint">{m.settings_update_hint()}</small>
+				<button type="button" class="secondary" onclick={() => void requestUpdate({ force: true })}>
+					{m.sync_update_now()}
+				</button>
+
 				<!-- One version line, splitting into two only when client and server
 				     disagree. One line is what AGPL §13 needs and what a bug report
 				     needs; the disagreement is the single most useful fact in any bug

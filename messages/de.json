@@ -279,6 +279,8 @@
 	"settings_reset_run": "Zurücksetzen und neu laden",
 	"settings_signout": "Abmelden",
 	"settings_signout_warn": "{count} Einträge sind noch nicht beim Server. Beim Abmelden gehen sie verloren.",
+	"settings_update": "App-Aktualisierung",
+	"settings_update_hint": "Holt die neueste Version und lädt diese Ansicht neu. Wartet nichts Neueres, wird nur neu geladen.",
 	"settings_version": "Version {app} ({sha})",
 	"settings_version_split": "Dieses Gerät {app} ({sha}) · Server {serverApp} ({serverSha})",
 	"settings_source": "Quellcode",

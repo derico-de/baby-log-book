@@ -266,6 +266,8 @@
 	"settings_reset_run": "Resetează și descarcă",
 	"settings_signout": "Deconectează-te",
 	"settings_signout_warn": "{count} înregistrări nu au ajuns la server. Dacă te deconectezi acum, se pierd.",
+	"settings_update": "Actualizarea aplicației",
+	"settings_update_hint": "Aduce cea mai nouă versiune și reîncarcă acest ecran. Dacă nu așteaptă nimic mai nou, doar reîncarcă.",
 	"settings_version": "Versiunea {app} ({sha})",
 	"settings_version_split": "Acest dispozitiv {app} ({sha}) · server {serverApp} ({serverSha})",
 	"settings_source": "Codul sursă",

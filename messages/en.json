@@ -279,6 +279,8 @@
 	"settings_reset_run": "Reset and re-download",
 	"settings_signout": "Sign out",
 	"settings_signout_warn": "{count} entries have not reached the server yet. Signing out now loses them.",
+	"settings_update": "App update",
+	"settings_update_hint": "Fetches the newest version and reloads this screen. If nothing newer is waiting, it simply reloads.",
 	"settings_version": "Version {app} ({sha})",
 	"settings_version_split": "This device {app} ({sha}) · server {serverApp} ({serverSha})",
 	"settings_source": "Source code",
