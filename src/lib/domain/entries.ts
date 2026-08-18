@@ -14,6 +14,7 @@
 
 import type {
 	BottleContents,
+	BottleFeedPayload,
 	Consistency,
 	EntryType,
 	MealAmount,
@@ -97,6 +98,7 @@ const ENTRY_FIELD_CHECKS: Record<string, Check> = {
 	side: isOneOf(SIDES),
 	/* bottle feed */
 	volume_ml: isIntIn(MAX_VOLUME_ML),
+	leftover_ml: isIntIn(MAX_VOLUME_ML),
 	contents: isNullableOneOf(CONTENTS),
 	/* meal */
 	foods: isMealFoods,
@@ -190,7 +192,7 @@ export function emptyPayload<T extends EntryType>(type: T): PayloadOf[T] {
 		case 'breast_feed':
 			return as({ side: 'both' });
 		case 'bottle_feed':
-			return as({ volume_ml: null, contents: null });
+			return as({ volume_ml: null, leftover_ml: null, contents: null });
 		case 'meal':
 			return as({ foods: [] });
 		case 'nappy':
@@ -214,6 +216,7 @@ export function coercePayload<T extends EntryType>(type: T, raw: Record<string, 
 			break;
 		case 'bottle_feed':
 			if (isIntIn(MAX_VOLUME_ML)(raw.volume_ml)) base.volume_ml = raw.volume_ml ?? null;
+			if (isIntIn(MAX_VOLUME_ML)(raw.leftover_ml)) base.leftover_ml = raw.leftover_ml ?? null;
 			if (isNullableOneOf(CONTENTS)(raw.contents)) base.contents = raw.contents ?? null;
 			break;
 		case 'meal':
@@ -240,6 +243,20 @@ export function coercePayload<T extends EntryType>(type: T, raw: Record<string, 
 			break;
 	}
 	return base as PayloadOf[T];
+}
+
+/** What she actually drank: what was offered, less what came back in the
+    bottle. Null when nobody said how much was offered — a leftover on its own
+    says nothing, and guessing a total from it would be inventing data.
+
+    Clamped at zero rather than validated across the two fields. They are two
+    fields under last-write-wins, so a leftover larger than the volume is
+    reachable by two Members editing at once; a negative feed is not a number
+    anything downstream should have to defend against. */
+export function takenMl(payload: BottleFeedPayload): number | null {
+	if (payload.volume_ml == null) return null;
+	if (payload.leftover_ml == null) return payload.volume_ml;
+	return Math.max(0, payload.volume_ml - payload.leftover_ml);
 }
 
 /** True for the types that are a Live Session while they have no end. */

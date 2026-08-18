@@ -115,7 +115,7 @@ Everything recorded about a Baby at a point in time is an **Entry**. Seven discr
 | Type | Records | Session? |
 |---|---|---|
 | **Breast feed** | Side (left / right / both), duration | Yes — start anchors it, end optional |
-| **Bottle feed** | Volume (ml), contents | Yes — same |
+| **Bottle feed** | Volume offered (ml), leftover (ml), contents | Yes — same |
 | **Meal** | Several Foods, each with an optional reaction note; coarse amounts (tasted / some / lots), never grams | No |
 | **Sleep** | Start and end, nothing else | Yes — **the end is the whole point** |
 | **Nappy** | Pee / poop / both, optional consistency | No |
@@ -142,6 +142,7 @@ This splits Stale Session handling in two, and it is why only Sleeps get a recov
 - **Append-only revisions, permanent soft deletes** — [ADR-0002](../../docs/adr/0002-append-only-revisions.md). Correcting appends; the UI shows "edited by Oma, was 120 ml". A tombstone hides an Entry and never purges it, so a 3am mistake is recoverable on every Device.
 - **A Live Session is an Entry with no end time.** Not a separate concept — a running timer syncs like any other row, and the merge rule is an ordinary rule about rows.
 - **Canonical units** — millilitres, grams, millimetres — stored as integers, formatted at display. Keeps unit handling out of sync and stats, and (§8.3) is what makes a comma-delimited CSV safe in DE and RO.
+- **A Bottle stores what was offered and what came back; what she drank is derived** — [ADR-0015](../../docs/adr/0015-a-bottle-records-what-was-offered-and-what-came-back.md). Two facts arriving at two moments, and only the first is knowable while she is still drinking. A null leftover is "nobody said", not zero, and reads as the whole bottle — every Bottle logged before the field existed depends on that. Stats and the timeline count the derived figure; the export carries all three.
 - **First exposure is derived, never stored** — the earliest Meal containing that Food for that Baby. A stored flag would drift the moment an entry is corrected, deleted, or a forgotten earlier Meal is added, and it would lie about precisely the thing you would consult it for. The **reaction note is observed information and is stored**, on the Food line within the Meal.
 
 ### 3.5 Derived, not recorded
@@ -278,9 +279,9 @@ Conflating either into the other loses data. [ADR-0004](../../docs/adr/0004-curs
 
 Two Devices each start a Sleep for the same Baby while offline.
 
-**Any two open sessions *of the same kind* for one Baby are a contradiction** — a Baby cannot be asleep twice — so **no time-window heuristic is needed**. Earliest start wins; the loser gets a tombstone plus `merged_into` pointing at the survivor, followed transitively, so a late "stop" pressed on the losing Device lands on the right session. Runs server-side inside the push transaction, idempotently.
+**Any two open Sleeps for one Baby are a contradiction** — a Baby cannot be asleep twice — so **no time-window heuristic is needed**. Earliest start wins; the loser gets a tombstone plus `merged_into` pointing at the survivor, followed transitively, so a late "stop" pressed on the losing Device lands on the right session. Runs server-side inside the push transaction, idempotently.
 
-**Per kind is load-bearing.** An open Feed beside an open Sleep is a **Sleep Feed** — normal, deliberate and nightly — and a kind-agnostic merge would tombstone one of them on the single most common night pattern in the app. Only Sleep-with-Sleep and Feed-with-Feed merge. ([Schedules in v1](issues/09-schedules-v1.md) corrected this.)
+**Only Sleeps merge** — [ADR-0014](../../docs/adr/0014-only-sleeps-merge.md). An open Feed beside an open Sleep is a **Sleep Feed**, normal, deliberate and nightly ([Schedules in v1](issues/09-schedules-v1.md) corrected a kind-agnostic rule that would have tombstoned one of them). Two open *Feeds* are the same argument one level down: pumped breast milk followed by formula is a **combined feed**, two Feeds minutes apart, and both are real. The failures are not symmetric — a Sleep folded into a Sleep reads as one longer Sleep, while a Feed folded into a Feed deletes a bottle and its millilitres leave the day's volume. The rule the Feed exemption closes was reachable from the app's own Save button, which leaves a Feed open (§3.3).
 
 **A merge appends a revision attributed to the app rather than to a Member**, so the history says honestly that no person did it. This is the one place an app-authored revision exists, and it does not weaken the rule in §1: reconciling two sessions a human did start is not the same as inventing one. **Synthesising an end time for a session nobody stopped stays forbidden.**
 
@@ -603,7 +604,7 @@ The home screen already answers *when did she last eat*; the timeline already an
 **Four cards. A card appears only when its entry type has data in the window** — which makes age-appropriateness free: a newborn's screen has no Solids card, an older Baby's Feeds card quietly stops being the headline. No age logic, no settings, no empty states.
 
 1. **Sleep** — total per day, split Night Sleep vs Naps (computable only because §7.2 settled which is which). Longest stretch as the secondary number.
-2. **Feeds** — count per day, with total volume as a secondary number **only when bottles exist**. Volume cannot be the primary bar: a breastfed Baby has no millilitres.
+2. **Feeds** — count per day, with total volume as a secondary number **only when bottles exist**. Volume cannot be the primary bar: a breastfed Baby has no millilitres. The volume is what was **drunk**, offered less leftover (§3.4).
 3. **Nappies** — count per day, split pee/poop.
 4. **Solids** — Meals per day, with "3 new Foods this week" as the secondary, derived from first exposure.
 

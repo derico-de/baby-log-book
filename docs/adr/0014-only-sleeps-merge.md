@@ -1,0 +1,14 @@
+# Only Sleeps merge
+
+Session Merge reconciles two open Sleeps for one Baby and leaves open Feeds alone. Two Feeds started minutes apart are no longer treated as a contradiction. We chose this over the previous per-kind rule — Sleep-with-Sleep *and* Feed-with-Feed — because a combined feed is a real, deliberate, nightly pattern in this Household: pumped breast milk first, then formula, logged as the two Feeds they were. The premise the merge rests on holds for one kind and not the other. A Baby cannot be asleep twice. A Baby can absolutely take two bottles in a quarter of an hour.
+
+This is the same argument that carved the Sleep Feed out of a kind-agnostic merge, applied one level down. That earlier correction spared the most common *night* pattern; this one spares the most common *feeding* pattern.
+
+## Consequences
+
+- **Two Members starting a timer for the same real Feed now leaves two rows.** This is the cost, and it is paid deliberately. It is visible on the timeline, one of them is one tap to delete, and no derived figure quietly rots in the meantime — the Feed Interval measures from a Feed's *start*, so a duplicate shifts nothing but the day's count and volume, both of which the parent can see are wrong.
+- **The asymmetry of the two failures is the whole argument.** A Sleep folded into another Sleep reads as one longer Sleep, which is close to the truth and recoverable from the history. A Feed folded into another Feed *deletes a bottle*: its millilitres leave the day's volume, and the row that would have said so is a tombstone nobody thinks to look for. The merge protected a number on the Sleep side and destroyed one on the Feed side.
+- **The bug this fixes was reachable from the app's own Save button.** The feed sheet's Save creates a Feed with no end — only *Start timer* is meant to leave a Live Session running, but Save does too (spec §3.3: a Feed's end is optional detail). So every saved Feed stayed open, and the *next* Feed logged pushed into a merge with it. Logging a bottle of breast milk and then a bottle of formula lost the formula.
+- **`SessionKind` and `sessionKindOf()` are gone.** With one kind left to group by, the two-dimensional grouping in `planSessionMerges()` was machinery describing a distinction the rule no longer makes, and `MergePlan` no longer carries a `kind`.
+- **Nothing changes for Sleep.** No time window, no similarity score, earliest start wins, idempotent inside the push transaction, still attributed to the app rather than to a Member.
+- **A future Feed duplicate problem gets a different tool.** If two Devices timing one Feed ever proves common enough to hurt, the answer is something the parent can see and act on — a notice, a suggested merge — not a silent tombstone. [ADR-0002](0002-append-only-revisions.md) already makes corrections cheap and visible; that is the seam to build on.

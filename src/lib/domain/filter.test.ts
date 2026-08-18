@@ -60,7 +60,7 @@ const yoghurtMeal = entry({
 	payload: { foods: [{ food_id: 'f-yog', amount: 'lots', reaction: null }] },
 	logged_by: 'oma'
 });
-const feed = entry({ type: 'bottle_feed', occurred_at: iso('2026-08-17T09:00:00Z'), payload: { volume_ml: 120, contents: 'formula' } });
+const feed = entry({ type: 'bottle_feed', occurred_at: iso('2026-08-17T09:00:00Z'), payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' } });
 const nappy = entry({
 	type: 'nappy',
 	occurred_at: iso('2026-08-17T08:00:00Z'),

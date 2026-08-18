@@ -104,6 +104,13 @@ export function millilitres(ml: number): string {
 	return m.ml({ n: number(ml) });
 }
 
+/** `150 ml of 180` — what she drank, with what went into the bottle trailing
+    it. The offered figure carries no unit of its own: the pair reads as one
+    measurement, not as two. */
+export function takenOfOffered(taken: number, offered: number): string {
+	return m.row_taken_of({ taken: millilitres(taken), offered: number(offered) });
+}
+
 /** Grams below a kilo, kilograms above — with one decimal, which is how a
     paediatrician says it. */
 export function weight(grams: number): string {

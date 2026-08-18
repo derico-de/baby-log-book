@@ -29,8 +29,12 @@ function entry(p: Partial<Entry> & { type: Entry['type']; occurred_at: number })
 
 const nappy = (at: string, pee = true, poop = false) =>
 	entry({ type: 'nappy', occurred_at: iso(at), payload: { pee, poop, consistency: null } });
-const bottle = (at: string, ml: number | null = 120) =>
-	entry({ type: 'bottle_feed', occurred_at: iso(at), payload: { volume_ml: ml, contents: 'formula' } });
+const bottle = (at: string, ml: number | null = 120, leftover: number | null = null) =>
+	entry({
+		type: 'bottle_feed',
+		occurred_at: iso(at),
+		payload: { volume_ml: ml, leftover_ml: leftover, contents: 'formula' }
+	});
 const meal = (at: string, foods: string[] = ['f1']) =>
 	entry({
 		type: 'meal',
@@ -155,6 +159,32 @@ describe('the Feeds card', () => {
 		const s = card.secondary as FeedsSecondary;
 		expect(s.volumeMlToday).toBe(210);
 		expect(s.volumeMlAverage).toBeCloseTo(100 / 7);
+	});
+
+	it('counts what she drank, not what was poured', () => {
+		// 180 ml offered with 30 ml left in the bottle is 150 ml of milk.
+		const [card] = statsFor({
+			...LENS,
+			entries: [bottle('2026-08-17T08:00:00Z', 180, 30), bottle('2026-08-17T11:00:00Z', 90, 0)]
+		});
+		expect((card.secondary as FeedsSecondary).volumeMlToday).toBe(240);
+	});
+
+	it('counts a combined feed as the two bottles it was', () => {
+		// Pumped breast milk, then formula: two Feeds, two volumes, both real.
+		const [card] = statsFor({
+			...LENS,
+			entries: [
+				entry({
+					type: 'bottle_feed',
+					occurred_at: iso('2026-08-17T08:00:00Z'),
+					payload: { volume_ml: 60, leftover_ml: null, contents: 'breast_milk' }
+				}),
+				bottle('2026-08-17T08:12:00Z', 120)
+			]
+		});
+		expect(card.today).toBe(2);
+		expect((card.secondary as FeedsSecondary).volumeMlToday).toBe(180);
 	});
 
 	it('does not count a breast feed as zero millilitres', () => {

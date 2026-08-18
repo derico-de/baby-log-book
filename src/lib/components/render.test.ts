@@ -127,17 +127,43 @@ describe('the sticky header', () => {
 });
 
 describe('a timeline row', () => {
-	it('reads a bottle feed with its volume and who logged it', () => {
+	it('reads a bottle feed with its volume, its milk and who logged it', () => {
 		const row = entry({
 			type: 'bottle_feed',
 			occurred_at: NOW - 3600_000,
-			payload: { volume_ml: 120, contents: 'formula' }
+			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
 		});
 		app.entries = [row];
 		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
 		expect(text).toContain('120 ml');
+		expect(text).toContain('Formula');
 		expect(text).toContain('Oma');
 		expect(text).toContain('15:00');
+	});
+
+	it('reads a bottle with a leftover as what she drank, of what was offered', () => {
+		const row = entry({
+			type: 'bottle_feed',
+			occurred_at: NOW - 3600_000,
+			payload: { volume_ml: 180, leftover_ml: 30, contents: 'breast_milk' }
+		});
+		app.entries = [row];
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		expect(text).toContain('150 ml of 180');
+		expect(text).toContain('Breast milk');
+		expect(text).not.toContain('180 ml');
+	});
+
+	it('drops the offered figure when she finished the bottle', () => {
+		const row = entry({
+			type: 'bottle_feed',
+			occurred_at: NOW - 3600_000,
+			payload: { volume_ml: 150, leftover_ml: 0, contents: 'formula' }
+		});
+		app.entries = [row];
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		expect(text).toContain('150 ml');
+		expect(text).not.toContain('of 150');
 	});
 
 	it('draws a running Sleep as an ordinary Live Session with a Stop button', () => {

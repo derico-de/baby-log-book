@@ -97,7 +97,7 @@ describe('push', () => {
 		]);
 		asMember([rev({ entity_id: 'e1', fields: { volume_ml: 150 } })], 'caregiver', 'oma', 'phone-b');
 		const entry = getEntry(db, 'h1', 'e1');
-		expect(entry?.payload).toEqual({ volume_ml: 150, contents: null });
+		expect(entry?.payload).toEqual({ volume_ml: 150, leftover_ml: null, contents: null });
 		expect(entry?.logged_by).toBe('mum');
 		expect(entry?.edited_by).toBe('oma');
 	});
@@ -206,6 +206,30 @@ describe('roles', () => {
 });
 
 describe('the Session Merge', () => {
+	it('keeps both bottles of a combined feed', () => {
+		// Pumped breast milk, then formula, both still open because the sheet's
+		// Save button does not end a Feed. Before ADR-0014 the second one came
+		// back tombstoned and its millilitres left the day's volume.
+		const bottle = (id: string, at: number, contents: string, ml: number) =>
+			rev({
+				entity_id: id,
+				fields: {
+					baby_id: 'b1',
+					type: 'bottle_feed',
+					occurred_at: at,
+					ended_at: null,
+					recording_zone: BERLIN,
+					volume_ml: ml,
+					contents
+				}
+			});
+		asMember([bottle('f1', NOW - 1800_000, 'breast_milk', 60)]);
+		const result = asMember([bottle('f2', NOW - 600_000, 'formula', 120)]);
+		expect(result.merged).toEqual([]);
+		expect(getEntry(db, 'h1', 'f2')).toMatchObject({ deleted_at: null, merged_into: null });
+		expect(getEntry(db, 'h1', 'f1')).toMatchObject({ deleted_at: null, merged_into: null });
+	});
+
 	it('reconciles two open Sleeps and keeps the earlier start', () => {
 		asMember([creation('s-early', NOW - 7200_000)], 'parent', 'mum', 'phone-a');
 		const result = asMember([creation('s-late', NOW - 3600_000)], 'caregiver', 'oma', 'phone-b');

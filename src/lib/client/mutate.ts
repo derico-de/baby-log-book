@@ -126,12 +126,21 @@ export async function logBreastFeed(
 
 export async function logBottleFeed(
 	w: Writer,
-	target: EntryTarget & { volumeMl: number | null; contents: BottleContents | null; endedAt?: number | null }
+	target: EntryTarget & {
+		volumeMl: number | null;
+		/** What came back in the bottle. Usually null at creation — the leftover
+		    is a fact from the end of the Feed, and the Entry sheet is where it is
+		    normally entered. */
+		leftoverMl?: number | null;
+		contents: BottleContents | null;
+		endedAt?: number | null;
+	}
 ): Promise<string> {
 	const id = randomId();
 	await write(w, 'entry', id, {
 		...creation(target.babyId, 'bottle_feed', target.occurredAt ?? w.now(), target.note),
 		volume_ml: target.volumeMl,
+		leftover_ml: target.leftoverMl ?? null,
 		contents: target.contents,
 		ended_at: target.endedAt ?? null
 	});

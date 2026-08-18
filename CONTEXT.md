@@ -63,7 +63,7 @@ Anything recorded about a Baby at a point in time. The umbrella term for Feeds, 
 _Avoid_: Event, record, log line, activity
 
 **Feed**:
-Milk taken by a Baby — either at the breast or from a bottle. A Feed is anchored by when it *started*; everything downstream is measured from that, and its end is optional detail.
+Milk taken by a Baby — either at the breast or from a bottle. A Feed is anchored by when it *started*; everything downstream is measured from that, and its end is optional detail. One bottle is one Feed, so a sitting that runs through two of them is a Combined Feed.
 _Avoid_: Nursing, feeding session
 
 **Meal**:
@@ -81,6 +81,14 @@ _Avoid_: Nap, rest
 **Sleep Feed**:
 A Feed that overlaps a running Sleep, because a Baby can take the breast or a bottle without waking. Follows from the overlap and is never recorded on the Feed itself.
 _Avoid_: Dream feed (which names only the pre-bedtime one), night feed
+
+**Combined Feed**:
+One sitting of milk taken from more than one source — pumped breast milk, then formula — logged as the several Feeds it was rather than as one. Follows from two Feeds close together and is never recorded as such, which is why nothing merges them.
+_Avoid_: Mixed feed, top-up, supplement
+
+**Leftover**:
+What is still in the bottle when a Feed is over. Kept beside the volume that went in rather than subtracted from it, because they are two facts learned at two moments: what she was offered is known at the start, what she drank only at the end.
+_Avoid_: Waste, remainder, unfinished
 
 **Nappy**:
 A nappy change, recording what was in it.
@@ -141,7 +149,7 @@ A Live Session still running long after it plausibly ended, because nobody press
 _Avoid_: Orphaned session, forgotten timer, zombie entry
 
 **Session Merge**:
-What happens when two Members each start a Live Session **of the same kind** for the same Baby — a Baby cannot be asleep twice, so the two are reconciled into one, keeping the earlier start. An open Feed beside an open Sleep is not this; it is a Sleep Feed. The surviving session also absorbs a late stop pressed on the device whose session lost. Attributed in the Revision history to the app rather than to a Member, because no person did it.
+What happens when two Members each start a **Sleep** for the same Baby — a Baby cannot be asleep twice, so the two are reconciled into one, keeping the earlier start. Sleeps only: an open Feed beside an open Sleep is a Sleep Feed, and two open Feeds are a Combined Feed. The surviving Sleep also absorbs a late stop pressed on the device whose Sleep lost. Attributed in the Revision history to the app rather than to a Member, because no person did it.
 _Avoid_: Conflict resolution, deduplication, auto-merge
 
 **Occurred At**:

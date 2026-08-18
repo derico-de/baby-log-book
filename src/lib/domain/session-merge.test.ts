@@ -30,9 +30,7 @@ describe('planSessionMerges', () => {
 			open('s-late', 'sleep', '2026-08-17T19:05:00Z'),
 			open('s-early', 'sleep', '2026-08-17T19:00:00Z')
 		]);
-		expect(plans).toEqual([
-			{ survivor_id: 's-early', loser_id: 's-late', baby_id: 'b1', kind: 'sleep' }
-		]);
+		expect(plans).toEqual([{ survivor_id: 's-early', loser_id: 's-late', baby_id: 'b1' }]);
 	});
 
 	it('leaves an open Feed beside an open Sleep alone — that is a Sleep Feed', () => {
@@ -46,12 +44,25 @@ describe('planSessionMerges', () => {
 		).toEqual([]);
 	});
 
-	it('merges a breast feed with a bottle feed, because both are Feeds', () => {
-		const plans = planSessionMerges([
-			open('f-breast', 'breast_feed', '2026-08-17T10:00:00Z'),
-			open('f-bottle', 'bottle_feed', '2026-08-17T10:02:00Z')
-		]);
-		expect(plans.map((p) => [p.survivor_id, p.loser_id])).toEqual([['f-breast', 'f-bottle']]);
+	it('leaves two open Feeds alone — a combined feed is two Feeds, not one', () => {
+		// Pumped breast milk, then formula, minutes apart. Merging them would
+		// tombstone the second bottle and lose it from the day's volume
+		// (ADR-0014).
+		expect(
+			planSessionMerges([
+				open('f-breast-milk', 'bottle_feed', '2026-08-17T10:00:00Z'),
+				open('f-formula', 'bottle_feed', '2026-08-17T10:12:00Z')
+			])
+		).toEqual([]);
+	});
+
+	it('leaves a breast feed beside a bottle feed alone too', () => {
+		expect(
+			planSessionMerges([
+				open('f-breast', 'breast_feed', '2026-08-17T10:00:00Z'),
+				open('f-bottle', 'bottle_feed', '2026-08-17T10:02:00Z')
+			])
+		).toEqual([]);
 	});
 
 	it('never merges across Babies', () => {
@@ -110,7 +121,7 @@ describe('planSessionMerges', () => {
 describe('mergeRevision', () => {
 	it('is attributed to the app rather than to a Member', () => {
 		const rev = mergeRevision(
-			{ survivor_id: 's1', loser_id: 's2', baby_id: 'b1', kind: 'sleep' },
+			{ survivor_id: 's1', loser_id: 's2', baby_id: 'b1' },
 			{ household_id: 'h1', at: 1000, device_id: 'server', id: 'r1' }
 		);
 		expect(rev.author_id).toBeNull();

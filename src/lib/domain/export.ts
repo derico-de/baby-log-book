@@ -25,6 +25,7 @@
        drops rows the app still holds is lying about being complete. */
 
 import { classifySleep } from './sleep';
+import { takenMl } from './entries';
 import { firstExposure } from './filter';
 import { offsetMinutes, wallPartsOf } from './time';
 import type {
@@ -164,10 +165,24 @@ export function buildExport(input: ExportInput): ExportFiles {
 		(e.payload as BreastFeedPayload).side
 	]));
 
-	files['bottle_feeds.csv'] = toCsv([...SHARED_HEADERS, 'ended_at', 'duration_minutes', 'volume_ml', 'contents'], ofType('bottle_feed').map((e) => {
-		const p = e.payload as BottleFeedPayload;
-		return [...shared(e), iso(e.ended_at), minutes(e.occurred_at, e.ended_at), p.volume_ml, p.contents];
-	}));
+	/* `taken_ml` is derived, and it is in the file anyway: an escape hatch that
+	   makes the reader re-derive the app's own arithmetic is not an escape hatch
+	   (ADR-0007). The two stored fields sit beside it, so nothing is lost. */
+	files['bottle_feeds.csv'] = toCsv(
+		[...SHARED_HEADERS, 'ended_at', 'duration_minutes', 'volume_ml', 'leftover_ml', 'taken_ml', 'contents'],
+		ofType('bottle_feed').map((e) => {
+			const p = e.payload as BottleFeedPayload;
+			return [
+				...shared(e),
+				iso(e.ended_at),
+				minutes(e.occurred_at, e.ended_at),
+				p.volume_ml,
+				p.leftover_ml,
+				takenMl(p),
+				p.contents
+			];
+		})
+	);
 
 	files['meals.csv'] = toCsv([...SHARED_HEADERS, 'food_count'], ofType('meal').map((e) => [
 		...shared(e),

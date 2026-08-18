@@ -100,7 +100,7 @@ describe('foldEntries', () => {
 			edited_by: null,
 			edited_at: null,
 			deleted_at: null,
-			payload: { volume_ml: 120, contents: null }
+			payload: { volume_ml: 120, leftover_ml: null, contents: null }
 		});
 	});
 
@@ -115,7 +115,7 @@ describe('foldEntries', () => {
 		const [entry] = foldEntries([created, edit]);
 		expect(entry.edited_by).toBe('oma');
 		expect(entry.edited_at).toBe(2000);
-		expect(entry.payload).toEqual({ volume_ml: 150, contents: null });
+		expect(entry.payload).toEqual({ volume_ml: 150, leftover_ml: null, contents: null });
 	});
 
 	it('keeps a tombstoned Entry, payload and all', () => {
@@ -127,7 +127,7 @@ describe('foldEntries', () => {
 		});
 		const [entry] = foldEntries([created, del]);
 		expect(entry.deleted_at).toBe(3000);
-		expect(entry.payload).toEqual({ volume_ml: 120, contents: null });
+		expect(entry.payload).toEqual({ volume_ml: 120, leftover_ml: null, contents: null });
 		expect(isTombstoned(entry)).toBe(true);
 	});
 

@@ -93,6 +93,21 @@ describe('isoWithOffset', () => {
 });
 
 describe('buildExport', () => {
+	it('carries the bottle arithmetic, so the reader never has to redo it', () => {
+		const csv = buildExport({
+			...input,
+			entries: [
+				entry({
+					type: 'bottle_feed',
+					occurred_at: iso('2026-08-17T08:00:00Z'),
+					payload: { volume_ml: 180, leftover_ml: 30, contents: 'breast_milk' }
+				})
+			]
+		})['bottle_feeds.csv'];
+		expect(csv).toContain('volume_ml,leftover_ml,taken_ml,contents');
+		expect(csv).toContain('180,30,150,breast_milk');
+	});
+
 	it('writes one file per entry type plus the reference tables', () => {
 		expect(Object.keys(buildExport(input)).sort()).toEqual([
 			'babies.csv',

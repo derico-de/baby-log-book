@@ -17,6 +17,7 @@
 	import { logBottleFeed, logBreastFeed, logMeal, markAwakeForMeal, addFood } from '$client/mutate';
 	import { clockTime, millilitres, timeInputValue } from '$lib/i18n/format';
 	import { wallTimeAtOrBefore } from '$domain/time';
+	import { takenMl } from '$domain/entries';
 	import type { BottleContents, MealAmount, MealFood, Side } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from './Icon.svelte';
@@ -34,6 +35,7 @@
 	let mode = $state<Mode>('breast');
 	let side = $state<Side>('both');
 	let volume = $state<number | null>(null);
+	let leftover = $state<number | null>(null);
 	let contents = $state<BottleContents | null>('breast_milk');
 	let minutes = $state<number | null>(null);
 	let note = $state('');
@@ -43,7 +45,10 @@
 	let foodQuery = $state('');
 	let busy = $state(false);
 
-	const QUICK_ML = [60, 90, 120, 150];
+	/* Two rows of four. The ceiling is a real bottle, not a round number: past
+	   180 ml the presets are what an older Baby actually takes, and anything the
+	   grid does not cover is still one tap away in the number field below. */
+	const QUICK_ML = [60, 90, 120, 150, 180, 210, 240, 270];
 	const AMOUNTS: MealAmount[] = ['tasted', 'some', 'lots'];
 	const amountLabel = (a: MealAmount) =>
 		a === 'tasted' ? m.amount_tasted() : a === 'some' ? m.amount_some() : m.amount_lots();
@@ -55,6 +60,12 @@
 	    Backwards from now, so the 23:45 feed you are logging at 00:20 lands on the
 	    night it happened rather than tonight. */
 	const occurredAt = $derived(wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now);
+
+	/* Shown only when it says something the two inputs do not already: with no
+	   leftover, "taken 150 ml" is just the volume read back. */
+	const taken = $derived(
+		leftover != null && leftover > 0 ? takenMl({ volume_ml: volume, leftover_ml: leftover, contents }) : null
+	);
 
 	/* The switch is a real write, so it is visible — and undo covers it. It says so
 	   only when it will actually happen: the guard is that the Meal's Occurred At
@@ -109,7 +120,7 @@
 			finish(id);
 		} else if (mode === 'bottle') {
 			const id = await app.log(
-				(w) => logBottleFeed(w, { ...target, volumeMl: volume, contents }),
+				(w) => logBottleFeed(w, { ...target, volumeMl: volume, leftoverMl: leftover, contents }),
 				{ text: m.toast_logged({ what: m.type_bottle_feed() }) }
 			);
 			finish(id);
@@ -145,7 +156,7 @@
 				? await app.log((w) => logBreastFeed(w, { ...target, side }), {
 						text: m.toast_logged({ what: m.type_breast_feed() })
 					})
-				: await app.log((w) => logBottleFeed(w, { ...target, volumeMl: volume, contents }), {
+				: await app.log((w) => logBottleFeed(w, { ...target, volumeMl: volume, leftoverMl: leftover, contents }), {
 						text: m.toast_logged({ what: m.type_bottle_feed() })
 					});
 		finish(id);
@@ -200,6 +211,16 @@
 				<option value="other">{m.contents_other()}</option>
 			</select>
 		</label>
+		<!-- The leftover is a fact from the *end* of the Feed, so it is here only
+		     for the common case of logging a bottle that is already finished. The
+		     usual place to enter it is the Entry sheet, once she has stopped. -->
+		<label class="field">
+			{m.sheet_leftover()} <small>({m.optional()})</small>
+			<input type="number" inputmode="numeric" min="0" max="5000" step="1" bind:value={leftover} />
+		</label>
+		{#if taken != null}
+			<p class="note-line">{m.sheet_taken({ value: millilitres(taken) })}</p>
+		{/if}
 	{:else}
 		<div class="field">
 			<label>

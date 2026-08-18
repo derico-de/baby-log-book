@@ -171,7 +171,7 @@ describe('applying a pulled page', () => {
 			revision({ seq: 2, merge_at: NOW + 1000, author_id: 'oma', fields: { volume_ml: 150 } })
 		]);
 		const entry = await db.entries.get('e1');
-		expect(entry?.payload).toEqual({ volume_ml: 150, contents: null });
+		expect(entry?.payload).toEqual({ volume_ml: 150, leftover_ml: null, contents: null });
 		expect(entry).toMatchObject({ logged_by: 'mum', edited_by: 'oma' });
 	});
 

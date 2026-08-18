@@ -22,16 +22,6 @@ export type EntryType = (typeof ENTRY_TYPES)[number];
 export const SESSION_TYPES = ['breast_feed', 'bottle_feed', 'sleep'] as const;
 export type SessionType = (typeof SESSION_TYPES)[number];
 
-/** Only Sleep-with-Sleep and Feed-with-Feed merge. An open Feed beside an
-    open Sleep is a Sleep Feed — normal, deliberate and nightly (spec §5.3). */
-export type SessionKind = 'feed' | 'sleep';
-
-export function sessionKindOf(type: EntryType): SessionKind | null {
-	if (type === 'sleep') return 'sleep';
-	if (type === 'breast_feed' || type === 'bottle_feed') return 'feed';
-	return null;
-}
-
 /** One log for everything (spec §5.1). Device Settings are the carve-out and
     are not in this list — they never enter the log (spec §9.4). */
 export const REVISION_KINDS = ['entry', 'food', 'baby', 'member', 'household', 'target'] as const;
@@ -52,7 +42,13 @@ export interface BreastFeedPayload {
 	side: Side;
 }
 export interface BottleFeedPayload {
+	/** What went into the bottle. */
 	volume_ml: number | null;
+	/** What came back in it, entered when the Feed is done. Kept beside the
+	    volume rather than subtracted from it: a 180 ml bottle she left 30 ml of
+	    is not the same fact as a 150 ml bottle, and while she is still drinking
+	    only one of the two numbers is knowable (ADR-0015). */
+	leftover_ml: number | null;
 	contents: BottleContents | null;
 }
 /** A Meal's Foods list is ONE field: an edit replaces it wholesale, so two

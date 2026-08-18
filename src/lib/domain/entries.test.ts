@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coercePayload, emptyPayload, validateFields } from './entries';
+import { coercePayload, emptyPayload, takenMl, validateFields } from './entries';
 
 describe('validateFields', () => {
 	it('accepts a bottle feed creation', () => {
@@ -13,6 +13,13 @@ describe('validateFields', () => {
 			contents: 'formula'
 		});
 		expect(r.ok).toBe(true);
+	});
+
+	it('accepts a leftover on its own, which is how a finished bottle is corrected', () => {
+		expect(validateFields('entry', { leftover_ml: 30 })).toEqual({ ok: true, fields: { leftover_ml: 30 } });
+		expect(validateFields('entry', { leftover_ml: null })).toEqual({ ok: true, fields: { leftover_ml: null } });
+		expect(validateFields('entry', { leftover_ml: -10 }).ok).toBe(false);
+		expect(validateFields('entry', { leftover_ml: 12.5 }).ok).toBe(false);
 	});
 
 	it('validates an edit that names one payload field and nothing else', () => {
@@ -84,7 +91,7 @@ describe('validateFields', () => {
 
 describe('coercePayload', () => {
 	it('fills the shape a renderer expects', () => {
-		expect(coercePayload('bottle_feed', {})).toEqual({ volume_ml: null, contents: null });
+		expect(coercePayload('bottle_feed', {})).toEqual({ volume_ml: null, leftover_ml: null, contents: null });
 		expect(coercePayload('nappy', { pee: true })).toEqual({ pee: true, poop: false, consistency: null });
 	});
 
@@ -94,6 +101,7 @@ describe('coercePayload', () => {
 		// render the row.
 		expect(coercePayload('bottle_feed', { volume_ml: 90, temperature_c: 37 })).toEqual({
 			volume_ml: 90,
+			leftover_ml: null,
 			contents: null
 		});
 	});
@@ -105,5 +113,32 @@ describe('coercePayload', () => {
 
 	it('gives a Sleep an empty payload — start and end and nothing else', () => {
 		expect(emptyPayload('sleep')).toEqual({});
+	});
+});
+
+describe('takenMl', () => {
+	const bottle = (volume_ml: number | null, leftover_ml: number | null) =>
+		({ volume_ml, leftover_ml, contents: null }) as const;
+
+	it('subtracts what came back in the bottle', () => {
+		expect(takenMl(bottle(180, 30))).toBe(150);
+	});
+
+	it('is the whole bottle when nobody recorded a leftover', () => {
+		// Not the same as a leftover of zero, but it reads the same, and
+		// pretending otherwise would make every bottle logged before this
+		// existed disappear from the volume.
+		expect(takenMl(bottle(180, null))).toBe(180);
+	});
+
+	it('says nothing when nobody said how much went in', () => {
+		// A leftover on its own cannot imply a total, and guessing one would be
+		// inventing data.
+		expect(takenMl(bottle(null, 30))).toBeNull();
+		expect(takenMl(bottle(null, null))).toBeNull();
+	});
+
+	it('never goes negative, because two fields under last-write-wins can cross', () => {
+		expect(takenMl(bottle(120, 200))).toBe(0);
 	});
 });

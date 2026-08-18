@@ -24,7 +24,9 @@
 		length
 	} from '$lib/i18n/format';
 	import { instantOnDate, wallTimeAtOrAfter } from '$domain/time';
+	import { takenMl } from '$domain/entries';
 	import type {
+		BottleContents,
 		BottleFeedPayload,
 		BreastFeedPayload,
 		Entry,
@@ -55,6 +57,8 @@
 	let endTime = $state(opened.ended_at == null ? '' : timeInputValue(opened.ended_at, app.zone));
 	let note = $state(opened.note ?? '');
 	let volume = $state((opened.payload as BottleFeedPayload).volume_ml ?? null);
+	let leftover = $state((opened.payload as BottleFeedPayload).leftover_ml ?? null);
+	let contents = $state((opened.payload as BottleFeedPayload).contents ?? null);
 	let side = $state((opened.payload as BreastFeedPayload).side ?? 'both');
 	let milestoneName = $state((opened.payload as MilestonePayload).name ?? '');
 	let busy = $state(false);
@@ -128,11 +132,23 @@
 		}
 	});
 
+	const contentsLabel = (value: BottleContents) =>
+		value === 'breast_milk' ? m.contents_breast_milk() : value === 'formula' ? m.contents_formula() : m.contents_other();
+
+	/* What she actually drank, spelled out under the two inputs — the sheet asks
+	   for what went in and what came back, and this is the number that follows. */
+	const taken = $derived(
+		entry.type === 'bottle_feed' && leftover != null && leftover > 0
+			? takenMl({ volume_ml: volume, leftover_ml: leftover, contents })
+			: null
+	);
+
 	const FIELD_LABEL: Record<string, () => string> = {
 		occurred_at: m.field_occurred_at,
 		ended_at: m.field_ended_at,
 		note: m.field_note,
 		volume_ml: m.field_volume_ml,
+		leftover_ml: m.field_leftover_ml,
 		contents: m.field_contents,
 		side: m.field_side,
 		pee: m.field_pee,
@@ -164,7 +180,10 @@
 			case 'ended_at':
 				return clockTime(Number(value), zone);
 			case 'volume_ml':
+			case 'leftover_ml':
 				return millilitres(Number(value));
+			case 'contents':
+				return contentsLabel(value as BottleContents);
 			case 'weight_g':
 				return weight(Number(value));
 			case 'height_mm':
@@ -218,8 +237,11 @@
 		const trimmedNote = note.trim();
 		if ((entry.note ?? '') !== trimmedNote) fields.note = trimmedNote.length > 0 ? trimmedNote : null;
 
-		if (entry.type === 'bottle_feed' && volume !== (entry.payload as BottleFeedPayload).volume_ml) {
-			fields.volume_ml = volume;
+		if (entry.type === 'bottle_feed') {
+			const p = entry.payload as BottleFeedPayload;
+			if (volume !== p.volume_ml) fields.volume_ml = volume;
+			if (leftover !== p.leftover_ml) fields.leftover_ml = leftover;
+			if (contents !== p.contents) fields.contents = contents;
 		}
 		if (entry.type === 'breast_feed' && side !== (entry.payload as BreastFeedPayload).side) {
 			fields.side = side;
@@ -285,6 +307,25 @@
 		<label class="field">
 			{m.sheet_volume()}
 			<input type="number" inputmode="numeric" min="0" max="5000" bind:value={volume} />
+		</label>
+		<!-- The leftover belongs here rather than on the logging sheet: it is a
+		     fact from the end of the Feed, and this is the row you open once she
+		     has finished. -->
+		<label class="field">
+			{m.sheet_leftover()} <small>({m.optional()})</small>
+			<input type="number" inputmode="numeric" min="0" max="5000" bind:value={leftover} />
+		</label>
+		{#if taken != null}
+			<p class="note-line">{m.sheet_taken({ value: millilitres(taken) })}</p>
+		{/if}
+		<label class="field">
+			{m.sheet_contents()}
+			<select bind:value={contents}>
+				<option value={null}>{m.contents_unsaid()}</option>
+				<option value="breast_milk">{m.contents_breast_milk()}</option>
+				<option value="formula">{m.contents_formula()}</option>
+				<option value="other">{m.contents_other()}</option>
+			</select>
 		</label>
 	{:else if entry.type === 'breast_feed'}
 		<div class="field seg" role="tablist">

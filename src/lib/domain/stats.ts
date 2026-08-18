@@ -16,7 +16,7 @@
 import { addDays, dayBucketOf, MS } from './time';
 import { classifySleep } from './sleep';
 import type { BottleFeedPayload, Entry, MealPayload, NappyPayload } from './types';
-import { isFeed } from './entries';
+import { isFeed, takenMl } from './entries';
 
 export const WINDOW_DAYS = 7;
 
@@ -189,7 +189,9 @@ export function statsFor(input: StatsInput): StatsCard[] {
 					bump(target.feeds, key, 1);
 					if (current) hasFeed = true;
 					if (e.type === 'bottle_feed') {
-						const volume = (e.payload as BottleFeedPayload).volume_ml;
+						/* What she drank, not what was poured. A bottle she left 30 ml
+						   of did not put 180 ml into her (ADR-0015). */
+						const volume = takenMl(e.payload as BottleFeedPayload);
 						if (volume != null) {
 							bump(target.volume, key, volume);
 							if (current) hasBottle = true;
