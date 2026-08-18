@@ -11,3 +11,6 @@ node_modules
 .env.*
 !.env.example
 .DS_Store
+
+# Impeccable live helper runtime state (pid/port/token, rewritten on boot)
+.impeccable/live/server.json

@@ -3,6 +3,9 @@ import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { defineConfig } from 'vitest/config';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+// Dev-only bridge for impeccable live mode (sandbox forwards only 5173).
+// Remove this import and the plugin entry below to tear live mode out.
+import { impeccableLiveBridge } from './.impeccable/live/vite-bridge.mjs';
 
 /* Version and git SHA are baked in and shown in the UI beside a source link.
    That is how AGPL §13 is satisfied for every operator automatically rather
@@ -45,6 +48,7 @@ export default defineConfig({
 		__GIT_SHA__: JSON.stringify(sha)
 	},
 	plugins: [
+		impeccableLiveBridge(),
 		paraglideVitePlugin({
 			project: './project.inlang',
 			outdir: './src/lib/paraglide',

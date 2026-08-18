@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ImpeccableLiveRoot from '$lib/impeccable/ImpeccableLiveRoot.svelte';
 	/* The shell. Everything is drawn client-side from the replica; the server
 	   renders no UI (ADR-0012). */
 	import '../app.css';
@@ -51,7 +52,10 @@
      has the old language baked into its markup (spec §9.5). -->
 {#key activeLocale()}
 	{#if onClaim}
-		{@render children()}
+		<!-- impeccable-live-svelte-start -->
+<ImpeccableLiveRoot />
+<!-- impeccable-live-svelte-end -->
+{@render children()}
 	{:else}
 		<div class="app">
 			{@render children()}
