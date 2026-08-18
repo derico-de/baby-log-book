@@ -54,6 +54,11 @@ class AppState {
 	/** A filter is a lookup, not a setting: it survives a trip to Stats or
 	    Settings and never survives a cold start (spec §8.7). */
 	filter = $state<Filter>({ ...EMPTY_FILTER });
+	/** The filter header can stand before anything is armed: tapping the search
+	    icon replaces the live block with the inverted header at once, so the
+	    mode change is visible before the first chip is pressed (spec §8.7,
+	    variant A). */
+	filterOpen = $state(false);
 	toast = $state<Toast | null>(null);
 	selectedBabyId = $state<string | null>(null);
 	sync = $state<SyncStatus>({
@@ -148,6 +153,17 @@ class AppState {
 
 	get filtered(): boolean {
 		return isFiltered(this.filter);
+	}
+
+	/** Whether the inverted filter header stands in the live header's place —
+	    open but unarmed still shows it, because the mode change is the signal. */
+	get filterHeaderShown(): boolean {
+		return this.filterOpen || this.filtered;
+	}
+
+	/** What the timeline would hold unfiltered — the N in "3 of 240 entries". */
+	get timelineTotal(): number {
+		return filterEntries(this.babyEntries, EMPTY_FILTER, this.filterContext).length;
 	}
 
 	/** The timeline, reverse-chronological. */
@@ -245,7 +261,7 @@ class AppState {
 		if (!w) return null;
 		const result = await action(w);
 		this.loggedHere = true;
-		if ((options.clearsFilter ?? true) && this.filtered) this.filter = { ...EMPTY_FILTER };
+		if (options.clearsFilter ?? true) this.clearFilter();
 		await this.refresh();
 		if (toast) this.showToast(toast);
 		return result;
@@ -272,6 +288,14 @@ class AppState {
 
 	clearFilter(): void {
 		this.filter = { ...EMPTY_FILTER };
+		this.filterOpen = false;
+	}
+
+	/** Enter the filtered state through any door — the search icon, or the Food
+	    catalogue in Settings — with the inverted header standing either way. */
+	openFilter(filter?: Filter): void {
+		if (filter) this.filter = filter;
+		this.filterOpen = true;
 	}
 
 	/** *Still asleep* restarts the clock so the threshold does not fire again

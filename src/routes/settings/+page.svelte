@@ -197,8 +197,9 @@
 	}
 
 	function showFood(id: string) {
-		/* The Food detail view is a pre-filtered timeline, not a screen. */
-		app.filter = { ...EMPTY_FILTER, foodId: id };
+		/* The Food detail view is a pre-filtered timeline, not a screen — this
+		   route *enters* the filtered state, inverted header and all. */
+		app.openFilter({ ...EMPTY_FILTER, foodId: id });
 		void goto('/');
 	}
 </script>

@@ -23,9 +23,12 @@
 	});
 
 	/* A dismissible banner after the Device has claimed *and* logged its first
-	   Entry, so a grandparent's first screen is not a request. */
+	   Entry, so a grandparent's first screen is not a request. Like the
+	   stale-sleep banner it belongs to the live header's world (spec §8.7):
+	   a filtered timeline is a lookup, and a nudge has no place in one. The
+	   stuck-sync lines above stay — being stuck matters in any view. */
 	const showInstall = $derived(
-		!installed && !installHidden && app.loggedHere && sync.state !== 'removed'
+		!installed && !installHidden && app.loggedHere && !app.filterHeaderShown && sync.state !== 'removed'
 	);
 </script>
 

@@ -12,7 +12,7 @@
 	       ended, so a forgotten stop is harmless (spec §3.3). */
 	import { app } from '$client/state.svelte';
 	import { clockTime, duration, millilitres, takenOfOffered, length, weight } from '$lib/i18n/format';
-	import { highlightParts, searchableText } from '$domain/filter';
+	import { highlightParts } from '$domain/filter';
 	import { classifySleep, isSleepFeed } from '$domain/sleep';
 	import { takenMl } from '$domain/entries';
 	import { bottleLife } from '$domain/targets';
@@ -137,34 +137,48 @@
 		return null;
 	});
 
-	/* The hit that matched a free-text search, marked in the row that carries it. */
-	const hit = $derived.by(() => {
-		if (query.length === 0) return null;
-		const text = searchableText(entry, app.filterContext);
-		if (!text.toLocaleLowerCase().includes(query.toLocaleLowerCase())) return null;
-		return highlightParts(text, query);
+	/* Filtering returns the answer *with its context* (spec §8.7): while a
+	   filter is armed the Note — and a Meal's reaction notes — are written out
+	   under the row rather than hiding behind the icon, because the reaction
+	   note is half of what the lookup was for. The free-text hit is marked
+	   wherever it lands — title, meta or note. */
+	const noteText = $derived.by(() => {
+		const parts: string[] = [];
+		if (entry.type === 'meal') {
+			for (const f of (entry.payload as MealPayload).foods) {
+				if (f.reaction) parts.push(`${app.foodName(f.food_id)}: ${f.reaction}`);
+			}
+		}
+		if (entry.note) parts.push(entry.note);
+		return parts.join(' · ');
 	});
+	const noteShown = $derived(noteText !== '' && app.filtered);
 </script>
+
+{#snippet highlighted(text: string)}
+	{#if query.length > 0}
+		{#each highlightParts(text, query) as part, index (index)}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}
+	{:else}{text}{/if}
+{/snippet}
 
 <li>
 	<button class="row" type="button" onclick={() => onopen(entry)}>
 		<span class="glyph"><Icon name={GLYPH[entry.type]} /></span>
 		<span class="row-main">
 			<span class="row-title">
-				{title}
-				{#if entry.note}
+				{@render highlighted(title)}
+				{#if entry.note && query.length === 0}
 					<span class="note-mark" title={entry.note}><Icon name="note" /></span>
 				{/if}
 				{#if live}
 					<span class="live-pill">{m.row_live()}</span>
 				{/if}
 			</span>
-			{#if hit}
-				<span class="row-meta">
-					{#each hit as part, index (index)}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}
-				</span>
-			{:else if meta}
-				<span class="row-meta">{meta}</span>
+			{#if meta}
+				<span class="row-meta">{@render highlighted(meta)}</span>
+			{/if}
+			{#if noteShown}
+				<span class="row-note">{@render highlighted(noteText)}</span>
 			{/if}
 		</span>
 		{#if live}

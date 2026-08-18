@@ -21,51 +21,17 @@
 	];
 </script>
 
-<Sheet title={m.filter_open()} {onclose}>
+<Sheet title={m.filter_kicker_open()} {onclose}>
+	<h4>{m.filter_text()}</h4>
 	<label class="field">
-		{m.filter_text()}
+		<span class="sr-only">{m.filter_text()}</span>
 		<input
 			type="search"
 			value={app.filter.text}
+			placeholder={m.filter_text_placeholder()}
 			oninput={(event) => (app.filter = { ...app.filter, text: event.currentTarget.value })}
 		/>
 	</label>
-
-	<h4>{m.filter_period()}</h4>
-	<div class="chips">
-		{#each PERIODS as [value, label] (value)}
-			<button
-				class="chip"
-				type="button"
-				aria-pressed={app.filter.period === value}
-				onclick={() => (app.filter = { ...app.filter, period: value })}
-			>
-				{label()}
-			</button>
-		{/each}
-	</div>
-
-	<h4>{m.filter_member()}</h4>
-	<div class="chips">
-		<button
-			class="chip"
-			type="button"
-			aria-pressed={app.filter.memberId == null}
-			onclick={() => (app.filter = { ...app.filter, memberId: null })}
-		>
-			{m.filter_anyone()}
-		</button>
-		{#each app.members as member (member.id)}
-			<button
-				class="chip"
-				type="button"
-				aria-pressed={app.filter.memberId === member.id}
-				onclick={() => (app.filter = { ...app.filter, memberId: member.id })}
-			>
-				{member.display_name}
-			</button>
-		{/each}
-	</div>
 
 	{#if app.liveFoods.length > 0}
 		<h4>{m.filter_food()}</h4>
@@ -91,9 +57,51 @@
 		</div>
 	{/if}
 
+	<h4>{m.filter_member()}</h4>
+	<div class="chips">
+		<button
+			class="chip"
+			type="button"
+			aria-pressed={app.filter.memberId == null}
+			onclick={() => (app.filter = { ...app.filter, memberId: null })}
+		>
+			{m.filter_anyone()}
+		</button>
+		{#each app.members as member (member.id)}
+			<button
+				class="chip"
+				type="button"
+				aria-pressed={app.filter.memberId === member.id}
+				onclick={() => (app.filter = { ...app.filter, memberId: member.id })}
+			>
+				{member.display_name}
+			</button>
+		{/each}
+	</div>
+
+	<h4>{m.filter_period()}</h4>
+	<div class="chips">
+		{#each PERIODS as [value, label] (value)}
+			<button
+				class="chip"
+				type="button"
+				aria-pressed={app.filter.period === value}
+				onclick={() => (app.filter = { ...app.filter, period: value })}
+			>
+				{label()}
+			</button>
+		{/each}
+	</div>
+
 	<div class="sheet-acts">
-		<button type="button" onclick={() => app.clearFilter()}>{m.filter_clear()}</button>
-		<button type="button" data-primary="1" onclick={onclose}>{m.done()}</button>
+		<button
+			type="button"
+			onclick={() => {
+				app.clearFilter();
+				onclose();
+			}}>{m.filter_clear_all()}</button
+		>
+		<button type="button" data-primary="1" onclick={onclose}>{m.filter_show_results()}</button>
 	</div>
 </Sheet>
 

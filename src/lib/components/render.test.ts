@@ -10,6 +10,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { app } from '$client/state.svelte';
 import { ReplicaDb } from '$client/db';
 import type { Baby, Entry, Household, MemberRecord, Target } from '$domain/types';
+import FilterHeader from './FilterHeader.svelte';
 import LiveHeader from './LiveHeader.svelte';
 import TimelineRow from './TimelineRow.svelte';
 import StatCard from './StatCard.svelte';
@@ -84,6 +85,7 @@ beforeEach(() => {
 	app.identity = { memberId: 'oma', householdId: 'h1', role: 'caregiver', displayName: 'Oma' };
 	app.selectedBabyId = 'b1';
 	app.filter = { types: [], foodId: null, memberId: null, text: '', period: 'anytime' };
+	app.filterOpen = false;
 });
 
 afterEach(() => {
@@ -124,6 +126,41 @@ describe('the sticky header', () => {
 			entry({ type: 'nappy', occurred_at: NOW - 7200_000, payload: { pee: true, poop: true, consistency: null } })
 		];
 		expect(draw(LiveHeader, { onFilter: () => {} })).toContain('2 nappies');
+	});
+
+	it('carries the age along with the name', () => {
+		expect(draw(LiveHeader, { onFilter: () => {} })).toContain('Lina · 6 months');
+	});
+});
+
+describe('the filter header', () => {
+	it('stands open but unarmed with the teaching line, before any facet is on', () => {
+		app.openFilter();
+		const text = draw(FilterHeader, { onMore: () => {} });
+		expect(text).toContain('Filter the log');
+		expect(text).toContain('Everything');
+		expect(text).toContain('pick a kind of entry, or search');
+	});
+
+	it('counts hits against the whole log once armed', () => {
+		app.entries = [
+			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: false, consistency: null } }),
+			entry({ type: 'sleep', occurred_at: NOW - 7200_000, ended_at: NOW - 5400_000 })
+		];
+		app.openFilter({ types: ['nappy'], foodId: null, memberId: null, text: '', period: 'anytime' });
+		const text = draw(FilterHeader, { onMore: () => {} });
+		expect(text).toContain('Filtered');
+		expect(text).toContain('Nappies');
+		expect(text).toContain('1 of 2 entries');
+	});
+
+	it('clears the filter and closes when Clear is pressed', () => {
+		app.openFilter({ types: ['nappy'], foodId: null, memberId: null, text: '', period: 'anytime' });
+		draw(FilterHeader, { onMore: () => {} });
+		(host.querySelector('.clear-btn') as HTMLButtonElement).click();
+		flushSync();
+		expect(app.filtered).toBe(false);
+		expect(app.filterHeaderShown).toBe(false);
 	});
 });
 
@@ -228,6 +265,35 @@ describe('a timeline row', () => {
 		const feed = entry({ type: 'breast_feed', occurred_at: NOW - 2 * 3600_000, payload: { side: 'left' } });
 		app.entries = [sleep, feed];
 		expect(draw(TimelineRow, { entry: feed, onopen: () => {}, onstop: () => {} })).toContain('sleep feed');
+	});
+
+	it('writes the Note out under the row while a filter is armed, and keeps it behind the icon otherwise', () => {
+		const row = entry({
+			type: 'nappy',
+			occurred_at: NOW - 3600_000,
+			note: 'a little red',
+			payload: { pee: true, poop: false, consistency: null }
+		});
+		app.entries = [row];
+		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} })).not.toContain('a little red');
+
+		if (mounted) unmount(mounted as never, { outro: false });
+		mounted = null;
+		app.filter = { ...app.filter, types: ['nappy'] };
+		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} })).toContain('a little red');
+	});
+
+	it('marks the free-text hit in the note that carries it', () => {
+		const row = entry({
+			type: 'nappy',
+			occurred_at: NOW - 3600_000,
+			note: 'blotches on her cheek',
+			payload: { pee: true, poop: false, consistency: null }
+		});
+		app.entries = [row];
+		app.filter = { ...app.filter, text: 'blotches' };
+		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		expect(host.querySelector('mark')?.textContent).toBe('blotches');
 	});
 });
 

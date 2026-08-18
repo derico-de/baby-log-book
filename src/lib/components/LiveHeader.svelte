@@ -13,7 +13,7 @@
 	       2h, no badge — escalation is nagging with extra steps. */
 	import { app } from '$client/state.svelte';
 	import { clockTime, dateShort, duration, plural } from '$lib/i18n/format';
-	import { withinLastDay } from '$domain/time';
+	import { ageInMonths, withinLastDay } from '$domain/time';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from './Icon.svelte';
 
@@ -26,6 +26,17 @@
 	const baby = $derived(app.baby);
 	const babies = $derived(app.liveBabies);
 	const zone = $derived(app.zone);
+
+	/** `Lina · 4 months` — the age rides along with the name (spec §8.4). */
+	const babyLine = $derived.by(() => {
+		if (!baby) return '';
+		const months = ageInMonths(baby.birth_date, app.now, zone);
+		const age =
+			months === 0
+				? m.age_newborn()
+				: plural(months, { one: m.baby_age_months_one, few: m.baby_age_months_few, other: m.baby_age_months_other });
+		return `${baby.name} · ${age}`;
+	});
 
 	function absoluteLast(at: number): string {
 		const label = withinLastDay(at, app.now) ? '' : `${dateShort(at, zone)} `;
@@ -45,12 +56,12 @@
 				}}
 			>
 				<span class="baby-dot">{baby?.name.slice(0, 1) ?? '?'}</span>
-				{baby?.name}
+				{babyLine}
 			</button>
 		{:else}
 			<span class="baby">
 				<span class="baby-dot">{baby?.name.slice(0, 1) ?? '?'}</span>
-				{baby?.name ?? ''}
+				{babyLine}
 			</span>
 		{/if}
 		<div class="head-actions">

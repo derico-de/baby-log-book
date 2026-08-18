@@ -39,6 +39,19 @@ export function plural(count: number, forms: PluralForms): string {
 	return fn ? fn({ count }) : String(count);
 }
 
+/** `3 of 240 entries` — the filter header's count line. The noun agrees with
+    the total, not the hit count: "1 of 240 entries", "1 von 240 Einträgen". */
+export function resultsOfTotal(count: number, total: number): string {
+	const category = pluralCategory(activeLocale(), total);
+	const forms = {
+		one: m.filter_results_of_one,
+		few: m.filter_results_of_few,
+		other: m.filter_results_of_other
+	} as Partial<Record<Intl.LDMLPluralRule, (args: { count: number; total: number }) => string>>;
+	const fn = forms[category] ?? forms.other;
+	return fn ? fn({ count, total }) : `${count} / ${total}`;
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** `2h10`, `50m`. The hero figure of the whole app. */

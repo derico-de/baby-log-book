@@ -86,10 +86,13 @@
 </script>
 
 <section class="screen">
-	{#if filtered}
+	<!-- The search icon swaps the header at once: the inverted block stands
+	     before the first chip is pressed, because the mode change is the
+	     signal (spec §8.7, variant A). -->
+	{#if app.filterHeaderShown}
 		<FilterHeader onMore={() => (sheet = 'filter')} />
 	{:else if baby}
-		<LiveHeader onFilter={() => (sheet = 'filter')} />
+		<LiveHeader onFilter={() => app.openFilter()} />
 	{/if}
 
 	<Notices />
@@ -120,7 +123,7 @@
 		{:else}
 			<!-- The banner belongs to the live header's world, so it is absent while
 			     the filter header is up and returns when the filter clears. -->
-			{#if stale.stale && stale.sleep && !filtered}
+			{#if stale.stale && stale.sleep && !app.filterHeaderShown}
 				<StaleBanner sleep={stale.sleep} />
 			{/if}
 

@@ -289,10 +289,20 @@
 		flex-wrap: wrap;
 	}
 	.row-meta {
+		display: block;
 		font-size: var(--fs-1);
 		color: var(--ink-3);
 		margin-top: 1px;
 		font-variant-numeric: tabular-nums;
+	}
+	/* The Note written out while a filter is armed — the reaction note is half
+	   of what the lookup was for (spec §8.7). */
+	.row-note {
+		display: block;
+		font-size: var(--fs-1);
+		color: var(--ink-2);
+		margin-top: 3px;
+		font-style: italic;
 	}
 	.row-time {
 		font-family: var(--font-num);
