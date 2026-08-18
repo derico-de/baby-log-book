@@ -1,5 +1,9 @@
 # baby-log-book
 
+## Project rules
+
+- keep release number in sync with docker container tags
+
 ## Agent skills
 
 ### Issue tracker
