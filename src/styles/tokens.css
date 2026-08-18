@@ -47,9 +47,10 @@
 		--fw-medium: 500;
 		--fw-bold: 650;
 
-		/* The hero figure — "2h 10m" — is the loudest thing on the screen, and
-       it is loud through size at a LIGHT weight. Bold at 3rem shouts. */
-		--hero-size: var(--fs-8);
+		/* The hero figures — "2h 10m" — are the loudest thing on the screen, and
+       they are loud through size at a LIGHT weight. Two of them stand side by
+       side (sleep | feed), so one step down from 3rem; bold would shout. */
+		--hero-size: var(--fs-7);
 		--hero-weight: 300;
 
 		--r-1: 10px;

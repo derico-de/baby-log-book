@@ -32,8 +32,12 @@
 		entry: Entry;
 		onopen: (entry: Entry) => void;
 		onstop: (entry: Entry) => void;
+		/** The running Sleep's row speaks the fan's language — *She's awake* and
+		    *Feed while asleep* — instead of a bare Stop (spec §8.5). */
+		onawake: (entry: Entry) => void;
+		onfeedasleep: () => void;
 	}
-	let { entry, onopen, onstop }: Props = $props();
+	let { entry, onopen, onstop, onawake, onfeedasleep }: Props = $props();
 
 	const GLYPH: Record<Entry['type'], IconName> = {
 		breast_feed: 'feed',
@@ -194,14 +198,21 @@
 	</button>
 	{#if live}
 		<div class="row-live-actions">
-			{#if bottle}
-				<span class="bottle-life" title={m.row_bottle_hint()} data-over={bottle.past ? '1' : '0'}>
-					{bottle.past
-						? m.row_bottle_past({ over: duration(bottle.pastMs ?? 0) })
-						: m.row_bottle_left({ left: duration(bottle.remainingMs) })}
-				</span>
+			{#if entry.type === 'sleep'}
+				<!-- The same two statements the fan offers while she sleeps, in the
+				     same words — *She's awake* rightmost, under the thumb. -->
+				<button class="stop-btn" type="button" onclick={onfeedasleep}>{m.fan_feed_asleep()}</button>
+				<button class="stop-btn" type="button" onclick={() => onawake(entry)}>{m.fan_awake()}</button>
+			{:else}
+				{#if bottle}
+					<span class="bottle-life" title={m.row_bottle_hint()} data-over={bottle.past ? '1' : '0'}>
+						{bottle.past
+							? m.row_bottle_past({ over: duration(bottle.pastMs ?? 0) })
+							: m.row_bottle_left({ left: duration(bottle.remainingMs) })}
+					</span>
+				{/if}
+				<button class="stop-btn" type="button" onclick={() => onstop(entry)}>{m.row_stop()}</button>
 			{/if}
-			<button class="stop-btn" type="button" onclick={() => onstop(entry)}>{m.row_stop()}</button>
 		</div>
 	{/if}
 </li>

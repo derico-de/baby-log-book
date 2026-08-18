@@ -115,17 +115,38 @@ describe('the sticky header', () => {
 			entry({ type: 'sleep', occurred_at: NOW - 65 * 60_000 })
 		];
 		const text = draw(LiveHeader, { onFilter: () => {} });
-		expect(text).toContain('asleep 1h05');
+		expect(text).toContain('asleep');
+		expect(text).toContain('1h05');
+		expect(text).toContain('since 14:55');
 		expect(text).not.toContain('awake');
-		expect(text).not.toContain('down after');
+		expect(text).not.toContain('nap due');
 	});
 
-	it('counts today s nappies', () => {
+	it('shows the awake time and when the nap is due once she is up', () => {
+		app.entries = [
+			entry({ type: 'sleep', occurred_at: NOW - 3 * 3600_000, ended_at: NOW - 30 * 60_000 })
+		];
+		const text = draw(LiveHeader, { onFilter: () => {} });
+		expect(text).toContain('awake');
+		expect(text).toContain('30m');
+		expect(text).toContain('nap due in 1h30');
+	});
+
+	it('counts today s nappies and states the last poop', () => {
 		app.entries = [
 			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: false, consistency: null } }),
 			entry({ type: 'nappy', occurred_at: NOW - 7200_000, payload: { pee: true, poop: true, consistency: null } })
 		];
-		expect(draw(LiveHeader, { onFilter: () => {} })).toContain('2 nappies');
+		const text = draw(LiveHeader, { onFilter: () => {} });
+		expect(text).toContain('2 nappies');
+		expect(text).toContain('last poop today');
+	});
+
+	it('points the last poop at yesterday when today has none', () => {
+		app.entries = [
+			entry({ type: 'nappy', occurred_at: NOW - 26 * 3600_000, payload: { pee: false, poop: true, consistency: null } })
+		];
+		expect(draw(LiveHeader, { onFilter: () => {} })).toContain('last poop yesterday');
 	});
 
 	it('carries the age along with the name', () => {
@@ -172,7 +193,7 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
 		expect(text).toContain('120 ml');
 		expect(text).toContain('Formula');
 		expect(text).toContain('Oma');
@@ -186,7 +207,7 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 180, leftover_ml: 30, contents: 'breast_milk' }
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
 		expect(text).toContain('150 ml of 180');
 		expect(text).toContain('Breast milk');
 		expect(text).not.toContain('180 ml');
@@ -199,7 +220,7 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 150, leftover_ml: 0, contents: 'formula' }
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
 		expect(text).toContain('150 ml');
 		expect(text).not.toContain('of 150');
 	});
@@ -211,7 +232,7 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
 		expect(text).toContain('bottle 40m left');
 		expect(text).toContain('Stop');
 	});
@@ -223,7 +244,7 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
 		});
 		app.entries = [row];
-		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} })).toContain('bottle 20m past');
+		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).toContain('bottle 20m past');
 	});
 
 	it('draws no countdown on a bottle that has been stopped, or on a running breast feed', () => {
@@ -234,27 +255,29 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
 		});
 		app.entries = [done];
-		expect(draw(TimelineRow, { entry: done, onopen: () => {}, onstop: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
+		expect(draw(TimelineRow, { entry: done, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
 
 		if (mounted) unmount(mounted as never, { outro: false });
 		mounted = null;
 		const breast = entry({ type: 'breast_feed', occurred_at: NOW - 20 * 60_000, payload: { side: 'left' } });
 		app.entries = [breast];
-		expect(draw(TimelineRow, { entry: breast, onopen: () => {}, onstop: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
+		expect(draw(TimelineRow, { entry: breast, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
 	});
 
-	it('draws a running Sleep as an ordinary Live Session with a Stop button', () => {
+	it('offers the fan s two statements on a running Sleep, not a bare Stop', () => {
 		const row = entry({ type: 'sleep', occurred_at: NOW - 6 * 3600_000 });
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
 		expect(text).toContain('running');
-		expect(text).toContain('Stop');
+		expect(text).toContain("She's awake");
+		expect(text).toContain('Feed while asleep');
+		expect(text).not.toContain('Stop');
 	});
 
 	it('gives a Milestone an em dash where the clock time would be', () => {
 		const row = entry({ type: 'milestone', occurred_at: NOW - 86_400_000, payload: { name: 'First tooth' } });
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
 		expect(text).toContain('First tooth');
 		expect(text).toContain('—');
 		expect(text).not.toMatch(/\d\d:\d\d/);
@@ -264,7 +287,7 @@ describe('a timeline row', () => {
 		const sleep = entry({ type: 'sleep', occurred_at: NOW - 4 * 3600_000 });
 		const feed = entry({ type: 'breast_feed', occurred_at: NOW - 2 * 3600_000, payload: { side: 'left' } });
 		app.entries = [sleep, feed];
-		expect(draw(TimelineRow, { entry: feed, onopen: () => {}, onstop: () => {} })).toContain('sleep feed');
+		expect(draw(TimelineRow, { entry: feed, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).toContain('sleep feed');
 	});
 
 	it('writes the Note out under the row while a filter is armed, and keeps it behind the icon otherwise', () => {
@@ -275,12 +298,12 @@ describe('a timeline row', () => {
 			payload: { pee: true, poop: false, consistency: null }
 		});
 		app.entries = [row];
-		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} })).not.toContain('a little red');
+		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).not.toContain('a little red');
 
 		if (mounted) unmount(mounted as never, { outro: false });
 		mounted = null;
 		app.filter = { ...app.filter, types: ['nappy'] };
-		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} })).toContain('a little red');
+		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).toContain('a little red');
 	});
 
 	it('marks the free-text hit in the note that carries it', () => {
@@ -292,7 +315,7 @@ describe('a timeline row', () => {
 		});
 		app.entries = [row];
 		app.filter = { ...app.filter, text: 'blotches' };
-		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
 		expect(host.querySelector('mark')?.textContent).toBe('blotches');
 	});
 });

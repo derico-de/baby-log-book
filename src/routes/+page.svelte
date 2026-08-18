@@ -76,6 +76,12 @@
 		});
 	}
 
+	/** The row's *She's awake* — the same statement the fan makes, aimed at the
+	    row's own Sleep rather than whichever one is running. */
+	async function awakeRow(entry: Entry) {
+		await app.edit((w) => endSleep(w, entry.id), { text: m.toast_sleep_ended() });
+	}
+
 	async function createBaby(event: SubmitEvent) {
 		event.preventDefault();
 		if (newBabyName.trim().length === 0 || newBabyBirth === '') return;
@@ -151,7 +157,13 @@
 				</div>
 				<ul class="list">
 					{#each group.entries as entry (entry.id)}
-						<TimelineRow {entry} onopen={(e) => (openEntry = e)} onstop={stop} />
+						<TimelineRow
+							{entry}
+							onopen={(e) => (openEntry = e)}
+							onstop={stop}
+							onawake={(e) => void awakeRow(e)}
+							onfeedasleep={() => (sheet = 'feed-asleep')}
+						/>
 					{/each}
 				</ul>
 			{/each}

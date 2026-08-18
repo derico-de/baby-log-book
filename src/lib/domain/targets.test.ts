@@ -330,7 +330,45 @@ describe('headerState', () => {
 				})
 			]
 		});
-		expect(h.nappies).toEqual({ total: 2, pee: 2, poop: 1 });
+		expect(h.nappies).toEqual({ total: 2, pee: 2, poop: 1, lastPoopAt: iso('2026-08-17T09:00:00Z') });
+	});
+
+	it('remembers the last poop past the Day Start — the gap is the fact', () => {
+		// Today's count says 1 nappy and 0 poops; lastPoopAt still points at
+		// yesterday's, because "she hasn't pooped since yesterday" is exactly
+		// what the header exists to state.
+		const h = headerState({
+			...base,
+			entries: [
+				entry({
+					type: 'nappy',
+					occurred_at: iso('2026-08-16T15:00:00Z'),
+					payload: { pee: false, poop: true, consistency: null }
+				}),
+				entry({
+					type: 'nappy',
+					occurred_at: iso('2026-08-17T09:00:00Z'),
+					payload: { pee: true, poop: false, consistency: null }
+				})
+			]
+		});
+		expect(h.nappies.total).toBe(1);
+		expect(h.nappies.poop).toBe(0);
+		expect(h.nappies.lastPoopAt).toBe(iso('2026-08-16T15:00:00Z'));
+	});
+
+	it('reports no last poop when none was ever logged', () => {
+		const h = headerState({
+			...base,
+			entries: [
+				entry({
+					type: 'nappy',
+					occurred_at: iso('2026-08-17T09:00:00Z'),
+					payload: { pee: true, poop: false, consistency: null }
+				})
+			]
+		});
+		expect(h.nappies.lastPoopAt).toBeNull();
 	});
 
 	it('ignores tombstoned and merged-away rows', () => {

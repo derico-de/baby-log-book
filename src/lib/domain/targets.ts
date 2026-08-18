@@ -237,7 +237,9 @@ export interface SleepHeader {
 export interface HeaderState {
 	feed: FeedHeader;
 	sleep: SleepHeader;
-	nappies: { total: number; pee: number; poop: number };
+	/** Counts are today's; `lastPoopAt` looks past the Day Start, because "she
+	    hasn't pooped since yesterday" is exactly the fact it exists to state. */
+	nappies: { total: number; pee: number; poop: number; lastPoopAt: number | null };
 }
 
 export interface HeaderInput {
@@ -318,16 +320,18 @@ export function headerState(input: HeaderInput): HeaderState {
 	let total = 0;
 	let pee = 0;
 	let poop = 0;
+	let lastPoopAt: number | null = null;
 	for (const e of mine) {
 		if (e.type !== 'nappy') continue;
-		if (dayBucketOf(e.occurred_at, dayStart, zone) !== today) continue;
 		const p = e.payload as NappyPayload;
+		if (p.poop && (lastPoopAt == null || e.occurred_at > lastPoopAt)) lastPoopAt = e.occurred_at;
+		if (dayBucketOf(e.occurred_at, dayStart, zone) !== today) continue;
 		total += 1;
 		if (p.pee) pee += 1;
 		if (p.poop) poop += 1;
 	}
 
-	return { feed, sleep, nappies: { total, pee, poop } };
+	return { feed, sleep, nappies: { total, pee, poop, lastPoopAt } };
 }
 
 export { MS };

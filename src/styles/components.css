@@ -150,13 +150,21 @@
 		background: var(--accent-soft);
 	}
 
-	/* the due block — the number people check constantly */
-	.due-label {
+	/* the live grid — sleep on the left, feed on the right, the numbers people
+	   check constantly. Two hero figures side by side, one step down from the
+	   old single hero so both fit a 360px phone without competing. */
+	.live-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--sp-4);
+		align-items: start;
+	}
+	.live-label {
 		font-size: var(--fs-1);
 		color: var(--ink-2);
 		margin-bottom: 2px;
 	}
-	.due-hero {
+	.live-num {
 		font-family: var(--font-num);
 		font-variant-numeric: tabular-nums lining-nums;
 		font-feature-settings: var(--num-feature);
@@ -167,29 +175,29 @@
 		color: var(--ink);
 		display: block;
 	}
-	.due-next {
-		margin-top: var(--sp-2);
-		font-size: var(--fs-2);
+	/* Subordinate to the hero figures, but readable at arm's length — this is
+	   the due line, not a footnote. */
+	.live-sub {
+		margin-top: var(--sp-1);
+		font-size: var(--fs-3);
 		color: var(--ink-2);
 		font-variant-numeric: tabular-nums;
 	}
-	.due-next[data-over='1'] {
+	.live-sub[data-over='1'] {
 		color: var(--warn);
 		font-weight: var(--fw-medium);
 	}
 	.due-quiet {
-		margin-top: var(--sp-2);
+		margin-top: var(--sp-3);
 		padding-top: var(--sp-2);
 		border-top: 1px solid var(--line);
 		font-size: var(--fs-1);
 		color: var(--ink-3);
 		font-variant-numeric: tabular-nums;
 		display: flex;
+		justify-content: space-between;
 		gap: var(--sp-3);
 		flex-wrap: wrap;
-	}
-	.due-quiet [data-over='1'] {
-		color: var(--warn);
 	}
 
 	.screen-title {
