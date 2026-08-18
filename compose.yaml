@@ -4,7 +4,7 @@
 
 services:
   app:
-    image: ghcr.io/derico-de/baby-log-book:1
+    image: ghcr.io/derico-de/baby-log-book:latest
     restart: unless-stopped
     environment:
       # Required. The public URL Members will open — scheme, host and port
