@@ -228,6 +228,23 @@ export async function markAwakeForMeal(
 	return write(w, 'entry', sleep.id, { ended_at: mealAt });
 }
 
+/** A Baby eats one thing at a time, so starting a new Feed ends a running one
+    at the new Feed's Occurred At — one ordinary revision with no lasting
+    linkage; later corrections to either are independent.
+
+    Guard: only when the new Feed's Occurred At falls inside the running Feed.
+    A back-dated Feed predating it is a separate, earlier feed — leave the
+    running one alone. */
+export async function endFeedForFeed(
+	w: Writer,
+	running: { id: string; occurred_at: number; ended_at: number | null },
+	feedAt: number
+): Promise<string | null> {
+	if (running.ended_at != null) return null;
+	if (feedAt < running.occurred_at) return null;
+	return write(w, 'entry', running.id, { ended_at: feedAt });
+}
+
 /* --- corrections ------------------------------------------------------ */
 
 /** Any Member may fix any Member's Entry, and the history stays visible: the row

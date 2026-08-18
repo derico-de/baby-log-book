@@ -83,7 +83,7 @@ A Feed that overlaps a running Sleep, because a Baby can take the breast or a bo
 _Avoid_: Dream feed (which names only the pre-bedtime one), night feed
 
 **Combined Feed**:
-One sitting of milk taken from more than one source — pumped breast milk, then formula — logged as the several Feeds it was rather than as one. Follows from two Feeds close together and is never recorded as such, which is why nothing merges them.
+One sitting of milk taken from more than one source — pumped breast milk, then formula — logged as the several Feeds it was rather than as one. Follows from two Feeds close together and is never recorded as such, which is why nothing merges them. Starting the next source ends the Feed still running at the new one's start (ADR-0019), so each Feed carries the end it had — a Baby eats one thing at a time.
 _Avoid_: Mixed feed, top-up, supplement
 
 **Intake**:

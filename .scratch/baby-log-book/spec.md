@@ -549,6 +549,8 @@ The tab bar does put a second control in the thumb zone, which is the trade the 
 
 **Sleep Feed needs no schema.** It is *derived* from the overlap, which also covers the manual path where a corrected Feed lands inside a Sleep without passing through the fan. `since last feed` **does** reset on a Sleep Feed, because a real Feed was logged; awake time stays "time not covered by a Sleep", so a Sleep Feed does not make her awake.
 
+**One feed at a time** ([ADR-0019](../../docs/adr/0019-a-new-feed-ends-the-running-one.md)). A new feeding — Feed or Meal — ends a running Feed at the new one's Occurred At: the formula after the breast stops the breast timer, because a Baby eats one thing at a time. Same shape as the awake switch: one ordinary revision, attributed to the Member who logged the new feeding, no lasting linkage, and the sheet says so with the same quiet inline line (*"ends the running feed at 14:05"*). **Guard**: only when the new Occurred At falls inside the running Feed — a back-dated feeding predating it is a separate, earlier feed and leaves it alone. **Not a merge**: both rows and both volumes stay (ADR-0014).
+
 ### 8.6 The stale-Sleep banner
 
 **A banner in the timeline at the threshold** (§6.6), offering *She woke at…* / *Still asleep* / *Delete*. The timeline stays usable behind it.

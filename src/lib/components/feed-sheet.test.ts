@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import { app } from '$client/state.svelte';
 import { ReplicaDb } from '$client/db';
+import { logBreastFeed } from '$client/mutate';
 import type { Writer } from '$client/mutate';
 import type { Baby, BottleFeedPayload, Household, MemberRecord } from '$domain/types';
 import FeedSheet from './FeedSheet.svelte';
@@ -208,5 +209,82 @@ describe('what a save writes', () => {
 			leftover_ml: null,
 			contents: 'formula'
 		});
+	});
+});
+
+/* A Baby eats one thing at a time: a new feeding ends a running Feed at the
+   new one's Occurred At — the formula after the breast stops the breast timer. */
+describe('one feed at a time', () => {
+	let db: ReplicaDb;
+	let writer: Writer;
+	let names = 0;
+
+	beforeEach(() => {
+		names += 1;
+		db = new ReplicaDb(`feed-sheet-running-${names}`);
+		/* The merge clock ticks: a real Device's later revision carries a later
+		   merge_at, and the fold breaks a frozen-clock tie by random id. */
+		let tick = 0;
+		writer = { db, householdId: 'h1', memberId: 'mum', mergeAt: () => NOW + ++tick, now: () => NOW, kick: () => {} };
+		app.log = (async (action: (w: Writer) => Promise<unknown>) => action(writer)) as typeof app.log;
+		app.edit = (async (action: (w: Writer) => Promise<unknown>) => action(writer)) as typeof app.edit;
+	});
+
+	afterEach(async () => {
+		delete (app as unknown as Record<string, unknown>).log;
+		delete (app as unknown as Record<string, unknown>).edit;
+		await db.delete();
+	});
+
+	/** Seeds a breast timer through the real write path and mirrors the replica
+	    into the app state the sheet reads. */
+	async function startBreastTimer(at: number): Promise<string> {
+		const id = await logBreastFeed(writer, { babyId: 'b1', occurredAt: at, side: 'left' });
+		app.entries = await db.entries.toArray();
+		return id;
+	}
+
+	it('saving a bottle while a breast feed runs ends it at the bottle’s Occurred At, and says so', async () => {
+		localStorage.setItem('blb.feedingDefault', 'bottle_formula');
+		const runningId = await startBreastTimer(NOW - 10 * 60_000);
+		open();
+		expect(host.textContent).toContain('ends the running feed at');
+		tapPreset('150');
+		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		const running = await db.entries.get(runningId);
+		expect(running?.ended_at).toBe(NOW);
+	});
+
+	it('leaves the running feed alone when the new one is back-dated before it', async () => {
+		localStorage.setItem('blb.feedingDefault', 'bottle_formula');
+		const runningId = await startBreastTimer(NOW - 10 * 60_000);
+		open();
+		// The running feed started 15:50 Berlin; 15:00 predates it — a separate,
+		// earlier feed, so the sheet neither warns nor writes an end.
+		const timeInput = fieldInput('Time');
+		timeInput.value = '15:00';
+		timeInput.dispatchEvent(new Event('input', { bubbles: true }));
+		flushSync();
+		expect(host.textContent).not.toContain('ends the running feed at');
+		tapPreset('150');
+		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		const running = await db.entries.get(runningId);
+		expect(running?.ended_at).toBeNull();
+	});
+
+	it('starting a second timer ends the first and leaves only the new one running', async () => {
+		const runningId = await startBreastTimer(NOW - 10 * 60_000);
+		open();
+		[...host.querySelectorAll<HTMLButtonElement>('button')]
+			.find((b) => b.textContent?.trim() === 'Start timer')
+			?.click();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		const rows = await db.entries.toArray();
+		expect(rows.find((r) => r.id === runningId)?.ended_at).toBe(NOW);
+		const stillRunning = rows.filter((r) => r.ended_at == null);
+		expect(stillRunning).toHaveLength(1);
+		expect(stillRunning[0].id).not.toBe(runningId);
 	});
 });

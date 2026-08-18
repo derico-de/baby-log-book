@@ -115,6 +115,7 @@
 	"sheet_reaction": "Reacție",
 	"sheet_amount": "Cât a mâncat",
 	"sheet_marked_awake": "trează de la {time}",
+	"sheet_ends_feed": "încheie masa în curs la {time}",
 	"sheet_measurement_title": "Măsurătoare",
 	"sheet_weight": "Greutate",
 	"sheet_height": "Lungime",

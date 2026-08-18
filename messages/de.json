@@ -123,6 +123,7 @@
 	"sheet_reaction": "Reaktion",
 	"sheet_amount": "Wie viel",
 	"sheet_marked_awake": "wach ab {time}",
+	"sheet_ends_feed": "beendet die laufende Mahlzeit um {time}",
 	"sheet_measurement_title": "Messung",
 	"sheet_weight": "Gewicht",
 	"sheet_height": "Länge",

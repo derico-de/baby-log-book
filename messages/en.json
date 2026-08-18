@@ -123,6 +123,7 @@
 	"sheet_reaction": "Reaction",
 	"sheet_amount": "How much",
 	"sheet_marked_awake": "marked awake from {time}",
+	"sheet_ends_feed": "ends the running feed at {time}",
 	"sheet_measurement_title": "Measurement",
 	"sheet_weight": "Weight",
 	"sheet_height": "Height",

@@ -12,9 +12,13 @@
 	   Picking Food while a Sleep runs switches her to awake: solids and sleep are
 	   mutually exclusive, so the switch *is* the statement. The Sleep ends at the
 	   Meal's Occurred At as one ordinary revision with no lasting linkage, and a
-	   quiet inline line says so. */
+	   quiet inline line says so.
+
+	   A running Feed works the same way: a Baby eats one thing at a time, so any
+	   new feeding — the formula after the breast — ends the running Feed at the
+	   new one's Occurred At, said out loud by the same kind of inline line. */
 	import { app } from '$client/state.svelte';
-	import { logBottleFeed, logBreastFeed, logMeal, markAwakeForMeal, addFood } from '$client/mutate';
+	import { endFeedForFeed, logBottleFeed, logBreastFeed, logMeal, markAwakeForMeal, addFood } from '$client/mutate';
 	import { feedingDefault } from '$client/device';
 	import { clockTime, millilitres, timeInputValue } from '$lib/i18n/format';
 	import { wallTimeAtOrBefore } from '$domain/time';
@@ -62,6 +66,7 @@
 
 	const baby = $derived(app.baby);
 	const runningSleep = $derived(app.runningSleep);
+	const runningFeed = $derived(app.runningFeed);
 
 	/** The Occurred At the sheet is describing, projected back through the lens.
 	    Backwards from now, so the 23:45 feed you are logging at 00:20 lands on the
@@ -75,6 +80,12 @@
 	const willMarkAwake = $derived(
 		mode === 'food' && asleep && runningSleep != null && occurredAt >= runningSleep.occurred_at
 	);
+
+	/* A Baby eats one thing at a time, so this save will also end a running Feed
+	   at the new one's Occurred At — same shape as the awake switch: a real
+	   write, said out loud, with the same back-dating guard (a new Feed predating
+	   the running one is a separate, earlier feed and leaves it alone). */
+	const willEndFeed = $derived(runningFeed != null && occurredAt >= runningFeed.occurred_at);
 
 	const matchingFoods = $derived.by(() => {
 		const query = foodQuery.trim().toLocaleLowerCase();
@@ -105,11 +116,15 @@
 		if (!baby || busy) return;
 		busy = true;
 		const at = occurredAt;
+		/* Captured before the write: once the new Feed lands it is itself the
+		   running Feed, and it must not be the one that gets ended. */
+		const feed = runningFeed;
 		const trimmed = note.trim();
 		const target = { babyId: baby.id, occurredAt: at, note: trimmed.length > 0 ? trimmed : null };
 
+		let id: string | null = null;
 		if (mode === 'breast') {
-			const id = await app.log(
+			id = await app.log(
 				(w) =>
 					logBreastFeed(w, {
 						...target,
@@ -118,16 +133,14 @@
 					}),
 				{ text: m.toast_logged({ what: m.type_breast_feed() }), undo: undefined }
 			);
-			finish(id);
 		} else if (mode === 'bottle') {
-			const id = await app.log(
+			id = await app.log(
 				(w) => logBottleFeed(w, { ...target, volumeMl: intake, contents }),
 				{ text: m.toast_logged({ what: m.type_bottle_feed() }) }
 			);
-			finish(id);
 		} else {
 			const sleep = runningSleep;
-			const id = await app.log((w) => logMeal(w, { ...target, foods: picked }), {
+			id = await app.log((w) => logMeal(w, { ...target, foods: picked }), {
 				text: m.toast_logged({ what: m.type_meal() })
 			});
 			if (sleep && asleep) {
@@ -135,8 +148,13 @@
 				   back-dated Meal predating it is "she ate, then went down". */
 				await app.edit((w) => markAwakeForMeal(w, sleep, at));
 			}
-			finish(id);
 		}
+		if (feed) {
+			/* Guard: only when the new Feed's Occurred At falls inside the running
+			   one. A back-dated Feed predating it is a separate, earlier feed. */
+			await app.edit((w) => endFeedForFeed(w, feed, at));
+		}
+		finish(id);
 	}
 
 	function finish(id: string | null) {
@@ -150,6 +168,8 @@
 		if (!baby || busy) return;
 		busy = true;
 		const at = app.now;
+		/* Captured before the write — the new timer must not end itself. */
+		const feed = runningFeed;
 		const trimmed = note.trim();
 		const target = { babyId: baby.id, occurredAt: at, note: trimmed.length > 0 ? trimmed : null };
 		const id =
@@ -160,6 +180,7 @@
 				: await app.log((w) => logBottleFeed(w, { ...target, volumeMl: intake, contents }), {
 						text: m.toast_logged({ what: m.type_bottle_feed() })
 					});
+		if (feed) await app.edit((w) => endFeedForFeed(w, feed, at));
 		finish(id);
 	}
 </script>
@@ -178,6 +199,10 @@
 
 	{#if willMarkAwake}
 		<p class="note-line">{m.sheet_marked_awake({ time: clockTime(occurredAt, app.zone) })}</p>
+	{/if}
+
+	{#if willEndFeed}
+		<p class="note-line">{m.sheet_ends_feed({ time: clockTime(occurredAt, app.zone) })}</p>
 	{/if}
 
 	{#if mode === 'breast'}
