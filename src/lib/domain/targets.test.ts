@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anchorInstant, dueInstant, headerState, seedTargets, typicalFor } from './targets';
+import { anchorInstant, bottleLife, bottleTargetOf, dueInstant, headerState, seedTargets, typicalFor } from './targets';
 import type { Entry, Target } from './types';
 
 const BERLIN = 'Europe/Berlin';
@@ -34,19 +34,21 @@ const feedTarget: Target = {
 	deleted_at: null
 };
 const sleepTarget: Target = { ...feedTarget, id: 't2', activity: 'sleep', duration_s: 2 * 3600, anchor: 'sleep_end' };
+const bottleTarget: Target = { ...feedTarget, id: 't3', activity: 'bottle', duration_s: 3600, anchor: 'bottle_start' };
 
 describe('the age table', () => {
 	it('seeds one Target per activity from the birth date', () => {
 		const seeds = seedTargets('2026-06-17', iso('2026-08-17T12:00:00Z'), BERLIN);
 		expect(seeds.map((s) => [s.activity, s.duration_s, s.anchor])).toEqual([
 			['feed', 3 * 3600, 'feed_start'],
-			['sleep', 75 * 60, 'sleep_end']
+			['sleep', 75 * 60, 'sleep_end'],
+			['bottle', 3600, 'bottle_start']
 		]);
 	});
 
 	it('stops seeding a feed Target after twelve months, when solids take over', () => {
 		const seeds = seedTargets('2025-01-17', iso('2026-08-17T12:00:00Z'), BERLIN);
-		expect(seeds.map((s) => s.activity)).toEqual(['sleep']);
+		expect(seeds.map((s) => s.activity)).toEqual(['sleep', 'bottle']);
 		expect(seeds[0].duration_s).toBe(5 * 3600);
 	});
 
@@ -54,6 +56,82 @@ describe('the age table', () => {
 		expect(typicalFor('sleep', 3)).toBe(2 * 3600);
 		expect(typicalFor('feed', 4)).toBe(3.5 * 3600);
 		expect(typicalFor('feed', 13)).toBeNull();
+	});
+
+	it('gives the Bottle Life no age table, because milk does not care how old she is', () => {
+		expect(typicalFor('bottle', 0)).toBe(3600);
+		expect(typicalFor('bottle', 24)).toBe(3600);
+	});
+});
+
+describe('the Bottle Life', () => {
+	const now = iso('2026-08-17T14:10:00Z');
+
+	it('counts down from the start of a bottle that is still open', () => {
+		const open = entry({ type: 'bottle_feed', occurred_at: iso('2026-08-17T13:50:00Z') });
+		const life = bottleLife(open, bottleTarget, now);
+		expect(life?.dueAt).toBe(iso('2026-08-17T14:50:00Z'));
+		expect(life?.remainingMs).toBe(40 * 60_000);
+		expect(life?.past).toBe(false);
+		expect(life?.pastMs).toBeNull();
+	});
+
+	it('keeps counting past the stated hour rather than stopping or hiding', () => {
+		const open = entry({ type: 'bottle_feed', occurred_at: iso('2026-08-17T12:50:00Z') });
+		const life = bottleLife(open, bottleTarget, now);
+		expect(life?.past).toBe(true);
+		expect(life?.pastMs).toBe(20 * 60_000);
+		// Clamped, so no screen ever has to print a negative countdown.
+		expect(life?.remainingMs).toBe(0);
+	});
+
+	it('says nothing once the Feed has an end — a stopped bottle is not one anyone will offer again', () => {
+		const done = entry({
+			type: 'bottle_feed',
+			occurred_at: iso('2026-08-17T13:50:00Z'),
+			ended_at: iso('2026-08-17T14:05:00Z')
+		});
+		expect(bottleLife(done, bottleTarget, now)).toBeNull();
+	});
+
+	it('says nothing about a breast feed, which has no bottle to go off', () => {
+		const breast = entry({ type: 'breast_feed', occurred_at: iso('2026-08-17T13:50:00Z') });
+		expect(bottleLife(breast, bottleTarget, now)).toBeNull();
+	});
+
+	it('says nothing about a deleted or merged-away row', () => {
+		const at = iso('2026-08-17T13:50:00Z');
+		expect(bottleLife(entry({ type: 'bottle_feed', occurred_at: at, deleted_at: now }), bottleTarget, now)).toBeNull();
+		expect(bottleLife(entry({ type: 'bottle_feed', occurred_at: at, merged_into: 'x' }), bottleTarget, now)).toBeNull();
+	});
+
+	it('falls back to the seeded hour for a Baby added before the Target existed', () => {
+		expect(bottleTargetOf([feedTarget, sleepTarget], 'b1')).toMatchObject({
+			activity: 'bottle',
+			duration_s: 3600,
+			anchor: 'bottle_start',
+			baby_id: 'b1'
+		});
+		expect(bottleTargetOf([feedTarget, bottleTarget], 'b1').id).toBe('t3');
+	});
+
+	it('anchors on the older of two open bottles, because that is the one running out first', () => {
+		const combined = [
+			entry({ id: 'later', type: 'bottle_feed', occurred_at: iso('2026-08-17T14:00:00Z') }),
+			entry({ id: 'earlier', type: 'bottle_feed', occurred_at: iso('2026-08-17T13:40:00Z') })
+		];
+		expect(anchorInstant(bottleTarget, combined)).toBe(iso('2026-08-17T13:40:00Z'));
+	});
+
+	it('has no anchor once every bottle has been stopped', () => {
+		const done = [
+			entry({
+				type: 'bottle_feed',
+				occurred_at: iso('2026-08-17T13:40:00Z'),
+				ended_at: iso('2026-08-17T13:55:00Z')
+			})
+		];
+		expect(anchorInstant(bottleTarget, done)).toBeNull();
 	});
 });
 

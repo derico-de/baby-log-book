@@ -15,6 +15,7 @@
 	import { highlightParts, searchableText } from '$domain/filter';
 	import { classifySleep, isSleepFeed } from '$domain/sleep';
 	import { takenMl } from '$domain/entries';
+	import { bottleLife } from '$domain/targets';
 	import type {
 		BottleFeedPayload,
 		BreastFeedPayload,
@@ -47,6 +48,13 @@
 	const zone = $derived(app.zone);
 	const live = $derived(entry.ended_at == null && (entry.type === 'sleep' || entry.type === 'breast_feed' || entry.type === 'bottle_feed'));
 	const query = $derived(app.filter.text.trim());
+
+	/* The countdown on a started bottle. Per row, not per Baby: a Combined Feed
+	   can have two bottles open at once, and a single figure could not say which
+	   one it meant. Neutral wording throughout — it counts against the hour the
+	   Household typed, and the Feed's start is the only instant it has, so it
+	   reads younger than the milk when the bottle was poured earlier (ADR-0016). */
+	const bottle = $derived(app.bottleTarget ? bottleLife(entry, app.bottleTarget, app.now) : null);
 
 	const title = $derived.by(() => {
 		switch (entry.type) {
@@ -172,6 +180,13 @@
 	</button>
 	{#if live}
 		<div class="row-live-actions">
+			{#if bottle}
+				<span class="bottle-life" title={m.row_bottle_hint()} data-over={bottle.past ? '1' : '0'}>
+					{bottle.past
+						? m.row_bottle_past({ over: duration(bottle.pastMs ?? 0) })
+						: m.row_bottle_left({ left: duration(bottle.remainingMs) })}
+				</span>
+			{/if}
 			<button class="stop-btn" type="button" onclick={() => onstop(entry)}>{m.row_stop()}</button>
 		</div>
 	{/if}
@@ -182,8 +197,21 @@
 	   opening a row and stopping it are never the same gesture. */
 	.row-live-actions {
 		display: flex;
+		align-items: center;
 		justify-content: flex-end;
+		gap: var(--sp-3);
 		padding: 0 var(--sp-4) var(--sp-3);
 		background: var(--surface);
+	}
+
+	/* The one colour shift the countdown makes, and it makes it once — the same
+	   discipline the overdue figure in the header keeps. No second colour, no
+	   badge, no escalation. */
+	.bottle-life {
+		font-size: var(--fs-1);
+		color: var(--ink-3);
+	}
+	.bottle-life[data-over='1'] {
+		color: var(--warn);
 	}
 </style>

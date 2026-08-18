@@ -3,7 +3,7 @@ import { applyLocal, applyRevisions } from './apply';
 import { META, resetReplica, ReplicaDb, setMeta, wipeEverything } from './db';
 import { deleteEntry, logNappy, startSleep, stopSession, undoDelete, type Writer } from './mutate';
 import { SyncEngine, toWireRevision } from './sync';
-import type { Revision } from '$domain/types';
+import { PROTOCOL_VERSION, type Revision } from '$domain/types';
 
 const BERLIN = 'Europe/Berlin';
 const NOW = Date.parse('2026-08-17T20:00:00Z');
@@ -243,7 +243,8 @@ describe('the sync engine', () => {
 	}
 
 	const versionBlock = {
-		protocol_version: 1,
+		/* Relative to the constant, so a protocol bump does not rot these. */
+		protocol_version: PROTOCOL_VERSION,
 		app_version: '0.0.0',
 		git_sha: 'unknown',
 		source: 'x',
@@ -298,12 +299,12 @@ describe('the sync engine', () => {
 		await logNappy(writer(), { babyId: 'b1', pee: true, poop: false });
 		const sync = engine((url) => {
 			if (url.startsWith('/api/sync/push')) {
-				return new Response(JSON.stringify({ code: 'protocol', ...versionBlock, protocol_version: 2 }), {
+				return new Response(JSON.stringify({ code: 'protocol', ...versionBlock, protocol_version: PROTOCOL_VERSION + 1 }), {
 					status: 409,
 					headers: { 'content-type': 'application/json' }
 				});
 			}
-			return ok({ revisions: [], cursor: 0, more: false, ...versionBlock, protocol_version: 2 });
+			return ok({ revisions: [], cursor: 0, more: false, ...versionBlock, protocol_version: PROTOCOL_VERSION + 1 });
 		});
 		await sync.sync();
 		expect(sync.getStatus().state).toBe('client_behind');
@@ -313,7 +314,7 @@ describe('the sync engine', () => {
 		const urls: string[] = [];
 		const again = engine((url) => {
 			urls.push(url);
-			return ok({ revisions: [], cursor: 0, more: false, ...versionBlock, protocol_version: 2 });
+			return ok({ revisions: [], cursor: 0, more: false, ...versionBlock, protocol_version: PROTOCOL_VERSION + 1 });
 		});
 		await again.load();
 		await again.sync();
@@ -321,7 +322,7 @@ describe('the sync engine', () => {
 	});
 
 	it('tells the operator when the server is the older one', async () => {
-		const sync = engine(() => ok({ revisions: [], cursor: 0, more: false, ...versionBlock, protocol_version: 0 }));
+		const sync = engine(() => ok({ revisions: [], cursor: 0, more: false, ...versionBlock, protocol_version: PROTOCOL_VERSION - 1 }));
 		await sync.sync();
 		expect(sync.getStatus().state).toBe('client_ahead');
 	});

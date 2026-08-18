@@ -6,7 +6,7 @@
    Nothing in this file materialises anything (spec §3.5). */
 
 import { EMPTY_FILTER, filterEntries, isFiltered, type Filter, type FilterContext } from '$domain/filter';
-import { headerState, type HeaderState } from '$domain/targets';
+import { bottleTargetOf, headerState, type HeaderState } from '$domain/targets';
 import { staleSleepState, type StaleState } from '$domain/sleep';
 import { addDays, dayBucketOf } from '$domain/time';
 import { DEFAULT_DAY_START } from '$domain/types';
@@ -126,6 +126,14 @@ class AppState {
 		const baby = this.baby;
 		if (!baby) return [];
 		return this.targets.filter((t) => t.baby_id === baby.id && t.deleted_at == null);
+	}
+
+	/** The Bottle Life this Baby counts against — the stated Target, or the
+	    seeded hour for a Baby added before the field existed. */
+	get bottleTarget(): Target | null {
+		const baby = this.baby;
+		if (!baby) return null;
+		return bottleTargetOf(this.babyTargets, baby.id);
 	}
 
 	get filterContext(): FilterContext {

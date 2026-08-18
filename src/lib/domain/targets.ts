@@ -21,6 +21,14 @@ const FEED_BANDS: Array<{ untilMonths: number; seconds: number }> = [
 	{ untilMonths: 12, seconds: 4 * 3600 }
 ];
 
+/** The Bottle Life has no age table: how long the milk in a bottle stays good
+    does not depend on how old she is. One band, so `typicalFor` and
+    `seedTargets` need no special case, and the value is the household's to
+    change (ADR-0016). */
+const BOTTLE_BANDS: Array<{ untilMonths: number; seconds: number }> = [
+	{ untilMonths: Infinity, seconds: 3600 }
+];
+
 const SLEEP_BANDS: Array<{ untilMonths: number; seconds: number }> = [
 	{ untilMonths: 1, seconds: 45 * 60 },
 	{ untilMonths: 3, seconds: 75 * 60 },
@@ -35,22 +43,25 @@ const SLEEP_BANDS: Array<{ untilMonths: number; seconds: number }> = [
     field in Schedule settings. No state, no dismissal flag to sync, and never
     on the home screen. */
 export function typicalFor(activity: Activity, ageMonths: number): number | null {
-	const bands = activity === 'feed' ? FEED_BANDS : SLEEP_BANDS;
+	const bands = activity === 'feed' ? FEED_BANDS : activity === 'bottle' ? BOTTLE_BANDS : SLEEP_BANDS;
 	for (const band of bands) if (ageMonths < band.untilMonths) return band.seconds;
 	return null;
 }
 
 export const ANCHOR_FOR: Record<Activity, Target['anchor']> = {
 	feed: 'feed_start',
-	sleep: 'sleep_end'
+	sleep: 'sleep_end',
+	bottle: 'bottle_start'
 };
+
+export const ACTIVITIES = ['feed', 'sleep', 'bottle'] as const;
 
 /** Seeded once at Baby creation, never re-derived and never averaged from the
     log (ADR-0006). */
 export function seedTargets(birthDate: string, at: number, zone: string): Array<Omit<Target, 'id' | 'household_id' | 'baby_id' | 'deleted_at'>> {
 	const months = ageInMonths(birthDate, at, zone);
 	const seeds: Array<Omit<Target, 'id' | 'household_id' | 'baby_id' | 'deleted_at'>> = [];
-	for (const activity of ['feed', 'sleep'] as Activity[]) {
+	for (const activity of ACTIVITIES) {
 		const seconds = typicalFor(activity, months);
 		if (seconds == null) continue;
 		seeds.push({ activity, duration_s: seconds, anchor: ANCHOR_FOR[activity] });
@@ -67,11 +78,24 @@ export function dueInstant(target: Target, anchorAt: number): number {
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
 
-/** The instant a Target measures from: the previous Feed's start, or the last
-    Sleep's end. Two anchors, because "she sleeps every 3h" is not a Wake
-    Window — how long she stays comfortably awake is a different anchor, and
-    getting it wrong would have made the sleep number useless. */
+/** The instant a Target measures from: the previous Feed's start, the last
+    Sleep's end, or the start of the bottle that is still open. Three anchors,
+    because "she sleeps every 3h" is not a Wake Window — how long she stays
+    comfortably awake is a different anchor, and getting it wrong would have
+    made the sleep number useless. */
 export function anchorInstant(target: Target, entries: Entry[]): number | null {
+	if (target.anchor === 'bottle_start') {
+		/* The bottle still open, not the last one poured. A bottle that has been
+		   stopped is a bottle nobody is going to offer again, so it has no life
+		   left to count; two open at once is a Combined Feed, and the older of
+		   them is the one running out first. */
+		let earliest: number | null = null;
+		for (const e of entries) {
+			if (!live(e) || e.type !== 'bottle_feed' || e.ended_at != null) continue;
+			if (earliest == null || e.occurred_at < earliest) earliest = e.occurred_at;
+		}
+		return earliest;
+	}
 	if (target.anchor === 'feed_start') {
 		let latest: number | null = null;
 		for (const e of entries) {
@@ -86,6 +110,56 @@ export function anchorInstant(target: Target, entries: Entry[]): number | null {
 		if (latest == null || e.ended_at > latest) latest = e.ended_at;
 	}
 	return latest;
+}
+
+/** The Bottle Life a Household has stated, or the seeded hour if this Baby
+    predates the field. Synthetic, never written: a Target that only exists
+    because nobody has changed it is still a display-time fold (ADR-0006). */
+export function bottleTargetOf(targets: Target[], babyId: string): Target {
+	const stored = targets.find((t) => t.activity === 'bottle' && t.deleted_at == null);
+	if (stored) return stored;
+	return {
+		id: '',
+		household_id: '',
+		baby_id: babyId,
+		activity: 'bottle',
+		duration_s: typicalFor('bottle', 0) ?? 3600,
+		anchor: 'bottle_start',
+		deleted_at: null
+	};
+}
+
+export interface BottleLife {
+	startedAt: number;
+	dueAt: number;
+	/** Clamped at zero, so the countdown never reads as a negative number. */
+	remainingMs: number;
+	past: boolean;
+	pastMs: number | null;
+}
+
+/** The countdown on one started bottle, computed for the row that shows it.
+
+    Per row rather than per Baby, because a Combined Feed can have two bottles
+    open at once and a single figure could not say which one it meant.
+
+    Null once the Feed has an end: the app counts the life of a bottle someone
+    might still offer, and a stopped Feed is not that. It counts from the
+    Feed's start, which is the only instant the model has — a bottle poured
+    earlier, or one that came back out of the fridge, reads *younger* here than
+    the milk really is (ADR-0016). */
+export function bottleLife(entry: Entry, target: Target, now: number): BottleLife | null {
+	if (entry.type !== 'bottle_feed' || entry.ended_at != null || !live(entry)) return null;
+	if (target.duration_s <= 0) return null;
+	const dueAt = dueInstant(target, entry.occurred_at);
+	const remaining = dueAt - now;
+	return {
+		startedAt: entry.occurred_at,
+		dueAt,
+		remainingMs: Math.max(0, remaining),
+		past: remaining < 0,
+		pastMs: remaining < 0 ? -remaining : null
+	};
 }
 
 export interface FeedHeader {

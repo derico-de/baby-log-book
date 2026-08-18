@@ -23,6 +23,16 @@ import { META, OUTBOX_VERSION, type ReplicaDb } from './db';
 const num = (v: unknown) => (v == null ? null : Number(v));
 const str = (v: unknown, fallback = '') => (v == null ? fallback : String(v));
 
+const ACTIVITIES = ['feed', 'sleep', 'bottle'] as const;
+const ANCHORS = ['feed_start', 'sleep_end', 'bottle_start'] as const;
+
+/** Narrows a stored string back to its union, falling back rather than
+    throwing: the fold has already been validated at the sync edge, and a
+    replica that refused to materialise one row would hide the whole Baby. */
+function oneOf<T extends string>(v: unknown, allowed: readonly T[], fallback: T): T {
+	return allowed.includes(v as T) ? (v as T) : fallback;
+}
+
 /** Re-folds one entity from the local log and rewrites its materialised row. */
 async function materialise(db: ReplicaDb, householdId: string, kind: RevisionKind, entityId: string) {
 	const revisions = await db.revisions.where({ kind, entity_id: entityId }).toArray();
@@ -71,9 +81,9 @@ async function materialise(db: ReplicaDb, householdId: string, kind: RevisionKin
 				id: entityId,
 				household_id: householdId,
 				baby_id: str(state.baby_id),
-				activity: state.activity === 'sleep' ? 'sleep' : 'feed',
+				activity: oneOf(state.activity, ACTIVITIES, 'feed'),
 				duration_s: Number(state.duration_s ?? 0),
-				anchor: state.anchor === 'sleep_end' ? 'sleep_end' : 'feed_start',
+				anchor: oneOf(state.anchor, ANCHORS, 'feed_start'),
 				deleted_at: num(state.deleted_at)
 			} satisfies Target);
 			return;

@@ -1,7 +1,7 @@
 # Bottle freshness
 
 Type: grilling
-Status: closed — out of scope
+Status: resolved — reopened and built
 Blocked by: 05
 
 ## Question
@@ -49,3 +49,17 @@ Kept for the record, because if freshness ever returns it returns as a fresh eff
 - **Feeds are still anchored by their start** ([Domain model](05-domain-model.md)). Nothing about that changes; freshness was one thing a start time was thought to anchor, and it turns out a start time anchors only the Feed Interval.
 - **The precedent from [Logging interactions](16-logging-interactions.md)** — *the app reports, the parent judges* — is untouched and still stands on its own for stale sleeps. It no longer has a second application waiting on it.
 - The `## Question` body above is left as written, including the already-settled preparation-time exclusion, so the reasoning is legible to anyone who reopens this.
+
+
+## Answer — reopened, and built as the shape this ticket had reached
+
+Reopened by the user on 2026-08-18, after the scope call recorded above. **A started bottle now carries a countdown on its timeline row**, and it is the third Target this ticket had settled on before it was closed — not a new design.
+
+- **A third Target, `activity: 'bottle'`, `anchor: 'bottle_start'`**, seeded at **1h** and editable per Baby in Schedule settings. Same machinery as the Feed Interval and the Wake Window, and no medical claim: the app counts against a number a Member typed. The one departure from the shape recorded below is the **seeded default** — the user asked for the countdown to work out of the box rather than wait for someone to type a number, so a Baby who predates the field folds the seed at display time instead of getting a written record.
+- **No Bottle entity**, as decided here. Which means the clock is still **systematically optimistic** — it starts at the Feed, so a bottle made up earlier, one finished across two Feeds, or a fridge round-trip all read younger than the milk. The error is always in the unsafe direction. That argument was the strongest this grilling produced, it has not been answered, and it is now stated beside the field in Settings and carried in [ADR-0016](../../../docs/adr/0016-the-bottle-life-is-a-target-not-a-verdict.md) rather than quietly dropped.
+- **Where it appears**: the row of a bottle Feed that is still open, beside its Stop button. Per row rather than per Baby, because a Combined Feed can have two bottles open at once and one header figure could not say which it meant. Nothing on a running breast feed, nothing once the Feed has been stopped, and nothing in the sticky header.
+- **After the threshold**: it keeps counting — `bottle 20m past` — and shifts colour once, the same discipline the overdue Feed figure keeps. It never stops counting and never issues a verdict.
+- **The refrigeration question** stays explicitly unmodelled, as does preparation time.
+- **`PROTOCOL_VERSION` → 2.** An old client coerces the unknown activity to `feed` and can then overwrite the Bottle Life record from the Feed Interval field. That is the case the version number exists for (spec §5.5).
+- **Which contents get a rule** is answered by not asking: one duration for every bottle, whatever is in it. Per-contents thresholds would have needed the guideline numbers this ticket never researched.
+- **The one-hue discipline survives the colour shift.** The countdown past its duration uses `--warn`, which [`design/tokens.css`](../design/tokens.css) defines as an alias of `--accent` — so the note above about no warning colour is honoured in the palette even though the row does change colour once.

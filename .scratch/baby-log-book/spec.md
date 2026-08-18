@@ -375,9 +375,10 @@ Two limitations accepted rather than papered over:
 
 [ADR-0006](../../docs/adr/0006-targets-are-stated-not-learned.md), [Schedules in v1](issues/09-schedules-v1.md). A schedule in v1 is **one number per activity per Baby, and no machinery.**
 
-- **Intervals only, with two different anchors.** The **Feed Interval** runs from the previous Feed's *start*; the **Wake Window** runs from the last Sleep's *end*. The sleep target is not "she sleeps every 3h" — it is how long she stays comfortably awake, a different anchor, and getting it wrong would have made the sleep number useless.
+- **Intervals only, with three different anchors.** The **Feed Interval** runs from the previous Feed's *start*; the **Wake Window** runs from the last Sleep's *end*; the **Bottle Life** runs from the start of the bottle that is *still open*. The sleep target is not "she sleeps every 3h" — it is how long she stays comfortably awake, a different anchor, and getting it wrong would have made the sleep number useless.
 - A Target stores **a duration plus the anchor it measures from**, so clock-time schedules ("nap at 12:30") can arrive later as a second anchor kind. They are the older-baby model and do not earn their keep in v1.
-- **Feeds and Sleep only.** Nappies keep the plain count in the header and get no target — "no wet nappy in 6 hours" is a real signal but a *health* one, and the one target that would genuinely alarm. Nothing on Measurements.
+- **Feeds, Sleep and started bottles.** Nappies keep the plain count in the header and get no target — "no wet nappy in 6 hours" is a real signal but a *health* one, and the one target that would genuinely alarm. Nothing on Measurements.
+- **The Bottle Life is a countdown, not a verdict** ([ADR-0016](../../docs/adr/0016-the-bottle-life-is-a-target-not-a-verdict.md)). It shows on the row of a bottle Feed that has started and not been stopped — per row, because a Combined Feed can have two bottles open at once — keeps counting past the stated duration, shifts colour once, and never says whether the milk is safe. It is seeded at **1h** with no age table, because milk does not care how old she is, and it can only ever read *younger* than the milk: the Feed's start is the only instant the model has, so a bottle made up earlier or returned from the fridge is not modelled. Settings states that beside the field.
 - **Targets are per Baby. Day Start is per Household.** Two Babies of different ages share no interval, but they must share a day boundary or "yesterday" means two things inside one Household.
 - **Stated, never learned.** Seeded once at Baby creation from the age table below, never re-derived, never averaged from the log. Schedule settings renders the current band's typical value as a **static hint beside the field** (`typical at 3 months: 2h`) — no state, no dismissal flag to sync, never on the home screen.
 - **Nothing is ever materialised.** No expected Entry is written; every due figure is a display-time fold.
@@ -394,7 +395,7 @@ Two limitations accepted rather than papered over:
 | | | 12–18 months | 4h |
 | | | beyond | 5h |
 
-After 12 months solids take over and a feed target stops meaning anything.
+After 12 months solids take over and a feed target stops meaning anything. The Bottle Life is not in the table: one seed, 1h, at every age.
 
 ### 6.6 Stale Sleep recovery
 

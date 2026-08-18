@@ -40,6 +40,7 @@ const feedTarget: Target = {
 	deleted_at: null
 };
 const sleepTarget: Target = { ...feedTarget, id: 't2', activity: 'sleep', duration_s: 2 * 3600, anchor: 'sleep_end' };
+const bottleTarget: Target = { ...feedTarget, id: 't3', activity: 'bottle', duration_s: 3600, anchor: 'bottle_start' };
 
 let seq = 0;
 function entry(p: Partial<Entry> & { type: Entry['type']; occurred_at: number }): Entry {
@@ -77,7 +78,7 @@ beforeEach(() => {
 	app.babies = [baby];
 	app.members = [oma];
 	app.foods = [];
-	app.targets = [feedTarget, sleepTarget];
+	app.targets = [feedTarget, sleepTarget, bottleTarget];
 	app.entries = [];
 	app.now = NOW;
 	app.identity = { memberId: 'oma', householdId: 'h1', role: 'caregiver', displayName: 'Oma' };
@@ -164,6 +165,45 @@ describe('a timeline row', () => {
 		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
 		expect(text).toContain('150 ml');
 		expect(text).not.toContain('of 150');
+	});
+
+	it('counts a started bottle down beside its Stop button', () => {
+		const row = entry({
+			type: 'bottle_feed',
+			occurred_at: NOW - 20 * 60_000,
+			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
+		});
+		app.entries = [row];
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} });
+		expect(text).toContain('bottle 40m left');
+		expect(text).toContain('Stop');
+	});
+
+	it('keeps counting past the stated hour rather than going quiet', () => {
+		const row = entry({
+			type: 'bottle_feed',
+			occurred_at: NOW - 80 * 60_000,
+			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
+		});
+		app.entries = [row];
+		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {} })).toContain('bottle 20m past');
+	});
+
+	it('draws no countdown on a bottle that has been stopped, or on a running breast feed', () => {
+		const done = entry({
+			type: 'bottle_feed',
+			occurred_at: NOW - 20 * 60_000,
+			ended_at: NOW - 5 * 60_000,
+			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
+		});
+		app.entries = [done];
+		expect(draw(TimelineRow, { entry: done, onopen: () => {}, onstop: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
+
+		if (mounted) unmount(mounted as never, { outro: false });
+		mounted = null;
+		const breast = entry({ type: 'breast_feed', occurred_at: NOW - 20 * 60_000, payload: { side: 'left' } });
+		app.entries = [breast];
+		expect(draw(TimelineRow, { entry: breast, onopen: () => {}, onstop: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
 	});
 
 	it('draws a running Sleep as an ordinary Live Session with a Stop button', () => {

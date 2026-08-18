@@ -27,7 +27,7 @@
 		type AppearanceOverride
 	} from '$client/device';
 	import { canPromptInstall, isStandalone, promptInstall } from '$client/pwa';
-	import { ANCHOR_FOR, typicalFor } from '$domain/targets';
+	import { ANCHOR_FOR, bottleTargetOf, typicalFor } from '$domain/targets';
 	import { ageInMonths } from '$domain/time';
 	import { EMPTY_FILTER } from '$domain/filter';
 	import { LOCALE_NAMES, LOCALES, switchLocale } from '$lib/i18n/locale.svelte';
@@ -119,14 +119,19 @@
 		}
 	}
 
-	/** A Target is a duration; these two inputs are hours and minutes of it. */
+	/** A Target is a duration; these two inputs are hours and minutes of it.
+
+	    The Bottle Life falls back to its seeded value rather than to zero, so a
+	    Baby added before the field existed shows the hour her countdown is
+	    already running against instead of a blank pair of boxes. */
 	function targetParts(activity: Activity): { hours: number; minutes: number; id: string | null } {
-		const target = app.babyTargets.find((t) => t.activity === activity);
+		const stored = app.babyTargets.find((t) => t.activity === activity);
+		const target = stored ?? (activity === 'bottle' && baby ? bottleTargetOf([], baby.id) : null);
 		if (!target) return { hours: 0, minutes: 0, id: null };
 		return {
 			hours: Math.floor(target.duration_s / 3600),
 			minutes: Math.round((target.duration_s % 3600) / 60),
-			id: target.id
+			id: stored?.id ?? null
 		};
 	}
 
@@ -259,7 +264,7 @@
 				<section>
 					<h3>{m.settings_targets({ name: baby.name })}</h3>
 					<div class="pair">
-						{#each [['feed', m.settings_feed_interval()], ['sleep', m.settings_wake_window()]] as [activity, label] (activity)}
+						{#each [['feed', m.settings_feed_interval()], ['sleep', m.settings_wake_window()], ['bottle', m.settings_bottle_life()]] as [activity, label] (activity)}
 							{@const parts = targetParts(activity as Activity)}
 							<label>
 								{label}
@@ -300,6 +305,10 @@
 								})
 							: m.settings_typical_wake({ age: ageLabel, wake: targetDuration(typicalWake ?? 0) })}
 					</small>
+					<!-- The honest limitation, stated where the number is typed. The
+					     countdown starts at the Feed, not at the kettle, so it can only
+					     ever read younger than the milk (ADR-0016). -->
+					<small class="hint">{m.settings_bottle_life_hint()}</small>
 				</section>
 			{/if}
 

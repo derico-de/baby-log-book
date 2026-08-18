@@ -140,6 +140,10 @@ _Avoid_: Feeding schedule, feed gap
 The Target for sleep — how long a Baby is comfortably awake — measured from the last Sleep's end.
 _Avoid_: Awake window, sleep schedule, sleep interval
 
+**Bottle Life**:
+The Target for a started bottle — how long the Household is willing to go on offering one — measured from the Feed's start. A number a Member typed, never a health guideline the app fetched, and the countdown it drives is on the bottle that is still open rather than on the Baby. Because the Feed's start is the only instant the model has, it reads younger than the milk whenever the bottle was made up earlier.
+_Avoid_: Freshness, expiry, shelf life, safe until
+
 **Live Session**:
 A Feed or Sleep that has started but not yet ended. Visible as a running timer on every Member's device.
 _Avoid_: Active entry, open session, timer

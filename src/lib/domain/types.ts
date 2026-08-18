@@ -33,10 +33,11 @@ export type BottleContents = 'breast_milk' | 'formula' | 'other';
 export type MealAmount = 'tasted' | 'some' | 'lots';
 export type Consistency = 'soft' | 'firm' | 'runny' | 'hard';
 export type Role = 'parent' | 'caregiver';
-export type Activity = 'feed' | 'sleep';
+export type Activity = 'feed' | 'sleep' | 'bottle';
 /** The Feed Interval runs from the previous Feed's start; the Wake Window
-    from the last Sleep's end. Two anchors, deliberately (spec §6.5). */
-export type Anchor = 'feed_start' | 'sleep_end';
+    from the last Sleep's end; the Bottle Life from the start of the bottle
+    that is still open. Three anchors, deliberately (spec §6.5). */
+export type Anchor = 'feed_start' | 'sleep_end' | 'bottle_start';
 
 export interface BreastFeedPayload {
 	side: Side;
@@ -223,5 +224,11 @@ export const SHARED_ENTRY_FIELDS = [
 export const DEFAULT_DAY_START = '05:00';
 
 /** Bumped only by a change that would make an old client write something
-    wrong. Additive payload changes do not bump it (spec §5.5). */
-export const PROTOCOL_VERSION = 1;
+    wrong. Additive payload changes do not bump it (spec §5.5).
+
+    2 — the Bottle Life Target. A client that predates it coerces the unknown
+    activity to `feed`, and then `targetFor(targets, 'feed')` can pick it: the
+    header would print the wrong Feed Interval, and a Parent editing that field
+    in Settings would overwrite the Bottle Life record. That is an old client
+    writing something wrong, which is exactly what this number is for. */
+export const PROTOCOL_VERSION = 2;
