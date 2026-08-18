@@ -5,9 +5,12 @@ import {
 	dayBucketOf,
 	dayStartInstant,
 	elapsed,
+	instantOnDate,
 	offsetMinutes,
 	splitDuration,
 	wallPartsOf,
+	wallTimeAtOrAfter,
+	wallTimeAtOrBefore,
 	wallToInstant
 } from './time';
 
@@ -127,6 +130,64 @@ describe('crossesDayStart', () => {
 		const down = wallToInstant({ y: 2026, m: 8, d: 17, h: 19, mi: 0 }, BERLIN);
 		const up = wallToInstant({ y: 2026, m: 8, d: 17, h: 23, mi: 0 }, BERLIN);
 		expect(crossesDayStart(down, up, '05:00', BERLIN)).toBe(false);
+	});
+});
+
+describe('instantOnDate', () => {
+	it('names the day as well as the hour, which a time input alone cannot', () => {
+		// Past midnight, a Sleep that started at 22:30 started yesterday. The
+		// date input is the only thing that can say so.
+		expect(instantOnDate('2026-08-17', '22:30', BERLIN)).toBe(iso('2026-08-17T20:30:00Z'));
+		expect(instantOnDate('2026-08-18', '22:30', BERLIN)).toBe(iso('2026-08-18T20:30:00Z'));
+	});
+
+	it('refuses a value that is not a time, so a cleared field is not midnight', () => {
+		expect(instantOnDate('2026-08-17', '', BERLIN)).toBeNull();
+		expect(instantOnDate('', '22:30', BERLIN)).toBeNull();
+	});
+
+	it('resolves a skipped hour the same way the day boundary does', () => {
+		expect(instantOnDate('2026-03-29', '02:30', BERLIN)).toBe(iso('2026-03-29T01:00:00Z'));
+	});
+});
+
+describe('wallTimeAtOrAfter', () => {
+	it('ends a cross-midnight Sleep the next morning', () => {
+		const down = wallToInstant({ y: 2026, m: 8, d: 17, h: 22, mi: 30 }, BERLIN);
+		expect(wallTimeAtOrAfter('06:00', down, BERLIN)).toBe(iso('2026-08-18T04:00:00Z'));
+	});
+
+	it('ends a nap the same afternoon', () => {
+		const down = wallToInstant({ y: 2026, m: 8, d: 17, h: 13, mi: 0 }, BERLIN);
+		expect(wallTimeAtOrAfter('14:30', down, BERLIN)).toBe(iso('2026-08-17T12:30:00Z'));
+	});
+
+	it('never ends a session before it began', () => {
+		for (const h of [0, 6, 13, 22, 23]) {
+			const down = wallToInstant({ y: 2026, m: 8, d: 17, h: 22, mi: 30 }, BERLIN);
+			const up = wallTimeAtOrAfter(`${String(h).padStart(2, '0')}:00`, down, BERLIN);
+			expect(up).not.toBeNull();
+			expect(up!).toBeGreaterThanOrEqual(down);
+		}
+	});
+});
+
+describe('wallTimeAtOrBefore', () => {
+	it('files a feed typed after midnight on the night it happened', () => {
+		const now = wallToInstant({ y: 2026, m: 8, d: 18, h: 0, mi: 20 }, BERLIN);
+		expect(wallTimeAtOrBefore('23:45', now, BERLIN)).toBe(iso('2026-08-17T21:45:00Z'));
+	});
+
+	it('keeps an ordinary back-dated time on today', () => {
+		const now = wallToInstant({ y: 2026, m: 8, d: 18, h: 14, mi: 0 }, BERLIN);
+		expect(wallTimeAtOrBefore('09:15', now, BERLIN)).toBe(iso('2026-08-18T07:15:00Z'));
+	});
+
+	it('reads a minute of overshoot as a typo, not as yesterday', () => {
+		// The same ~5 minutes the skew guard allows (spec §5.2).
+		const now = wallToInstant({ y: 2026, m: 8, d: 18, h: 14, mi: 0 }, BERLIN);
+		expect(wallTimeAtOrBefore('14:01', now, BERLIN)).toBe(iso('2026-08-18T12:01:00Z'));
+		expect(wallTimeAtOrBefore('14:30', now, BERLIN)).toBe(iso('2026-08-17T12:30:00Z'));
 	});
 });
 

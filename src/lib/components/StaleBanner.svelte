@@ -19,7 +19,7 @@
 	import { endSleep, deleteEntry } from '$client/mutate';
 	import { usualWakeInstant } from '$domain/sleep';
 	import { clockTime, timeInputValue } from '$lib/i18n/format';
-	import { instantFromWallTime } from '$domain/time';
+	import { wallTimeAtOrAfter } from '$domain/time';
 	import type { Entry } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 
@@ -43,9 +43,10 @@
 
 	async function confirm() {
 		if (busy) return;
-		/* On the day her usual wake time falls on, not today: the banner fires
-		   hours after she woke. */
-		const at = instantFromWallTime(woke, suggested, zone);
+		/* The first time the clock read this after she went down — not today, and
+		   never before the Sleep started: the banner fires hours after she woke,
+		   and the Sleep it is closing usually crossed a midnight. */
+		const at = wallTimeAtOrAfter(woke, sleep.occurred_at, zone);
 		if (at == null) return;
 		busy = true;
 		await app.edit((w) => endSleep(w, sleep.id, at), { text: m.toast_sleep_ended() });

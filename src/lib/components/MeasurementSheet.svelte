@@ -5,7 +5,7 @@
 	import { app } from '$client/state.svelte';
 	import { logMeasurement } from '$client/mutate';
 	import { timeInputValue } from '$lib/i18n/format';
-	import { instantFromWallTime } from '$domain/time';
+	import { wallTimeAtOrBefore } from '$domain/time';
 	import * as m from '$lib/paraglide/messages';
 	import Sheet from './Sheet.svelte';
 
@@ -24,7 +24,7 @@
 	const baby = $derived(app.baby);
 	const nothingEntered = $derived(kg == null && heightCm == null && headCm == null);
 
-	const occurredAt = $derived(instantFromWallTime(time, app.now, app.zone) ?? app.now);
+	const occurredAt = $derived(wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now);
 
 	async function save() {
 		if (!baby || busy || nothingEntered) return;

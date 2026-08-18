@@ -109,6 +109,7 @@
 	"sheet_milestone_title": "Reper",
 	"sheet_milestone_name": "Ce s-a întâmplat",
 	"sheet_milestone_when": "Când",
+	"sheet_date": "Data",
 	"sheet_time": "Ora",
 	"sheet_entry_title": "Înregistrare",
 	"field_occurred_at": "ora",

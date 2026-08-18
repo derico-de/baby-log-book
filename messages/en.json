@@ -117,6 +117,7 @@
 	"sheet_milestone_title": "Milestone",
 	"sheet_milestone_name": "What happened",
 	"sheet_milestone_when": "When",
+	"sheet_date": "Date",
 	"sheet_time": "Time",
 	"sheet_entry_title": "Entry",
 	"field_occurred_at": "the time",

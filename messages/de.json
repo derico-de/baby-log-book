@@ -117,6 +117,7 @@
 	"sheet_milestone_title": "Meilenstein",
 	"sheet_milestone_name": "Was war es",
 	"sheet_milestone_when": "Wann",
+	"sheet_date": "Datum",
 	"sheet_time": "Uhrzeit",
 	"sheet_entry_title": "Eintrag",
 	"field_occurred_at": "die Uhrzeit",

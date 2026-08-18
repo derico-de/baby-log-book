@@ -153,15 +153,62 @@ export function dayBucketOf(instant: number, dayStart: string, zone: string): st
 	return instant < dayStartInstant(key, dayStart, zone) ? addDays(key, -1) : key;
 }
 
-/** The instant an edited wall time names, on the day some other instant already
-    belongs to. This is what a time input means when a Member corrects 14:05 to
-    13:50: the same day, a different hour — never today. Returns null when the
-    value is not a time at all. */
-export function instantFromWallTime(value: string, onDayOf: number, zone: string): number | null {
+/** `HH:MM` from a time input. Null when the value is not a time at all — an
+    input can be empty, and a cleared field is not a correction to midnight. */
+function hourMinute(value: string): { h: number; mi: number } | null {
 	const [h, mi] = value.split(':').map(Number);
 	if (!Number.isFinite(h) || !Number.isFinite(mi)) return null;
-	const p = wallPartsOf(onDayOf, zone);
-	return wallToInstant({ y: p.y, m: p.m, d: p.d, h, mi }, zone);
+	return { h, mi };
+}
+
+/** The instant a wall time names on a named calendar date.
+
+    A time alone cannot cross midnight, and that is the whole problem it causes:
+    at 00:20 a Sleep that started at 22:30 started *yesterday*, and no amount of
+    reading the time input tells you so. So a correction says both — the date
+    from a date input, the hour from a time input. */
+export function instantOnDate(key: string, value: string, zone: string): number | null {
+	const t = hourMinute(value);
+	if (t == null) return null;
+	const { y, m, d } = parseDateKey(key);
+	if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+	return wallToInstant({ y, m, d, h: t.h, mi: t.mi }, zone);
+}
+
+/** The first instant at or after `from` whose clock reads this wall time.
+
+    What an end time means on a session: she went down at 22:30 and woke at
+    06:00, so she woke the next morning. The date is derived rather than asked
+    for because there is no second date a session end could plausibly have — and
+    deriving it is what stops a cross-midnight Sleep from ending before it
+    began. */
+export function wallTimeAtOrAfter(value: string, from: number, zone: string): number | null {
+	const key = dateKey(wallPartsOf(from, zone));
+	for (const k of [key, addDays(key, 1)]) {
+		const at = instantOnDate(k, value, zone);
+		if (at != null && at >= from) return at;
+	}
+	return null;
+}
+
+/* The same ~5 minutes the skew guard allows (spec §5.2). A Member typing 14:01
+   at 14:00, or a phone whose clock runs a little fast, is not asking to file
+   the Entry under yesterday. */
+const AHEAD_GRACE = 5 * MINUTE;
+
+/** The most recent instant at or before `until` whose clock reads this wall
+    time, give or take the grace above.
+
+    What a time means when a Member logs something that has already happened:
+    23:45 typed at 00:20 is thirty-five minutes ago, not twenty-three hours
+    from now. */
+export function wallTimeAtOrBefore(value: string, until: number, zone: string): number | null {
+	const key = dateKey(wallPartsOf(until, zone));
+	for (const k of [key, addDays(key, -1)]) {
+		const at = instantOnDate(k, value, zone);
+		if (at != null && at <= until + AHEAD_GRACE) return at;
+	}
+	return null;
 }
 
 /** Elapsed real time. The only subtraction of instants in the app, and the

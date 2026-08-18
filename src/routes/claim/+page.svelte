@@ -10,7 +10,6 @@
 	   The worker registers only after a Claim succeeds — then `persist()`, then the
 	   initial sync. A Device becomes offline-capable at the moment it becomes a
 	   Device. */
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { deviceId, deviceZone } from '$client/device';
 	import { persistStorage, registerWorker } from '$client/pwa';
@@ -83,7 +82,19 @@
 			   undrained outbox. */
 			await persistStorage();
 			await registerWorker();
-			await goto('/', { invalidateAll: true });
+			/* A whole document, not a client-side navigation.
+
+			   The app is started once, from the root layout, and this page is inside
+			   that layout — so by the time the button is pressed it has already run
+			   with no session and marked this browser unclaimed. A `goto` keeps that
+			   layout mounted, so the Device would sit there with no identity and no
+			   sync engine until something else reloaded it: signed in, and showing
+			   an empty Household. The worker just registered, too, and a fresh
+			   document is what puts the shell under it.
+
+			   This does not contradict "never reload a screen nobody asked to
+			   reload" (spec §9.3). They asked: they pressed the button. */
+			window.location.assign('/');
 		} catch {
 			error = m.claim_unknown();
 			busy = false;

@@ -16,7 +16,7 @@
 	import { app } from '$client/state.svelte';
 	import { logBottleFeed, logBreastFeed, logMeal, markAwakeForMeal, addFood } from '$client/mutate';
 	import { clockTime, millilitres, timeInputValue } from '$lib/i18n/format';
-	import { instantFromWallTime } from '$domain/time';
+	import { wallTimeAtOrBefore } from '$domain/time';
 	import type { BottleContents, MealAmount, MealFood, Side } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from './Icon.svelte';
@@ -51,8 +51,10 @@
 	const baby = $derived(app.baby);
 	const runningSleep = $derived(app.runningSleep);
 
-	/** The Occurred At the sheet is describing, projected back through the lens. */
-	const occurredAt = $derived(instantFromWallTime(time, app.now, app.zone) ?? app.now);
+	/** The Occurred At the sheet is describing, projected back through the lens.
+	    Backwards from now, so the 23:45 feed you are logging at 00:20 lands on the
+	    night it happened rather than tonight. */
+	const occurredAt = $derived(wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now);
 
 	/* The switch is a real write, so it is visible — and undo covers it. It says so
 	   only when it will actually happen: the guard is that the Meal's Occurred At

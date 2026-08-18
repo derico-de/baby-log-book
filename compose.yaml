@@ -7,11 +7,20 @@ services:
     image: ghcr.io/derico-de/baby-log-book:1
     restart: unless-stopped
     environment:
-      # Required. The public URL Members will open, with no trailing slash.
-      # Every Claim Link is built from it, so a wrong value sends out invites
-      # that cannot be claimed — which is why the container refuses to start
-      # without it.
-      ORIGIN: https://log.example.com
+      # Required. The public URL Members will open — scheme, host and port
+      # exactly as they are typed into the browser, with no trailing slash.
+      # Set it in a `.env` file beside this one:
+      #
+      #     ORIGIN=https://log.example.com
+      #
+      # Compose refuses to start without it rather than carrying a plausible
+      # default, because every Claim Link is built from this and a wrong value
+      # is invisible: the container comes up healthy and sends out invites that
+      # cannot be claimed. A missing port is enough to do it — SvelteKit also
+      # checks the Origin header of every POST against this value, so
+      # `http://host` while Members browse `http://host:5173` refuses the claim
+      # itself.
+      ORIGIN: ${ORIGIN:?set ORIGIN to the public URL Members will open, e.g. https://log.example.com}
       # Off by default. Turn it on only if you know your proxy overwrites
       # X-Forwarded-For; behind an unknown topology a forged client IP walks
       # straight through the claim rate limit.

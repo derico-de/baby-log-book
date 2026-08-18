@@ -13,8 +13,17 @@
 	import { app } from '$client/state.svelte';
 	import { correctEntry, deleteEntry, undoDelete } from '$client/mutate';
 	import { compareRevisions, foldEntity } from '$domain/revisions';
-	import { clockTime, dateAndTime, millilitres, timeInputValue, weight, length } from '$lib/i18n/format';
-	import { instantFromWallTime } from '$domain/time';
+	import {
+		clockTime,
+		dateAndTime,
+		dateInputValue,
+		dateShort,
+		millilitres,
+		timeInputValue,
+		weight,
+		length
+	} from '$lib/i18n/format';
+	import { instantOnDate, wallTimeAtOrAfter } from '$domain/time';
 	import type {
 		BottleFeedPayload,
 		BreastFeedPayload,
@@ -41,6 +50,7 @@
 	const zone = $derived(app.zone);
 	const isSession = $derived(entry.type === 'sleep' || entry.type === 'breast_feed' || entry.type === 'bottle_feed');
 
+	let startDate = $state(dateInputValue(opened.occurred_at, app.zone));
 	let startTime = $state(timeInputValue(opened.occurred_at, app.zone));
 	let endTime = $state(opened.ended_at == null ? '' : timeInputValue(opened.ended_at, app.zone));
 	let note = $state(opened.note ?? '');
@@ -49,6 +59,16 @@
 	let milestoneName = $state((opened.payload as MilestonePayload).name ?? '');
 	let busy = $state(false);
 	let history = $state<Revision[]>([]);
+
+	/* The date is asked for once, on the start; the end takes its date from the
+	   start, being the first time the clock reads it after she went down. */
+	const startAt = $derived(instantOnDate(startDate, startTime, zone));
+	const endAt = $derived(
+		!isSession || endTime === ''
+			? null
+			: wallTimeAtOrAfter(endTime, startAt ?? entry.occurred_at, zone)
+	);
+	const endsOnAnotherDay = $derived(endAt != null && dateInputValue(endAt, zone) !== startDate);
 
 	$effect(() => {
 		const db = app.dbRef;
@@ -188,15 +208,11 @@
 		busy = true;
 		const fields: Record<string, unknown> = {};
 
-		const start = instantFromWallTime(startTime, entry.occurred_at, zone);
-		if (start != null && start !== entry.occurred_at) fields.occurred_at = start;
+		if (startAt != null && startAt !== entry.occurred_at) fields.occurred_at = startAt;
 
 		if (isSession) {
 			if (endTime === '' && entry.ended_at != null) fields.ended_at = null;
-			else if (endTime !== '') {
-				const end = instantFromWallTime(endTime, entry.ended_at ?? entry.occurred_at, zone);
-				if (end != null && end !== entry.ended_at) fields.ended_at = end;
-			}
+			else if (endAt != null && endAt !== entry.ended_at) fields.ended_at = endAt;
 		}
 
 		const trimmedNote = note.trim();
@@ -243,16 +259,27 @@
 
 	<div class="field pair">
 		<label>
+			{m.sheet_date()}
+			<input type="date" bind:value={startDate} />
+		</label>
+		<label>
 			{m.sheet_time()}
 			<input type="time" bind:value={startTime} />
 		</label>
-		{#if isSession}
-			<label>
-				{m.stale_woke_when()}
-				<input type="time" bind:value={endTime} />
-			</label>
-		{/if}
 	</div>
+
+	{#if isSession}
+		<label class="field">
+			{m.stale_woke_when()}
+			<!-- The derived date, shown rather than assumed: a Sleep that starts at
+			     22:30 and ends at 06:00 ends the next morning, and this is where you
+			     can see that it did. -->
+			{#if endsOnAnotherDay && endAt != null}
+				<small>{dateShort(endAt, zone)}</small>
+			{/if}
+			<input type="time" bind:value={endTime} />
+		</label>
+	{/if}
 
 	{#if entry.type === 'bottle_feed'}
 		<label class="field">
@@ -305,7 +332,8 @@
 	}
 	.pair {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		/* The date input carries three fields and an icon; the time carries two. */
+		grid-template-columns: 1.3fr 1fr;
 		gap: var(--sp-3);
 	}
 	.history {
