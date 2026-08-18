@@ -1,5 +1,7 @@
 # A Bottle records what was offered and what came back
 
+*Superseded by [ADR-0018](0018-a-bottle-records-the-intake.md): a Bottle now records the Intake as its one stored amount, and the leftover became a subtraction affordance that is never stored. The pair below survives only as the reading rule for entries written before the change.*
+
 A Bottle Feed stores `volume_ml` — what went into the bottle — beside `leftover_ml`, what was still in it when she was done. What she drank is derived from the pair and never stored. We chose this over the obvious alternative — correcting `volume_ml` down to 150 once you see the 30 ml left — because the two numbers are different facts, arriving at different times, and only one of them is knowable while she is still drinking.
 
 ## Consequences

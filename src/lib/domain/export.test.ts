@@ -93,19 +93,30 @@ describe('isoWithOffset', () => {
 });
 
 describe('buildExport', () => {
-	it('carries the bottle arithmetic, so the reader never has to redo it', () => {
+	it('carries one intake_ml column for every era of bottle row (ADR-0018)', () => {
 		const csv = buildExport({
 			...input,
 			entries: [
 				entry({
 					type: 'bottle_feed',
 					occurred_at: iso('2026-08-17T08:00:00Z'),
+					payload: { volume_ml: 170, leftover_ml: null, contents: 'formula' }
+				}),
+				/* A legacy row exports its derived intake; the offered/leftover pair
+				   stays in the revision log, not in the file. */
+				entry({
+					type: 'bottle_feed',
+					occurred_at: iso('2026-08-17T11:00:00Z'),
 					payload: { volume_ml: 180, leftover_ml: 30, contents: 'breast_milk' }
 				})
 			]
 		})['bottle_feeds.csv'];
-		expect(csv).toContain('volume_ml,leftover_ml,taken_ml,contents');
-		expect(csv).toContain('180,30,150,breast_milk');
+		expect(csv).toContain('intake_ml,contents');
+		expect(csv).not.toContain('volume_ml');
+		expect(csv).not.toContain('leftover_ml');
+		expect(csv).not.toContain('taken_ml');
+		expect(csv).toContain('170,formula');
+		expect(csv).toContain('150,breast_milk');
 	});
 
 	it('writes one file per entry type plus the reference tables', () => {

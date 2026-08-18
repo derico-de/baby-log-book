@@ -24,7 +24,8 @@
 		length
 	} from '$lib/i18n/format';
 	import { instantOnDate, wallTimeAtOrAfter } from '$domain/time';
-	import { takenMl } from '$domain/entries';
+	import { intakeMl } from '$domain/entries';
+	import { applyLeftoverInput } from './leftover';
 	import type {
 		BottleContents,
 		BottleFeedPayload,
@@ -56,8 +57,9 @@
 	let startTime = $state(timeInputValue(opened.occurred_at, app.zone));
 	let endTime = $state(opened.ended_at == null ? '' : timeInputValue(opened.ended_at, app.zone));
 	let note = $state(opened.note ?? '');
-	let volume = $state((opened.payload as BottleFeedPayload).volume_ml ?? null);
-	let leftover = $state((opened.payload as BottleFeedPayload).leftover_ml ?? null);
+	/* The amount is the Intake, on every era of row: a legacy pair opens as its
+	   derived figure, and saving a change converts the row (ADR-0018). */
+	let intake = $state(intakeMl(opened.payload as BottleFeedPayload));
 	let contents = $state((opened.payload as BottleFeedPayload).contents ?? null);
 	let side = $state((opened.payload as BreastFeedPayload).side ?? 'both');
 	let milestoneName = $state((opened.payload as MilestonePayload).name ?? '');
@@ -134,14 +136,6 @@
 
 	const contentsLabel = (value: BottleContents) =>
 		value === 'breast_milk' ? m.contents_breast_milk() : value === 'formula' ? m.contents_formula() : m.contents_other();
-
-	/* What she actually drank, spelled out under the two inputs — the sheet asks
-	   for what went in and what came back, and this is the number that follows. */
-	const taken = $derived(
-		entry.type === 'bottle_feed' && leftover != null && leftover > 0
-			? takenMl({ volume_ml: volume, leftover_ml: leftover, contents })
-			: null
-	);
 
 	const FIELD_LABEL: Record<string, () => string> = {
 		occurred_at: m.field_occurred_at,
@@ -239,8 +233,14 @@
 
 		if (entry.type === 'bottle_feed') {
 			const p = entry.payload as BottleFeedPayload;
-			if (volume !== p.volume_ml) fields.volume_ml = volume;
-			if (leftover !== p.leftover_ml) fields.leftover_ml = leftover;
+			if (intake !== intakeMl(p)) {
+				fields.volume_ml = intake;
+				/* Converting a legacy row: the new Intake is the whole statement,
+				   so the stored leftover is explicitly nulled — a real field write
+				   that converges under last-write-wins (ADR-0018). An untouched
+				   amount leaves the pair alone. */
+				if (p.leftover_ml != null) fields.leftover_ml = null;
+			}
 			if (contents !== p.contents) fields.contents = contents;
 		}
 		if (entry.type === 'breast_feed' && side !== (entry.payload as BreastFeedPayload).side) {
@@ -305,19 +305,15 @@
 
 	{#if entry.type === 'bottle_feed'}
 		<label class="field">
-			{m.sheet_volume()}
-			<input type="number" inputmode="numeric" min="0" max="5000" bind:value={volume} />
+			{m.sheet_intake()}
+			<input type="number" inputmode="numeric" min="0" max="5000" bind:value={intake} />
 		</label>
-		<!-- The leftover belongs here rather than on the logging sheet: it is a
-		     fact from the end of the Feed, and this is the row you open once she
-		     has finished. -->
+		<!-- Not a stored field: confirming a value subtracts it from the Intake
+		     and the input empties itself (ADR-0018). -->
 		<label class="field">
 			{m.sheet_leftover()} <small>({m.optional()})</small>
-			<input type="number" inputmode="numeric" min="0" max="5000" bind:value={leftover} />
+			<input type="number" inputmode="numeric" min="0" max="5000" onchange={(event) => (intake = applyLeftoverInput(event, intake))} />
 		</label>
-		{#if taken != null}
-			<p class="note-line">{m.sheet_taken({ value: millilitres(taken) })}</p>
-		{/if}
 		<label class="field">
 			{m.sheet_contents()}
 			<select bind:value={contents}>

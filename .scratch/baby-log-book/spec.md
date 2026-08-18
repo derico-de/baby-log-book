@@ -115,7 +115,7 @@ Everything recorded about a Baby at a point in time is an **Entry**. Seven discr
 | Type | Records | Session? |
 |---|---|---|
 | **Breast feed** | Side (left / right / both), duration | Yes — start anchors it, end optional |
-| **Bottle feed** | Volume offered (ml), leftover (ml), contents | Yes — same |
+| **Bottle feed** | Intake (ml), contents | Yes — same |
 | **Meal** | Several Foods, each with an optional reaction note; coarse amounts (tasted / some / lots), never grams | No |
 | **Sleep** | Start and end, nothing else | Yes — **the end is the whole point** |
 | **Nappy** | Pee / poop / both, optional consistency | No |
@@ -142,7 +142,7 @@ This splits Stale Session handling in two, and it is why only Sleeps get a recov
 - **Append-only revisions, permanent soft deletes** — [ADR-0002](../../docs/adr/0002-append-only-revisions.md). Correcting appends; the UI shows "edited by Oma, was 120 ml". A tombstone hides an Entry and never purges it, so a 3am mistake is recoverable on every Device.
 - **A Live Session is an Entry with no end time.** Not a separate concept — a running timer syncs like any other row, and the merge rule is an ordinary rule about rows.
 - **Canonical units** — millilitres, grams, millimetres — stored as integers, formatted at display. Keeps unit handling out of sync and stats, and (§8.3) is what makes a comma-delimited CSV safe in DE and RO.
-- **A Bottle stores what was offered and what came back; what she drank is derived** — [ADR-0015](../../docs/adr/0015-a-bottle-records-what-was-offered-and-what-came-back.md). Two facts arriving at two moments, and only the first is knowable while she is still drinking. A null leftover is "nobody said", not zero, and reads as the whole bottle — every Bottle logged before the field existed depends on that. Stats and the timeline count the derived figure; the export carries all three.
+- **A Bottle stores the Intake; the leftover is an affordance, not a fact** — [ADR-0018](../../docs/adr/0018-a-bottle-records-the-intake.md), superseding [ADR-0015](../../docs/adr/0015-a-bottle-records-what-was-offered-and-what-came-back.md). One stored amount, corrected in place: entering a leftover subtracts it from the Intake and is not kept. Entries from before the change carry the old offered/leftover pair and read as their difference — the old derivation survives as the reading rule for legacy rows, which is why there is no migration and no protocol bump. Stats, timeline and export all speak the one figure.
 - **First exposure is derived, never stored** — the earliest Meal containing that Food for that Baby. A stored flag would drift the moment an entry is corrected, deleted, or a forgotten earlier Meal is added, and it would lie about precisely the thing you would consult it for. The **reaction note is observed information and is stored**, on the Food line within the Meal.
 
 ### 3.5 Derived, not recorded
@@ -605,7 +605,7 @@ The home screen already answers *when did she last eat*; the timeline already an
 **Four cards. A card appears only when its entry type has data in the window** — which makes age-appropriateness free: a newborn's screen has no Solids card, an older Baby's Feeds card quietly stops being the headline. No age logic, no settings, no empty states.
 
 1. **Sleep** — total per day, split Night Sleep vs Naps (computable only because §7.2 settled which is which). Longest stretch as the secondary number.
-2. **Feeds** — count per day, with total volume as a secondary number **only when bottles exist**. Volume cannot be the primary bar: a breastfed Baby has no millilitres. The volume is what was **drunk**, offered less leftover (§3.4).
+2. **Feeds** — count per day, with total volume as a secondary number **only when bottles exist**. Volume cannot be the primary bar: a breastfed Baby has no millilitres. The volume is the recorded **Intake** ([ADR-0018](../../docs/adr/0018-a-bottle-records-the-intake.md)).
 3. **Nappies** — count per day, split pee/poop.
 4. **Solids** — Meals per day, with "3 new Foods this week" as the secondary, derived from first exposure.
 
@@ -671,15 +671,16 @@ The home screen already answers *when did she last eat*; the timeline already an
 
 A **Device Setting** belongs to one Device alone and **never enters the sync log**. This is a carve-out on "one log for everything" (§5.1) and it is load-bearing: without it, mum dismissing the install banner hides it on Oma's phone, where the app is not installed and the risk is real.
 
-Three instances in v1, which is what made it a category rather than an exception:
+Four instances in v1, which is what made it a category rather than an exception:
 
 | Setting | Why it is per Device |
 |---|---|
 | Appearance override (*Automatic* / *Always day* / *Always night*) | How dark the screen is depends on the room this phone is in |
 | Install banner dismissal | Depends on this phone not having been installed |
 | Language preference | Per Member, mirrored into a cookie and a synchronous rune for first paint |
+| Feeding default (*Breast* / *Bottle · breast milk* / *Bottle · formula*) | How feeds usually happen on this phone: mum breastfeeds, Oma bottles. Stated in Settings, never learned from the log; choosing differently in the sheet is session-local |
 
-v2 push preferences will be the fourth. The test is whether the setting answers a question about *this phone* rather than about the Household.
+v2 push preferences will be the fifth. The test is whether the setting answers a question about *this phone* rather than about the Household.
 
 ### 9.5 i18n
 

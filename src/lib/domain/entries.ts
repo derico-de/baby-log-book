@@ -245,19 +245,49 @@ export function coercePayload<T extends EntryType>(type: T, raw: Record<string, 
 	return base as PayloadOf[T];
 }
 
-/** What she actually drank: what was offered, less what came back in the
-    bottle. Null when nobody said how much was offered — a leftover on its own
-    says nothing, and guessing a total from it would be inventing data.
+/** The Intake — what she actually drank, the one figure the timeline, stats
+    and export all speak (ADR-0018). One lens covers both eras: a new row
+    stores the Intake in `volume_ml` with no leftover, and passes straight
+    through; a row from before ADR-0018 carries the offered/leftover pair and
+    reads as their difference. Null when nobody said how much went in — a
+    legacy leftover on its own says nothing, and guessing a total from it
+    would be inventing data.
 
-    Clamped at zero rather than validated across the two fields. They are two
-    fields under last-write-wins, so a leftover larger than the volume is
-    reachable by two Members editing at once; a negative feed is not a number
-    anything downstream should have to defend against. */
-export function takenMl(payload: BottleFeedPayload): number | null {
+    Clamped at zero rather than validated across the two legacy fields. They
+    are two fields under last-write-wins, so a leftover larger than the volume
+    is reachable by two Members editing at once; a negative feed is not a
+    number anything downstream should have to defend against. */
+export function intakeMl(payload: BottleFeedPayload): number | null {
 	if (payload.volume_ml == null) return null;
 	if (payload.leftover_ml == null) return payload.volume_ml;
 	return Math.max(0, payload.volume_ml - payload.leftover_ml);
 }
+
+/** The leftover affordance (ADR-0018): entering a leftover subtracts it from
+    the Intake field in place and is never stored. Applied once per confirmed
+    value — the input clears itself afterwards, so a second number is a second
+    subtraction. Clamped at zero, never validated; with an empty Intake field
+    there is nothing to subtract from. */
+export function subtractLeftover(intake: number | null, leftover: number): number | null {
+	if (intake == null) return null;
+	return Math.max(0, intake - leftover);
+}
+
+/** Formula presets speak water and write milk (ADR-0018): the water measure a
+    parent actually prepares, beside the final volume the powder brings it to —
+    and the final volume is what tapping one writes into the Intake field. The
+    yields are empirical per-brand scoop arithmetic, not a factor; the free
+    field is the escape for a brand that disagrees. */
+export const FORMULA_PRESETS: ReadonlyArray<{ water: number; final: number }> = [
+	{ water: 60, final: 70 },
+	{ water: 90, final: 100 },
+	{ water: 120, final: 135 },
+	{ water: 150, final: 170 },
+	{ water: 180, final: 200 },
+	{ water: 210, final: 235 },
+	{ water: 240, final: 270 },
+	{ water: 270, final: 305 }
+];
 
 /** True for the types that are a Live Session while they have no end. */
 export function isFeed(type: EntryType): boolean {

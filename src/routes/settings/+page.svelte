@@ -23,8 +23,11 @@
 	import {
 		appearanceOverride,
 		deviceZone,
+		feedingDefault,
 		setAppearanceOverride,
-		type AppearanceOverride
+		setFeedingDefault,
+		type AppearanceOverride,
+		type FeedingDefault
 	} from '$client/device';
 	import { canPromptInstall, isStandalone, promptInstall, requestUpdate } from '$client/pwa';
 	import { ANCHOR_FOR, bottleTargetOf, typicalFor } from '$domain/targets';
@@ -48,6 +51,7 @@
 	}
 
 	let appearance = $state<AppearanceOverride>('auto');
+	let feeding = $state<FeedingDefault>('breast');
 	let invites = $state<PendingInvite[]>([]);
 	let inviteName = $state('');
 	let inviteRole = $state<'parent' | 'caregiver'>('caregiver');
@@ -70,6 +74,7 @@
 
 	$effect(() => {
 		appearance = appearanceOverride();
+		feeding = feedingDefault();
 		installed = isStandalone();
 		if (isParent) void loadInvites();
 	});
@@ -332,6 +337,28 @@
 					{/each}
 				</fieldset>
 				<small class="hint">{m.settings_appearance_hint()}</small>
+
+				<!-- A Device Setting like the appearance above it: the sheet opens
+				     this way, and choosing differently there never writes back. The
+				     options speak the sheet's own vocabulary. -->
+				<h3>{m.settings_feeding_default()}</h3>
+				<fieldset>
+					{#each [['breast', m.sheet_breast()], ['bottle_breast_milk', `${m.sheet_bottle()} · ${m.contents_breast_milk()}`], ['bottle_formula', `${m.sheet_bottle()} · ${m.contents_formula()}`]] as [value, label] (value)}
+						<label>
+							<input
+								type="radio"
+								name="feeding-default"
+								checked={feeding === value}
+								onchange={() => {
+									feeding = value as FeedingDefault;
+									setFeedingDefault(feeding);
+								}}
+							/>
+							{label}
+						</label>
+					{/each}
+				</fieldset>
+				<small class="hint">{m.settings_feeding_default_hint()}</small>
 
 				<label>
 					{m.settings_language()}

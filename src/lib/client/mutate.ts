@@ -124,14 +124,13 @@ export async function logBreastFeed(
 	return id;
 }
 
+/** The one amount is the Intake (ADR-0018). A new bottle never sets a
+    leftover; `leftover_ml` survives in the payload type only so entries
+    written before the change still read. */
 export async function logBottleFeed(
 	w: Writer,
 	target: EntryTarget & {
 		volumeMl: number | null;
-		/** What came back in the bottle. Usually null at creation — the leftover
-		    is a fact from the end of the Feed, and the Entry sheet is where it is
-		    normally entered. */
-		leftoverMl?: number | null;
 		contents: BottleContents | null;
 		endedAt?: number | null;
 	}
@@ -140,7 +139,6 @@ export async function logBottleFeed(
 	await write(w, 'entry', id, {
 		...creation(target.babyId, 'bottle_feed', target.occurredAt ?? w.now(), target.note),
 		volume_ml: target.volumeMl,
-		leftover_ml: target.leftoverMl ?? null,
 		contents: target.contents,
 		ended_at: target.endedAt ?? null
 	});

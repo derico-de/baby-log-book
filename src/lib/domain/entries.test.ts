@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coercePayload, emptyPayload, takenMl, validateFields } from './entries';
+import { coercePayload, emptyPayload, intakeMl, subtractLeftover, validateFields } from './entries';
 
 describe('validateFields', () => {
 	it('accepts a bottle feed creation', () => {
@@ -116,29 +116,53 @@ describe('coercePayload', () => {
 	});
 });
 
-describe('takenMl', () => {
+describe('intakeMl, the one reading lens for both eras (ADR-0018)', () => {
 	const bottle = (volume_ml: number | null, leftover_ml: number | null) =>
 		({ volume_ml, leftover_ml, contents: null }) as const;
 
-	it('subtracts what came back in the bottle', () => {
-		expect(takenMl(bottle(180, 30))).toBe(150);
+	it('passes a new row s Intake straight through — new writes never set a leftover', () => {
+		expect(intakeMl(bottle(170, null))).toBe(170);
 	});
 
-	it('is the whole bottle when nobody recorded a leftover', () => {
+	it('reads a legacy row as what was offered less what came back', () => {
+		expect(intakeMl(bottle(180, 30))).toBe(150);
+	});
+
+	it('reads a legacy null leftover as the whole bottle', () => {
 		// Not the same as a leftover of zero, but it reads the same, and
-		// pretending otherwise would make every bottle logged before this
+		// pretending otherwise would make every bottle logged before the field
 		// existed disappear from the volume.
-		expect(takenMl(bottle(180, null))).toBe(180);
+		expect(intakeMl(bottle(180, null))).toBe(180);
 	});
 
 	it('says nothing when nobody said how much went in', () => {
-		// A leftover on its own cannot imply a total, and guessing one would be
-		// inventing data.
-		expect(takenMl(bottle(null, 30))).toBeNull();
-		expect(takenMl(bottle(null, null))).toBeNull();
+		// A legacy leftover on its own cannot imply a total, and guessing one
+		// would be inventing data.
+		expect(intakeMl(bottle(null, 30))).toBeNull();
+		expect(intakeMl(bottle(null, null))).toBeNull();
 	});
 
 	it('never goes negative, because two fields under last-write-wins can cross', () => {
-		expect(takenMl(bottle(120, 200))).toBe(0);
+		expect(intakeMl(bottle(120, 200))).toBe(0);
+	});
+});
+
+describe('the leftover affordance (ADR-0018)', () => {
+	it('subtracts what came back from the Intake, in place', () => {
+		expect(subtractLeftover(170, 40)).toBe(130);
+	});
+
+	it('applies each confirmation once, so 40 then 10 against 170 leaves 120', () => {
+		// The input clears after each application; a second number is a second
+		// subtraction, never a replacement of the first.
+		expect(subtractLeftover(subtractLeftover(170, 40), 10)).toBe(120);
+	});
+
+	it('clamps at zero rather than validating — never a negative feed', () => {
+		expect(subtractLeftover(100, 150)).toBe(0);
+	});
+
+	it('has nothing to subtract from when the Intake field is empty', () => {
+		expect(subtractLeftover(null, 30)).toBeNull();
 	});
 });

@@ -86,8 +86,12 @@ _Avoid_: Dream feed (which names only the pre-bedtime one), night feed
 One sitting of milk taken from more than one source — pumped breast milk, then formula — logged as the several Feeds it was rather than as one. Follows from two Feeds close together and is never recorded as such, which is why nothing merges them.
 _Avoid_: Mixed feed, top-up, supplement
 
+**Intake**:
+What a Baby drank from a bottle — the one stored amount on a Bottle Feed, and the figure the timeline, stats and export all speak (ADR-0018). Entered directly, picked from a preset, or corrected down by a Leftover; however it got there, the field is the fact.
+_Avoid_: Volume offered, amount taken
+
 **Leftover**:
-What is still in the bottle when a Feed is over. Kept beside the volume that went in rather than subtracted from it, because they are two facts learned at two moments: what she was offered is known at the start, what she drank only at the end.
+What is still in the bottle when a Feed is over. Not a stored fact: entering one subtracts it from the Intake in place and vanishes (ADR-0018, superseding ADR-0015). Entries from before the change carry a stored leftover and read as intake = volume − leftover.
 _Avoid_: Waste, remainder, unfinished
 
 **Nappy**:

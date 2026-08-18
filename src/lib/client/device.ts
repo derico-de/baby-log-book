@@ -17,8 +17,10 @@ const APPEARANCE_KEY = 'blb.appearance';
 const DAY_START_MIRROR_KEY = 'blb.dayStart';
 const INSTALL_DISMISSED_KEY = 'blb.installDismissed';
 const LOCALE_KEY = 'blb.locale';
+const FEEDING_DEFAULT_KEY = 'blb.feedingDefault';
 
 export type AppearanceOverride = 'auto' | 'day' | 'night';
+export type FeedingDefault = 'breast' | 'bottle_breast_milk' | 'bottle_formula';
 
 function read(key: string): string | null {
 	try {
@@ -58,6 +60,21 @@ export function setAppearanceOverride(value: AppearanceOverride): void {
 	write(APPEARANCE_KEY, value);
 	/* Re-resolve immediately: the resolver owns the attributes, not the app. */
 	window.__blbAppearance?.apply();
+}
+
+/** How the feed sheet opens: which mode is preselected, and for a bottle,
+    which contents. Stated in Settings, never learned from logged feeds — and
+    per Device, not per Baby: it matches the mum-breastfeeds / Oma-bottles
+    reality without touching the sync log. Breast is the seeded default, so a
+    Device that has never set it behaves exactly as before the setting
+    existed — and so does one holding a value from a newer release. */
+export function feedingDefault(): FeedingDefault {
+	const value = read(FEEDING_DEFAULT_KEY);
+	return value === 'bottle_breast_milk' || value === 'bottle_formula' ? value : 'breast';
+}
+
+export function setFeedingDefault(value: FeedingDefault): void {
+	write(FEEDING_DEFAULT_KEY, value);
 }
 
 /** The Household's Day Start, mirrored where the resolver can read it

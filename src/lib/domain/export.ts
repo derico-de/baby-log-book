@@ -25,7 +25,7 @@
        drops rows the app still holds is lying about being complete. */
 
 import { classifySleep } from './sleep';
-import { takenMl } from './entries';
+import { intakeMl } from './entries';
 import { firstExposure } from './filter';
 import { offsetMinutes, wallPartsOf } from './time';
 import type {
@@ -165,20 +165,19 @@ export function buildExport(input: ExportInput): ExportFiles {
 		(e.payload as BreastFeedPayload).side
 	]));
 
-	/* `taken_ml` is derived, and it is in the file anyway: an escape hatch that
-	   makes the reader re-derive the app's own arithmetic is not an escape hatch
-	   (ADR-0007). The two stored fields sit beside it, so nothing is lost. */
+	/* One `intake_ml` column, the same figure the app shows, for every era
+	   (ADR-0018). A legacy row's offered/leftover pair no longer reaches the
+	   file — an accepted loss: the revision log keeps it permanently, and the
+	   file is an escape hatch, not an archival format (ADR-0007). */
 	files['bottle_feeds.csv'] = toCsv(
-		[...SHARED_HEADERS, 'ended_at', 'duration_minutes', 'volume_ml', 'leftover_ml', 'taken_ml', 'contents'],
+		[...SHARED_HEADERS, 'ended_at', 'duration_minutes', 'intake_ml', 'contents'],
 		ofType('bottle_feed').map((e) => {
 			const p = e.payload as BottleFeedPayload;
 			return [
 				...shared(e),
 				iso(e.ended_at),
 				minutes(e.occurred_at, e.ended_at),
-				p.volume_ml,
-				p.leftover_ml,
-				takenMl(p),
+				intakeMl(p),
 				p.contents
 			];
 		})

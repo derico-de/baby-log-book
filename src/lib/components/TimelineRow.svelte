@@ -11,10 +11,10 @@
 	       button and draws nothing else: nothing downstream depends on when a Feed
 	       ended, so a forgotten stop is harmless (spec §3.3). */
 	import { app } from '$client/state.svelte';
-	import { clockTime, duration, millilitres, takenOfOffered, length, weight } from '$lib/i18n/format';
+	import { clockTime, duration, millilitres, length, weight } from '$lib/i18n/format';
 	import { highlightParts } from '$domain/filter';
 	import { classifySleep, isSleepFeed } from '$domain/sleep';
-	import { takenMl } from '$domain/entries';
+	import { intakeMl } from '$domain/entries';
 	import { bottleLife } from '$domain/targets';
 	import type {
 		BottleFeedPayload,
@@ -67,13 +67,13 @@
 				return `${m.type_breast_feed()} · ${side === 'left' ? m.side_left() : side === 'right' ? m.side_right() : m.side_both()}`;
 			}
 			case 'bottle_feed': {
-				/* Bottle · Formula · 150 ml of 180. The milk type earns its place in
-				   the title rather than the meta line: on a combined feed it is the
-				   only thing telling two adjacent bottles apart. The headline figure
-				   is what she drank; the offered amount trails it as context, and
-				   only when the two differ. */
+				/* Bottle · Formula · 150 ml. The milk type earns its place in the
+				   title rather than the meta line: on a combined feed it is the only
+				   thing telling two adjacent bottles apart. The figure is the Intake,
+				   on legacy and new rows alike — the "X of Y" form is retired
+				   (ADR-0018). */
 				const p = entry.payload as BottleFeedPayload;
-				const taken = takenMl(p);
+				const intake = intakeMl(p);
 				const parts: string[] = [m.type_bottle_feed()];
 				if (p.contents) {
 					parts.push(
@@ -84,13 +84,7 @@
 								: m.contents_other()
 					);
 				}
-				if (taken != null) {
-					parts.push(
-						taken === p.volume_ml
-							? millilitres(taken)
-							: takenOfOffered(taken, p.volume_ml ?? 0)
-					);
-				}
+				if (intake != null) parts.push(millilitres(intake));
 				return parts.join(' · ');
 			}
 			case 'meal': {

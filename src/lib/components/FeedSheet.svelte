@@ -15,9 +15,11 @@
 	   quiet inline line says so. */
 	import { app } from '$client/state.svelte';
 	import { logBottleFeed, logBreastFeed, logMeal, markAwakeForMeal, addFood } from '$client/mutate';
+	import { feedingDefault } from '$client/device';
 	import { clockTime, millilitres, timeInputValue } from '$lib/i18n/format';
 	import { wallTimeAtOrBefore } from '$domain/time';
-	import { takenMl } from '$domain/entries';
+	import { FORMULA_PRESETS } from '$domain/entries';
+	import { applyLeftoverInput } from './leftover';
 	import type { BottleContents, MealAmount, MealFood, Side } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from './Icon.svelte';
@@ -32,11 +34,16 @@
 	let { asleep, onclose }: Props = $props();
 
 	type Mode = 'breast' | 'bottle' | 'food';
-	let mode = $state<Mode>('breast');
+
+	/* The sheet opens the way this Device says feeds usually happen — a Device
+	   Setting, stated in Settings and never learned from the log. Choosing a
+	   different mode or contents below is session-local: nothing in this sheet
+	   writes the setting back. */
+	const opening = feedingDefault();
+	let mode = $state<Mode>(opening === 'breast' ? 'breast' : 'bottle');
 	let side = $state<Side>('both');
-	let volume = $state<number | null>(null);
-	let leftover = $state<number | null>(null);
-	let contents = $state<BottleContents | null>('breast_milk');
+	let intake = $state<number | null>(null);
+	let contents = $state<BottleContents | null>(opening === 'bottle_formula' ? 'formula' : 'breast_milk');
 	let minutes = $state<number | null>(null);
 	let note = $state('');
 	let showNote = $state(false);
@@ -60,12 +67,6 @@
 	    Backwards from now, so the 23:45 feed you are logging at 00:20 lands on the
 	    night it happened rather than tonight. */
 	const occurredAt = $derived(wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now);
-
-	/* Shown only when it says something the two inputs do not already: with no
-	   leftover, "taken 150 ml" is just the volume read back. */
-	const taken = $derived(
-		leftover != null && leftover > 0 ? takenMl({ volume_ml: volume, leftover_ml: leftover, contents }) : null
-	);
 
 	/* The switch is a real write, so it is visible — and undo covers it. It says so
 	   only when it will actually happen: the guard is that the Meal's Occurred At
@@ -120,7 +121,7 @@
 			finish(id);
 		} else if (mode === 'bottle') {
 			const id = await app.log(
-				(w) => logBottleFeed(w, { ...target, volumeMl: volume, leftoverMl: leftover, contents }),
+				(w) => logBottleFeed(w, { ...target, volumeMl: intake, contents }),
 				{ text: m.toast_logged({ what: m.type_bottle_feed() }) }
 			);
 			finish(id);
@@ -156,7 +157,7 @@
 				? await app.log((w) => logBreastFeed(w, { ...target, side }), {
 						text: m.toast_logged({ what: m.type_breast_feed() })
 					})
-				: await app.log((w) => logBottleFeed(w, { ...target, volumeMl: volume, leftoverMl: leftover, contents }), {
+				: await app.log((w) => logBottleFeed(w, { ...target, volumeMl: intake, contents }), {
 						text: m.toast_logged({ what: m.type_bottle_feed() })
 					});
 		finish(id);
@@ -192,35 +193,47 @@
 			<input type="number" inputmode="numeric" min="1" max="240" bind:value={minutes} />
 		</label>
 	{:else if mode === 'bottle'}
-		<div class="amounts">
-			{#each QUICK_ML as ml (ml)}
-				<button type="button" aria-pressed={volume === ml} onclick={() => (volume = ml)}>
-					{millilitres(ml)}
-				</button>
+		<!-- Two buttons, not three: `other` stays a domain value for old entries
+		     and remains selectable in the entry edit sheet, but at 3am the row is
+		     one glance and one tap (issue 21). -->
+		<div class="seg" role="tablist" aria-label={m.sheet_contents()}>
+			{#each [['breast_milk', m.contents_breast_milk()], ['formula', m.contents_formula()]] as [value, label] (value)}
+				<button
+					type="button"
+					role="tab"
+					aria-selected={contents === value}
+					onclick={() => (contents = value as BottleContents)}>{label}</button
+				>
 			{/each}
 		</div>
+		<div class="amounts">
+			{#if contents === 'formula'}
+				<!-- Water measures, because that is what a parent prepares; tapping
+				     writes the *final* volume the powder brings it to (ADR-0018). -->
+				{#each FORMULA_PRESETS as f (f.water)}
+					<button type="button" aria-pressed={intake === f.final} onclick={() => (intake = f.final)}>
+						{f.water}
+						<small>{m.sheet_formula_yields({ value: f.final })}</small>
+					</button>
+				{/each}
+			{:else}
+				{#each QUICK_ML as ml (ml)}
+					<button type="button" aria-pressed={intake === ml} onclick={() => (intake = ml)}>
+						{millilitres(ml)}
+					</button>
+				{/each}
+			{/if}
+		</div>
 		<label class="field">
-			{m.sheet_volume()}
-			<input type="number" inputmode="numeric" min="0" max="5000" step="1" bind:value={volume} />
+			{m.sheet_intake()}
+			<input type="number" inputmode="numeric" min="0" max="5000" step="1" bind:value={intake} />
 		</label>
-		<label class="field">
-			{m.sheet_contents()}
-			<select bind:value={contents}>
-				<option value="breast_milk">{m.contents_breast_milk()}</option>
-				<option value="formula">{m.contents_formula()}</option>
-				<option value="other">{m.contents_other()}</option>
-			</select>
-		</label>
-		<!-- The leftover is a fact from the *end* of the Feed, so it is here only
-		     for the common case of logging a bottle that is already finished. The
-		     usual place to enter it is the Entry sheet, once she has stopped. -->
+		<!-- Not a stored field: confirming a value subtracts it from the Intake
+		     and the input empties itself (ADR-0018). -->
 		<label class="field">
 			{m.sheet_leftover()} <small>({m.optional()})</small>
-			<input type="number" inputmode="numeric" min="0" max="5000" step="1" bind:value={leftover} />
+			<input type="number" inputmode="numeric" min="0" max="5000" step="1" onchange={(event) => (intake = applyLeftoverInput(event, intake))} />
 		</label>
-		{#if taken != null}
-			<p class="note-line">{m.sheet_taken({ value: millilitres(taken) })}</p>
-		{/if}
 	{:else}
 		<div class="field">
 			<label>
