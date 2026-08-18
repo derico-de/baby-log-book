@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { anchorInstant, bottleLife, bottleTargetOf, dueInstant, headerState, seedTargets, typicalFor } from './targets';
+import {
+	anchorInstant,
+	bottleLife,
+	bottleTargetOf,
+	dueInstant,
+	pastBottleRevision,
+	headerState,
+	planPastBottles,
+	seedTargets,
+	typicalFor
+} from './targets';
 import type { Entry, Target } from './types';
 
 const BERLIN = 'Europe/Berlin';
@@ -132,6 +142,47 @@ describe('the Bottle Life', () => {
 			})
 		];
 		expect(anchorInstant(bottleTarget, done)).toBeNull();
+	});
+});
+
+describe('a past bottle', () => {
+	const now = iso('2026-08-17T14:10:00Z');
+
+	it('ends an open bottle Feed at the due instant, not at now', () => {
+		const open = entry({ id: 'f1', type: 'bottle_feed', occurred_at: iso('2026-08-17T12:50:00Z') });
+		expect(planPastBottles([open], [bottleTarget], now)).toEqual([
+			{ entry_id: 'f1', ended_at: iso('2026-08-17T13:50:00Z') }
+		]);
+	});
+
+	it('leaves a bottle alone while its life is still running', () => {
+		const open = entry({ type: 'bottle_feed', occurred_at: iso('2026-08-17T13:50:00Z') });
+		expect(planPastBottles([open], [bottleTarget], now)).toEqual([]);
+	});
+
+	it('touches nothing that is not an open bottle', () => {
+		const at = iso('2026-08-17T10:00:00Z');
+		const stopped = entry({ type: 'bottle_feed', occurred_at: at, ended_at: at + 600_000 });
+		const breast = entry({ type: 'breast_feed', occurred_at: at });
+		const sleep = entry({ type: 'sleep', occurred_at: at });
+		const deleted = entry({ type: 'bottle_feed', occurred_at: at, deleted_at: now });
+		expect(planPastBottles([stopped, breast, sleep, deleted], [bottleTarget], now)).toEqual([]);
+	});
+
+	it('runs out against the seeded hour for a Baby with no stored bottle Target', () => {
+		const open = entry({ id: 'f1', type: 'bottle_feed', occurred_at: iso('2026-08-17T12:50:00Z') });
+		expect(planPastBottles([open], [feedTarget, sleepTarget], now)).toEqual([
+			{ entry_id: 'f1', ended_at: iso('2026-08-17T13:50:00Z') }
+		]);
+	});
+
+	it('is app-attributed, like a Session Merge', () => {
+		const revision = pastBottleRevision(
+			{ entry_id: 'f1', ended_at: iso('2026-08-17T13:50:00Z') },
+			{ household_id: 'h1', at: now, device_id: 'server', id: 'bottle-past:f1' }
+		);
+		expect(revision.author_id).toBeNull();
+		expect(revision.fields).toEqual({ ended_at: iso('2026-08-17T13:50:00Z') });
 	});
 });
 

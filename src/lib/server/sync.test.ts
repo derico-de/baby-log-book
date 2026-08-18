@@ -89,7 +89,9 @@ describe('push', () => {
 				fields: {
 					baby_id: 'b1',
 					type: 'bottle_feed',
-					occurred_at: NOW - 3600_000,
+					/* Recent enough that the Bottle Life has not run out — a bottle past
+					   its Life would append its own revision here (ADR-0017). */
+					occurred_at: NOW - 600_000,
 					recording_zone: BERLIN,
 					volume_ml: 120
 				}
@@ -287,6 +289,66 @@ describe('the Session Merge', () => {
 		asMember([creation('s2', NOW - 3600_000)], 'caregiver', 'oma', 'phone-b');
 		const again = asMember([rev({ entity_id: 's1', fields: { note: 'still going' } })]);
 		expect(again.merged).toEqual([]);
+	});
+});
+
+describe('a past bottle (ADR-0017)', () => {
+	const bottle = (id: string, at: number) =>
+		rev({
+			entity_id: id,
+			fields: {
+				baby_id: 'b1',
+				type: 'bottle_feed',
+				occurred_at: at,
+				ended_at: null,
+				recording_zone: BERLIN,
+				volume_ml: 120
+			}
+		});
+
+	it('ends an open bottle past its Life at the due instant, attributed to the app', () => {
+		asMember([bottle('f1', NOW - 2 * 3600_000)]);
+		// The seeded hour: due one hour after the start, not at push time.
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBe(NOW - 3600_000);
+		const [, pastRev] = revisionsOf(db, 'h1', 'entry', 'f1');
+		expect(pastRev.id).toBe('bottle-past:f1');
+		expect(pastRev.author_id).toBeNull();
+		expect(pastRev.device_id).toBe('server');
+	});
+
+	it('leaves a bottle open while its life still runs', () => {
+		asMember([bottle('f1', NOW - 1800_000)]);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBeNull();
+	});
+
+	it('measures against the hour the Household typed, not the seed', () => {
+		asMember([
+			rev({ kind: 'target', entity_id: 't-bottle', fields: { baby_id: 'b1', activity: 'bottle', duration_s: 3 * 3600, anchor: 'bottle_start' } })
+		]);
+		asMember([bottle('f1', NOW - 2 * 3600_000)]);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBeNull();
+	});
+
+	it('also runs when somebody merely looks, so an idle night still converges', () => {
+		asMember([bottle('f1', NOW - 1800_000)]);
+		const later = NOW + 3600_000;
+		const result = pull(db, 'h1', 0, later);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBe(NOW + 1800_000);
+		expect(result.revisions.map((r) => r.id)).toContain('bottle-past:f1');
+	});
+
+	it('closes a bottle exactly once — a Member who reopens the Feed is not fought', () => {
+		asMember([bottle('f1', NOW - 2 * 3600_000)]);
+		asMember([rev({ entity_id: 'f1', fields: { ended_at: null }, merge_at: NOW + 1000 })], 'parent', 'mum', 'phone-a', NOW + 1000);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBeNull();
+		asMember([], 'parent', 'mum', 'phone-a', NOW + 2000);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBeNull();
+	});
+
+	it('yields to a Member who states the real end afterwards', () => {
+		asMember([bottle('f1', NOW - 2 * 3600_000)]);
+		asMember([rev({ entity_id: 'f1', fields: { ended_at: NOW - 5400_000 }, merge_at: NOW + 1000 })], 'parent', 'mum', 'phone-a', NOW + 1000);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBe(NOW - 5400_000);
 	});
 });
 

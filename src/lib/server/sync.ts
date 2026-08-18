@@ -12,6 +12,7 @@
 
 import { validateFields } from '$domain/entries';
 import { mergeRevision, planSessionMerges, redirectRevision } from '$domain/session-merge';
+import { pastBottleRevision, planPastBottles } from '$domain/targets';
 import { PROTOCOL_VERSION, REVISION_KINDS, type PendingRevision, type Revision, type RevisionKind, type Role } from '$domain/types';
 import type { Db } from './db';
 import {
@@ -20,6 +21,7 @@ import {
 	getEntry,
 	getMember,
 	insertRevision,
+	listTargets,
 	materialise,
 	mergedIntoMap,
 	liveSessions,
@@ -262,6 +264,8 @@ export function push(db: Db, input: PushInput): PushResult {
 			materialise(db, householdId, 'entry', plan.loser_id);
 			merged.push({ survivor_id: plan.survivor_id, loser_id: plan.loser_id });
 		}
+
+		closePastBottles(db, householdId, now);
 	})();
 
 	return {
@@ -284,9 +288,33 @@ export interface PullResult {
 	protocolVersion: number;
 }
 
+/** Ends every open bottle Feed whose Bottle Life has run out, at the due
+    instant, attributed to the app (ADR-0017). Deterministic id, so replay is a
+    no-op — and so a Member who deliberately reopens the Feed by clearing its
+    end is not fought: a bottle is closed exactly once. */
+function closePastBottles(db: Db, householdId: string, now: number): void {
+	const plans = planPastBottles(liveSessions(db, householdId), listTargets(db, householdId), now);
+	for (const plan of plans) {
+		const id = `bottle-past:${plan.entry_id}`;
+		if (revisionExists(db, id)) continue;
+		const revision = pastBottleRevision(plan, {
+			household_id: householdId,
+			at: now,
+			device_id: 'server',
+			id
+		});
+		insertRevision(db, { ...revision, skewed: false }, now);
+		materialise(db, householdId, 'entry', plan.entry_id);
+	}
+}
+
 /** The ordinary paged pull. Initial sync is this from cursor 0 — no bootstrap
     path and no snapshot subsystem (spec §5.4). */
 export function pull(db: Db, householdId: string, since: number, now: number, limit = PULL_PAGE): PullResult {
+	/* A bottle goes past by time passing alone, not by anyone writing — so this also runs
+	   when somebody merely looks, or a bottle started at night and never
+	   followed by another push would stay open until morning. */
+	db.transaction(() => closePastBottles(db, householdId, now))();
 	const revisions = pullRevisions(db, householdId, since, limit);
 	const cursor = revisions.length > 0 ? (revisions.at(-1)!.seq ?? since) : since;
 	const head = currentCursor(db, householdId);

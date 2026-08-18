@@ -58,9 +58,10 @@ export function planSessionMerges(liveSessions: Entry[]): MergePlan[] {
 
 /** The revision a merge appends. Attributed to the app rather than to a Member
     — `author_id` is null — so the history says honestly that no person did it.
-    This is the one place an app-authored revision exists, and it does not
-    weaken the rule that the app never writes data nobody entered: reconciling
-    two Sleeps a human did start is not the same as inventing one. */
+    App-authored revisions exist in exactly two places — here and the close of
+    a bottle past its Life (ADR-0017) — and neither weakens the rule that the app never writes
+    data nobody entered: both record a consequence of something a human did
+    enter, never an invention. */
 export function mergeRevision(
 	plan: MergePlan,
 	ctx: { household_id: string; at: number; device_id: string; id: string }

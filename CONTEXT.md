@@ -141,7 +141,7 @@ The Target for sleep — how long a Baby is comfortably awake — measured from 
 _Avoid_: Awake window, sleep schedule, sleep interval
 
 **Bottle Life**:
-The Target for a started bottle — how long the Household is willing to go on offering one — measured from the Feed's start. A number a Member typed, never a health guideline the app fetched, and the countdown it drives is on the bottle that is still open rather than on the Baby. Because the Feed's start is the only instant the model has, it reads younger than the milk whenever the bottle was made up earlier.
+The Target for a started bottle — how long the Household is willing to go on offering one — measured from the Feed's start. A number a Member typed, never a health guideline the app fetched, and the countdown it drives is on the bottle that is still open rather than on the Baby. Because the Feed's start is the only instant the model has, it reads younger than the milk whenever the bottle was made up earlier. When it runs out, the server ends the Feed at the due instant, attributed to the app (ADR-0017).
 _Avoid_: Freshness, expiry, shelf life, safe until
 
 **Live Session**:
@@ -149,7 +149,7 @@ A Feed or Sleep that has started but not yet ended. Visible as a running timer o
 _Avoid_: Active entry, open session, timer
 
 **Stale Session**:
-A Live Session still running long after it plausibly ended, because nobody pressed stop. Harmless for a Feed, whose end carries no meaning; corrupting for a Sleep, whose end is the whole point.
+A Live Session still running long after it plausibly ended, because nobody pressed stop. Harmless for a breast Feed, whose end carries no meaning; self-limiting for a bottle Feed, which the server ends once its Bottle Life runs out (ADR-0017); corrupting for a Sleep, whose end is the whole point.
 _Avoid_: Orphaned session, forgotten timer, zombie entry
 
 **Session Merge**:

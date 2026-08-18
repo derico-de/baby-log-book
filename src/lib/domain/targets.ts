@@ -10,7 +10,7 @@
    schema change (spec §2). */
 
 import { dayBucketOf, ageInMonths, withinLastDay, MS } from './time';
-import type { Activity, Entry, NappyPayload, Target } from './types';
+import type { Activity, Entry, NappyPayload, PendingRevision, Target } from './types';
 import { isFeed } from './entries';
 
 /** The age table (spec §6.5) — seeds only, never re-applied. After twelve
@@ -159,6 +159,51 @@ export function bottleLife(entry: Entry, target: Target, now: number): BottleLif
 		remainingMs: Math.max(0, remaining),
 		past: remaining < 0,
 		pastMs: remaining < 0 ? -remaining : null
+	};
+}
+
+export interface PastBottle {
+	entry_id: string;
+	/** The bottle's due instant — the Feed ends when the bottle did, not when
+	    the server noticed. */
+	ended_at: number;
+}
+
+/** Which open bottles have outlived their Bottle Life (ADR-0017).
+
+    A bottle past its stated duration is a bottle nobody is going to offer
+    again, so the Feed it belongs to has ended — at the due instant, the one
+    moment every Device computes identically from the synced Target. Bottles
+    only: a running breast feed has nothing that goes off. */
+export function planPastBottles(sessions: Entry[], targets: Target[], now: number): PastBottle[] {
+	const plans: PastBottle[] = [];
+	for (const e of sessions) {
+		if (e.type !== 'bottle_feed' || e.ended_at != null || !live(e)) continue;
+		const target = bottleTargetOf(targets, e.baby_id);
+		if (target.duration_s <= 0) continue;
+		const dueAt = dueInstant(target, e.occurred_at);
+		if (dueAt <= now) plans.push({ entry_id: e.id, ended_at: dueAt });
+	}
+	return plans;
+}
+
+/** The revision a past bottle appends. App-attributed like a Session Merge
+    (`author_id` null): no person pressed stop, and the history should say so
+    honestly. It stops the Feed at a fact — the due instant of a Target a
+    Member typed — never at a guess. */
+export function pastBottleRevision(
+	plan: PastBottle,
+	ctx: { household_id: string; at: number; device_id: string; id: string }
+): PendingRevision {
+	return {
+		id: ctx.id,
+		household_id: ctx.household_id,
+		kind: 'entry',
+		entity_id: plan.entry_id,
+		fields: { ended_at: plan.ended_at },
+		merge_at: ctx.at,
+		device_id: ctx.device_id,
+		author_id: null
 	};
 }
 
