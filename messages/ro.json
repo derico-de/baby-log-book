@@ -61,6 +61,8 @@
 	"header_last_feed_at": "ultima masă {when}",
 	"header_next_due": "următoarea în {left}",
 	"header_overdue": "întârziere de {over}",
+	"header_sleep_title": "Somn",
+	"header_feed_title": "Hrănire",
 	"header_awake_label": "trează",
 	"header_asleep_label": "doarme",
 	"header_no_sleep_yet": "niciun somn înregistrat",

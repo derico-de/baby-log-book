@@ -28,7 +28,7 @@ One hue. Surfaces sit at chroma 0; all warmth lives in the accent and nowhere el
 One family: `system-ui` stack (`--font-ui`), no webfont — the 3am first paint waits for nothing. Weights 400 / 500 / 650 (`--fw-*`).
 
 - Scale `--fs-0` 0.75rem → `--fs-8` 3rem, fixed rem, tight steps.
-- The hero figures ("2h 10m") are `--fs-7` at **weight 300**: loud through size at a light weight. Two stand side by side in the header (sleep | feed), which is why the scale stops one step short of 3rem — bold would shout.
+- The hero figures ("2h 10m") are 70% of `--fs-7` at **weight 300**: loud through size at a light weight. Two stand side by side in the header (sleep | feed) under their column titles ("Sleeping" / "Feeding", `--fs-3` medium), so they stay the biggest thing in the header without shouting.
 - Numbers everywhere use tabular lining figures: `--num-feature: 'tnum' 1, 'lnum' 1`.
 - `html { font-size: 16px }` pins Pico's document-oriented root scaling; this is an application.
 

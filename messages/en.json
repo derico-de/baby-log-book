@@ -67,6 +67,8 @@
 	"header_last_feed_at": "last feed {when}",
 	"header_next_due": "next due in {left}",
 	"header_overdue": "{over} overdue",
+	"header_sleep_title": "Sleeping",
+	"header_feed_title": "Feeding",
 	"header_awake_label": "awake",
 	"header_asleep_label": "asleep",
 	"header_no_sleep_yet": "no sleep logged yet",

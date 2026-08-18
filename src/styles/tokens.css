@@ -49,8 +49,9 @@
 
 		/* The hero figures — "2h 10m" — are the loudest thing on the screen, and
        they are loud through size at a LIGHT weight. Two of them stand side by
-       side (sleep | feed), so one step down from 3rem; bold would shout. */
-		--hero-size: var(--fs-7);
+       side (sleep | feed) under their column titles, so 70% of --fs-7 —
+       still the biggest thing in the header; bold would shout. */
+		--hero-size: calc(var(--fs-7) * 0.7);
 		--hero-weight: 300;
 
 		--r-1: 10px;

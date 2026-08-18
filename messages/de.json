@@ -67,6 +67,8 @@
 	"header_last_feed_at": "letzte Mahlzeit {when}",
 	"header_next_due": "nächste in {left}",
 	"header_overdue": "{over} überfällig",
+	"header_sleep_title": "Schlafen",
+	"header_feed_title": "Füttern",
 	"header_awake_label": "wach",
 	"header_asleep_label": "schläft",
 	"header_no_sleep_yet": "noch kein Schlaf erfasst",

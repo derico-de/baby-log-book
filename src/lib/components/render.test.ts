@@ -98,6 +98,8 @@ describe('the sticky header', () => {
 	it('prints the elapsed figure and when the next feed is due', () => {
 		app.entries = [entry({ type: 'bottle_feed', occurred_at: NOW - 2 * 3600_000 - 10 * 60_000 })];
 		const text = draw(LiveHeader, { onFilter: () => {} });
+		expect(text).toContain('Sleeping');
+		expect(text).toContain('Feeding');
 		expect(text).toContain('since last feed');
 		expect(text).toContain('2h10');
 		expect(text).toContain('50m');

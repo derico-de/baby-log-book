@@ -82,7 +82,7 @@
 		background: var(--surface);
 		border-bottom: 1px solid var(--line);
 		padding: var(--sp-4);
-		padding-top: calc(var(--sp-4) + env(safe-area-inset-top, 0px));
+		padding-top: calc(var(--sp-2) + env(safe-area-inset-top, 0px));
 		flex: none;
 	}
 
@@ -159,6 +159,14 @@
 		gap: var(--sp-4);
 		align-items: start;
 	}
+	/* Each column is named for what it reports — the state word below stays
+	   the quiet, changing part. */
+	.live-title {
+		font-size: var(--fs-3);
+		font-weight: var(--fw-medium);
+		color: var(--ink);
+		margin-bottom: var(--sp-1);
+	}
 	.live-label {
 		font-size: var(--fs-1);
 		color: var(--ink-2);
@@ -187,6 +195,8 @@
 		color: var(--warn);
 		font-weight: var(--fw-medium);
 	}
+	/* The quiet line mirrors the grid's columns, so the last-poop fact starts
+	   exactly where the Feeding column does. */
 	.due-quiet {
 		margin-top: var(--sp-3);
 		padding-top: var(--sp-2);
@@ -194,10 +204,9 @@
 		font-size: var(--fs-1);
 		color: var(--ink-3);
 		font-variant-numeric: tabular-nums;
-		display: flex;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--sp-4);
 	}
 
 	.screen-title {

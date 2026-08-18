@@ -84,6 +84,7 @@
 	{#if header}
 		<div class="live-grid">
 			<div class="live-cell">
+				<div class="live-title">{m.header_sleep_title()}</div>
 				{#if header.sleep.running}
 					<!-- While a Sleep runs there is no Wake Window to show. -->
 					<div class="live-label">{m.header_asleep_label()}</div>
@@ -108,6 +109,7 @@
 			</div>
 
 			<div class="live-cell">
+				<div class="live-title">{m.header_feed_title()}</div>
 				{#if header.feed.elapsedMs == null}
 					<!-- Never compute a due instant from nothing. -->
 					<div class="live-label">{m.header_no_feed_yet()}</div>
