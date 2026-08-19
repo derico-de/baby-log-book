@@ -50,12 +50,16 @@
 <!-- One root key, so switching the language re-renders every string without a
      reload: offline, a reload is answered from the precache and a cached document
      has the old language baked into its markup (spec §9.5). -->
+<!-- impeccable-live-svelte-start -->
+<!-- Dev-only live-preview mount; the static guard drops it from builds. -->
+{#if import.meta.env.DEV}
+	<ImpeccableLiveRoot />
+{/if}
+<!-- impeccable-live-svelte-end -->
+
 {#key activeLocale()}
 	{#if onClaim}
-		<!-- impeccable-live-svelte-start -->
-<ImpeccableLiveRoot />
-<!-- impeccable-live-svelte-end -->
-{@render children()}
+		{@render children()}
 	{:else}
 		<div class="app">
 			{@render children()}

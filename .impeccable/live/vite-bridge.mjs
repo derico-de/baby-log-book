@@ -1,3 +1,4 @@
+// @ts-nocheck — dev-only tooling outside the app's strictness.
 /* Impeccable live-mode bridge — dev only, not part of the app.
  *
  * The sandbox this repo develops in forwards port 5173 and nothing else, so
