@@ -181,3 +181,13 @@ _Avoid_: Entry timezone, offset, device timezone
 **Export**:
 Everything the Household has ever logged, taken off the app in one act — complete, raw and unfiltered, because the data belongs to the people who keep it. It is a way *out*, not a way back in: nothing that leaves this way can be loaded back.
 _Avoid_: Backup, download, report, dump
+
+### Paying for it
+
+**Plan**:
+The subscription that pays for one Household's place on the hosted service. Flat per Household — every Member and Device is covered, so inviting grandma never costs anything. A self-hosted deployment has no Plan.
+_Avoid_: Account, licence, seat, tier, premium
+
+**Trial**:
+The first month of a Plan, full-featured and free, begun without giving any payment method. Its job is to prove the convenience, not to lock anyone in — the lasting free option is self-hosting.
+_Avoid_: Free tier, freemium, demo

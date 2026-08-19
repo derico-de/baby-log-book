@@ -26,15 +26,15 @@ An implementable **Stage-1 spec** — multi-household pilot on the current singl
 - [Payment provider direction: EU/Wero-ready vs Stripe](issues/02-payment-provider-research.md) — start with Mollie, yearly-plan-first (Wero live for DE merchants as one-off; recurring runs on SEPA DD/cards until Wero recurring ships anywhere; a 3 € charge loses ~10% to fixed fees vs ~2% at 28 €/yr); skip merchant-of-record while Kleinunternehmer; named switch triggers to Stripe / MoR recorded in the ticket.
 - [Household creation and the operator surface (Stage 1)](issues/05-household-creation-and-operator-surface.md) — CLI only: `babylog household "<label>"` mints a 7-day **Founding Link** (new glossary term) and the claim founds the Household, first Parent and zone from the claimer; boot bootstrap unchanged for Household #1; new `babylog households` listing + household-grouped `members`; rescue becomes Household-scoped once a second Household exists; one ORIGIN serves all pilot Households.
 - [Isolation hardening and the hosted trust boundary (Stage 1)](issues/06-isolation-hardening-and-trust-boundary.md) — all four leaks must-fix via an ownership guard, no migration (foreign ids refused generically; `household`-kind revisions use the session's Household); SSE wake set gets household-scoped, rate limiter and whole-file backup stay; ADR-0020 supersedes only ADR-0009's tenancy stance; trust boundary acknowledged not encrypted (one honest sentence to the friends); the two-household attack fixture is the testing bar, plus an AGENTS.md rule that new store functions take `householdId`.
+- [Pricing, packaging and positioning](issues/07-pricing-and-packaging.md) — 3 €/mo or 28 €/yr with yearly pre-selected; one **Plan** per Household, flat; **Trial** = first month free with no payment method upfront; no lifetime plan; positioning locked as "fully open source — self-host for free, or let us host it: fair price, GDPR-first, hosted in **Germany**"; Mollie confirmed with its switch triggers; sell web-only at 0%, PWA-first distribution, no in-app purchase links.
 
 ## Not yet specified
 
-- **Public sign-up and onboarding** for the paid service — how a stranger creates a Household, trial start, abuse defence, whether email enters the model. Waits on pilot feedback and the pricing/packaging decision.
+- **Public sign-up and onboarding** for the paid service — how a stranger creates a Household, trial start, abuse defence, whether email enters the model. Waits on pilot feedback (pricing/packaging is now decided).
 - **Pilot → paid-service migration path** — whether pilot Households move onto the future platform and how. Waits on the platform-direction decision.
 - **Hosted-service operations** — per-household backups/restore, monitoring, support channel, deletion/export on churn (GDPR Art. 17/20 in practice). Waits on the platform direction and legal baseline.
 - **Feedback loop for the pilot** — how friends report feedback (in-app? issue tracker? chat). Sharpen once the Stage-1 spec exists.
 - **DPIA/DPO question** — the legal baseline flags that a DPIA obligation could drag in a mandatory DPO via §38 BDSG; needs verification with counsel before launch, alongside legal execution.
-- **Trial and subscription lifecycle** at direction level beyond pricing (what happens when payment lapses — read-only? export-only? grace period). Waits on pricing/packaging and legal baseline.
 
 ## Out of scope
 
