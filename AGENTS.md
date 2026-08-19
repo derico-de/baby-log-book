@@ -3,6 +3,7 @@
 ## Project rules
 
 - keep release number in sync with docker container tags
+- in this sandbox: commit only, never `git push` — the maintainer pushes from outside the sandbox, unless they explicitly say otherwise
 
 ## Agent skills
 
