@@ -1,5 +1,7 @@
 # One Household per deployment, and the deployment is a stranger's
 
+> Superseded on the one-Household stance by [ADR-0020](0020-one-deployment-many-households.md); every other consequence here still governs.
+
 A container runs exactly one Household. There is no household selector, no tenant column consulted at query time, and no way to reach a second Household from a running instance — the boot-time claim link fires when the Household is empty, and after that the instance is that family's. We chose this over a multi-tenant schema kept "just in case" because the artefact being shipped is a **self-hosted AGPL image pulled by strangers**, not a service we operate: for the person self-hosting, "this container is my family's data, full stop" is most of the reason they self-host at all, and a tenancy boundary they can never use is a tax every one of them pays for a hosted product that may never exist.
 
 The second half matters as much as the first. Because the operator is a stranger, anything the deployment needs done correctly must be done *by the app*, not documented as a step for them to get right — they have no support channel, and a misconfiguration surfaces as data loss weeks later.
