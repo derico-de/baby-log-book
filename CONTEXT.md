@@ -56,6 +56,10 @@ _Avoid_: Invitation code, join link
 A Claim Link minted from the server itself, re-binding a Member who exists to a new Device. For the phone that was lost when no Parent is left to send an Invite.
 _Avoid_: Recovery code, password reset, admin override
 
+**Founding Link**:
+A Claim Link that founds a new Household: whoever claims it becomes its first Parent, and their Device's zone becomes the Household Zone. Printed at first boot when no one has access yet, or minted by the operator for a further Household.
+_Avoid_: Bootstrap link, setup link, admin invite
+
 ### What gets logged
 
 **Entry**:
