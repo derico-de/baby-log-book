@@ -28,6 +28,9 @@ export interface DayBar {
 	key: string;
 	value: number;
 	isToday: boolean;
+	/** What she drank that day — Feeds card only, and only once a bottle
+	    exists in the window; a breastfed week has no millilitres to state. */
+	volumeMl?: number;
 }
 
 export interface SleepSecondary {
@@ -248,7 +251,9 @@ export function statsFor(input: StatsInput): StatsCard[] {
 	if (hasFeed) {
 		cards.push({
 			kind: 'feeds',
-			bars: bars(acc.feeds),
+			bars: hasBottle
+				? bars(acc.feeds).map((b) => ({ ...b, volumeMl: acc.volume.get(b.key) ?? 0 }))
+				: bars(acc.feeds),
 			today: acc.feeds.get(today) ?? 0,
 			average: completeAverage(acc.feeds),
 			delta: deltaOf(acc.feeds, previous.feeds),

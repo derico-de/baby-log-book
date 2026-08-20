@@ -204,6 +204,23 @@ describe('the Feeds card', () => {
 		expect(s.volumeMlAverage).toBe(100);
 	});
 
+	it('carries each day’s volume on the bars once bottles exist', () => {
+		const [card] = statsFor({
+			...LENS,
+			entries: [bottle('2026-08-17T08:00:00Z', 120), bottle('2026-08-16T08:00:00Z', 100)]
+		});
+		expect(card.bars.find((b) => b.key === '2026-08-17')?.volumeMl).toBe(120);
+		expect(card.bars.find((b) => b.key === '2026-08-16')?.volumeMl).toBe(100);
+		/* A bottle-feeding week states zero on a bottleless day, not nothing. */
+		expect(card.bars.find((b) => b.key === '2026-08-15')?.volumeMl).toBe(0);
+	});
+
+	it('puts no volume on the bars of a breastfed week', () => {
+		const breast = entry({ type: 'breast_feed', occurred_at: iso('2026-08-16T08:00:00Z'), payload: { side: 'left' } });
+		const [card] = statsFor({ ...LENS, entries: [breast] });
+		expect(card.bars.every((b) => b.volumeMl === undefined)).toBe(true);
+	});
+
 	it('counts what she drank, not what was poured', () => {
 		// 180 ml offered with 30 ml left in the bottle is 150 ml of milk.
 		const [card] = statsFor({

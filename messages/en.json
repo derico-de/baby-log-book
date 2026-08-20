@@ -221,6 +221,7 @@
 	"stats_new_foods_one": "{count} new food this week",
 	"stats_new_foods_other": "{count} new foods this week",
 	"stats_bar_today": "Today",
+	"stats_day_detail": "{day}: {value}",
 
 	"nav_timeline": "Log",
 	"nav_stats": "Stats",

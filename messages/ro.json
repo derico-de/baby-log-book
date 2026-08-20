@@ -210,6 +210,7 @@
 	"stats_new_foods_few": "{count} alimente noi săptămâna asta",
 	"stats_new_foods_other": "{count} de alimente noi săptămâna asta",
 	"stats_bar_today": "Azi",
+	"stats_day_detail": "{day}: {value}",
 	"nav_timeline": "Jurnal",
 	"nav_stats": "Tendințe",
 	"nav_settings": "Setări",

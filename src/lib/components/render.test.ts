@@ -434,6 +434,56 @@ describe('a stats card', () => {
 		expect(host.querySelectorAll('.bar')).toHaveLength(8);
 		expect(host.querySelector('.bar[data-today="1"]')).not.toBeNull();
 	});
+
+	it('labels the axis with an even ceiling and its half', () => {
+		const entries = [
+			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: false, consistency: null } }),
+			entry({ type: 'nappy', occurred_at: NOW - 7200_000, payload: { pee: true, poop: false, consistency: null } }),
+			entry({ type: 'nappy', occurred_at: NOW - 10_800_000, payload: { pee: true, poop: false, consistency: null } })
+		];
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
+		draw(StatCard, { card });
+		/* Three nappies today: the ceiling rounds up to 4 so the half tick is
+		   a whole number. */
+		const ticks = [...host.querySelectorAll('.gridline span')].map((s) => s.textContent);
+		expect(ticks).toEqual(['4', '2']);
+	});
+
+	it('reads a tapped day back as a sentence, and lets go on the second tap', () => {
+		const entries = [
+			entry({ type: 'nappy', occurred_at: NOW - 86_400_000, payload: { pee: true, poop: false, consistency: null } }),
+			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: true, consistency: null } })
+		];
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
+		draw(StatCard, { card });
+		const hits = host.querySelectorAll<HTMLButtonElement>('.bar-hit');
+		expect(hits).toHaveLength(8);
+		flushSync(() => hits[6]?.click()); /* yesterday, 16 Aug */
+		const detail = host.querySelector('.bar-detail');
+		expect(detail?.textContent).toContain('Aug');
+		expect(detail?.textContent).toContain(': 1');
+		flushSync(() => hits[6]?.click());
+		expect(host.querySelector('.bar-detail')).toBeNull();
+	});
+
+	it('states a tapped Feeds day with what she drank', () => {
+		const entries = [
+			entry({
+				type: 'bottle_feed',
+				occurred_at: NOW - 3600_000,
+				payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
+			}),
+			entry({
+				type: 'bottle_feed',
+				occurred_at: NOW - 7200_000,
+				payload: { volume_ml: 90, leftover_ml: null, contents: 'formula' }
+			})
+		];
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
+		draw(StatCard, { card });
+		flushSync(() => host.querySelectorAll<HTMLButtonElement>('.bar-hit')[7]?.click()); /* today */
+		expect(host.querySelector('.bar-detail')?.textContent).toBe('Today: 2 · 210 ml');
+	});
 });
 
 describe('the replica the components read', () => {

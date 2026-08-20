@@ -3,15 +3,15 @@
 
 	   Every card states its numbers as text with the bars as the secondary read: at
 	   3am a shape you have to interpret is worse than a sentence, and it is the
-	   accessible version for free. Eight bars with no axes, tooltips or zoom is not
-	   a charting problem, so they are hand-rolled and there is no charting
-	   dependency.
+	   accessible version for free. Eight bars, two dashed axis lines and a
+	   tapped day read back as text are still not a charting problem, so it all
+	   stays hand-rolled and there is no charting dependency.
 
 	   Today is the eighth bar, drawn visibly in progress, and it is excluded from
 	   the delta. */
 	import { app } from '$client/state.svelte';
-	import { decimal, duration, millilitres, plural, weekdayShort } from '$lib/i18n/format';
-	import { dayStartInstant } from '$domain/time';
+	import { dateShort, decimal, duration, millilitres, plural, weekdayShort } from '$lib/i18n/format';
+	import { dayStartInstant, MS } from '$domain/time';
 	import type { FeedsSecondary, NappiesSecondary, SleepSecondary, SolidsSecondary, StatsCard } from '$domain/stats';
 	import * as m from '$lib/paraglide/messages';
 	import Icon, { type IconName } from './Icon.svelte';
@@ -36,7 +36,20 @@
 	};
 
 	const isDuration = $derived(card.kind === 'sleep');
-	const max = $derived(Math.max(1, ...card.bars.map((b) => b.value)));
+
+	/* The axis ceiling is the next even hour (Sleep) or even count above the
+	   tallest bar, so both tick labels are amounts a person would actually say
+	   — at the price of the tallest bar stopping a little short of the top
+	   line. */
+	const unit = $derived(isDuration ? MS.hour : 1);
+	const axisMax = $derived.by(() => {
+		const top = Math.max(unit, ...card.bars.map((b) => b.value));
+		return 2 * unit * Math.ceil(top / (2 * unit));
+	});
+
+	/* The tapped day. Tapping it again lets go. */
+	let selectedKey = $state<string | null>(null);
+	const selected = $derived(card.bars.find((b) => b.key === selectedKey) ?? null);
 
 	const value = (n: number) => (isDuration ? duration(n) : decimal(n, Number.isInteger(n) ? 0 : 1));
 
@@ -84,6 +97,20 @@
 
 	const label = (key: string, isToday: boolean) =>
 		isToday ? m.stats_bar_today() : weekdayShort(dayStartInstant(key, app.dayStart, app.zone), app.zone);
+
+	/* The tapped day as a sentence — the same text-first rule the card itself
+	   follows. A Feeds day states its volume too, once bottles exist. */
+	const detail = $derived.by(() => {
+		if (!selected) return null;
+		const day = selected.isToday
+			? m.stats_bar_today()
+			: dateShort(dayStartInstant(selected.key, app.dayStart, app.zone), app.zone);
+		const amount =
+			selected.volumeMl == null
+				? value(selected.value)
+				: `${value(selected.value)} · ${millilitres(selected.volumeMl)}`;
+		return m.stats_day_detail({ day, value: amount });
+	});
 </script>
 
 <article class="card">
@@ -106,13 +133,29 @@
 		<div class="card-delta">{line}</div>
 	{/each}
 
-	<div class="bars" aria-hidden="true">
+	<div class="bars">
+		{#each [1, 0.5] as tick (tick)}
+			<div class="gridline" style={`bottom:${tick * 100}%`} aria-hidden="true">
+				<span>{value(axisMax * tick)}</span>
+			</div>
+		{/each}
 		{#each card.bars as bar (bar.key)}
-			<div
-				class="bar"
-				data-today={bar.isToday ? '1' : '0'}
-				style={`height:${Math.max(6, (bar.value / max) * 100)}%`}
-			></div>
+			<!-- The whole column is the tap target — the bar itself can be three
+			     pixels tall. -->
+			<button
+				type="button"
+				class="bar-hit"
+				aria-pressed={selectedKey === bar.key}
+				aria-label={`${label(bar.key, bar.isToday)}: ${value(bar.value)}`}
+				onclick={() => (selectedKey = selectedKey === bar.key ? null : bar.key)}
+			>
+				<span
+					class="bar"
+					data-today={bar.isToday ? '1' : '0'}
+					data-selected={selectedKey === bar.key ? '1' : '0'}
+					style={`height:${Math.max(6, (bar.value / axisMax) * 100)}%`}
+				></span>
+			</button>
 		{/each}
 	</div>
 	<div class="bar-labels">
@@ -120,4 +163,7 @@
 			<span data-today={bar.isToday ? '1' : '0'}>{label(bar.key, bar.isToday)}</span>
 		{/each}
 	</div>
+	{#if detail}
+		<div class="bar-detail">{detail}</div>
+	{/if}
 </article>
