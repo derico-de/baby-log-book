@@ -7,9 +7,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import { app } from '$client/state.svelte';
 import { ReplicaDb } from '$client/db';
-import { logBreastFeed } from '$client/mutate';
+import { logBreastFeed, startSleep } from '$client/mutate';
 import type { Writer } from '$client/mutate';
-import type { Baby, BottleFeedPayload, Household, MemberRecord } from '$domain/types';
+import type { Baby, BottleFeedPayload, Household, MealPayload, MemberRecord } from '$domain/types';
 import FeedSheet from './FeedSheet.svelte';
 
 const BERLIN = 'Europe/Berlin';
@@ -29,10 +29,10 @@ const mum: MemberRecord = {
 let host: HTMLElement;
 let mounted: Record<string, unknown> | null = null;
 
-function open(): void {
+function open(asleep = false): void {
 	mounted = mount(FeedSheet, {
 		target: host,
-		props: { asleep: false, onclose: () => {} }
+		props: { asleep, onclose: () => {} }
 	}) as Record<string, unknown>;
 	flushSync();
 }
@@ -299,5 +299,109 @@ describe('one feed at a time', () => {
 		const stillRunning = rows.filter((r) => r.ended_at == null);
 		expect(stillRunning).toHaveLength(1);
 		expect(stillRunning[0].id).not.toBe(runningId);
+	});
+});
+
+/* Food mode writes through the same replica as the other modes. The foods list
+   the sheet holds is a reactive proxy, and IndexedDB's structured clone refuses
+   a Proxy — so the save path must hand over plain objects, or every Meal save
+   throws before anything lands. fake-indexeddb refuses proxies the same way,
+   which is what lets these tests stand guard. */
+describe('food mode', () => {
+	let db: ReplicaDb;
+	let writer: Writer;
+	let names = 0;
+
+	beforeEach(() => {
+		names += 1;
+		db = new ReplicaDb(`feed-sheet-food-${names}`);
+		let tick = 0;
+		writer = { db, householdId: 'h1', memberId: 'mum', mergeAt: () => NOW + ++tick, now: () => NOW, kick: () => {} };
+		app.log = (async (action: (w: Writer) => Promise<unknown>) => action(writer)) as typeof app.log;
+		app.edit = (async (action: (w: Writer) => Promise<unknown>) => action(writer)) as typeof app.edit;
+	});
+
+	afterEach(async () => {
+		delete (app as unknown as Record<string, unknown>).log;
+		delete (app as unknown as Record<string, unknown>).edit;
+		await db.delete();
+	});
+
+	async function settle(): Promise<void> {
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		flushSync();
+	}
+
+	/** Types a new Food's name and taps the Add “…” chip the query reveals. */
+	async function addNewFood(name: string): Promise<void> {
+		const input = fieldInput('Add a food');
+		input.value = name;
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		flushSync();
+		const chip = [...host.querySelectorAll<HTMLButtonElement>('.chip')].find((b) => b.textContent?.includes(name));
+		if (!chip) throw new Error(`no Add chip for ${name}`);
+		chip.click();
+		await settle();
+	}
+
+	function save(): void {
+		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
+	}
+
+	async function seedRunningSleep(at: number): Promise<string> {
+		const id = await startSleep(writer, { babyId: 'b1', occurredAt: at });
+		app.entries = await db.entries.toArray();
+		return id;
+	}
+
+	it('saves a Meal with the picked Food and amount, as plain data the replica accepts', async () => {
+		open();
+		tab('Food').click();
+		flushSync();
+		await addNewFood('Banane');
+		tab('Lots').click();
+		flushSync();
+		save();
+		await settle();
+		const foods = await db.foods.toArray();
+		expect(foods).toHaveLength(1);
+		expect(foods[0].name).toBe('Banane');
+		const meal = (await db.entries.toArray()).find((e) => e.type === 'meal');
+		expect(meal).toBeDefined();
+		expect((meal?.payload as MealPayload).foods).toEqual([
+			{ food_id: foods[0].id, amount: 'lots', reaction: null }
+		]);
+	});
+
+	it('back-dated before the running Sleep, a Meal leaves the Sleep running — she ate, then went down', async () => {
+		const sleepId = await seedRunningSleep(NOW - 30 * 60_000); /* 15:30 Berlin */
+		open(true);
+		tab('Food').click();
+		flushSync();
+		await addNewFood('Brei');
+		const time = fieldInput('Time');
+		time.value = '15:00'; /* before she went down */
+		time.dispatchEvent(new Event('input', { bubbles: true }));
+		flushSync();
+		expect(host.textContent).not.toContain('marked awake from');
+		save();
+		await settle();
+		const sleep = await db.entries.get(sleepId);
+		expect(sleep?.ended_at).toBeNull();
+		const meal = (await db.entries.toArray()).find((e) => e.type === 'meal');
+		expect(meal?.occurred_at).toBe(NOW - 60 * 60_000);
+	});
+
+	it('inside the running Sleep, a Meal marks her awake at its Occurred At, and says so beforehand', async () => {
+		const sleepId = await seedRunningSleep(NOW - 30 * 60_000);
+		open(true);
+		tab('Food').click();
+		flushSync();
+		await addNewFood('Brei');
+		expect(host.textContent).toContain('marked awake from');
+		save();
+		await settle();
+		const sleep = await db.entries.get(sleepId);
+		expect(sleep?.ended_at).toBe(NOW);
 	});
 });

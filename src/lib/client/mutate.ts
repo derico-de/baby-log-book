@@ -150,7 +150,10 @@ export async function logMeal(w: Writer, target: EntryTarget & { foods: MealFood
 	const id = randomId();
 	await write(w, 'entry', id, {
 		...creation(target.babyId, 'meal', target.occurredAt ?? w.now(), target.note),
-		foods: target.foods
+		/* Copied field by field: the sheet hands over a reactive proxy, and
+		   IndexedDB's structured clone refuses a Proxy outright — the whole
+		   save would throw before anything lands. */
+		foods: target.foods.map((f) => ({ food_id: f.food_id, amount: f.amount, reaction: f.reaction }))
 	});
 	return id;
 }
