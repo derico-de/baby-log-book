@@ -673,7 +673,7 @@
 			color var(--dur-1) var(--ease);
 	}
 	.seg button[aria-selected='true'] {
-		background: var(--surface);
+		background: var(--surface-raised);
 		color: var(--ink);
 		box-shadow: var(--shadow);
 	}
@@ -699,6 +699,9 @@
 		background: var(--accent-soft);
 		color: var(--ink);
 		font-weight: var(--fw-bold);
+		/* Doubles the accent ring: one hairline is not enough against the
+		   deep-night accent, which is deliberately dimmed. */
+		box-shadow: inset 0 0 0 1px var(--accent);
 	}
 
 	.sheet-acts {
@@ -785,6 +788,9 @@
 	}
 	.tabbar a[aria-current='page'] {
 		color: var(--accent);
+		/* Sits on the bar's own top border, so the marker reads in deep night
+		   where a colour shift alone is too quiet. */
+		box-shadow: inset 0 2px 0 var(--accent);
 	}
 	.tabbar svg {
 		width: 21px;

@@ -96,6 +96,10 @@
 		--ground: oklch(0.975 0 0);
 		--surface: oklch(1 0 0);
 		--surface-2: oklch(0.945 0 0);
+		/* The control that is ON — the seg thumb. A raised control must sit
+       lighter than its track, and in the dark appearances --surface does
+       not: there the shadow disappears too, so raised gets its own step. */
+		--surface-raised: oklch(1 0 0);
 		--line: oklch(0.9 0 0);
 		--line-strong: oklch(0.82 0 0);
 
@@ -132,8 +136,9 @@
 		--ground: oklch(0.17 0.006 60);
 		--surface: oklch(0.215 0.007 60);
 		--surface-2: oklch(0.26 0.008 60);
-		--line: oklch(0.32 0.008 60);
-		--line-strong: oklch(0.4 0.008 60);
+		--surface-raised: oklch(0.34 0.008 60);
+		--line: oklch(0.35 0.008 60);
+		--line-strong: oklch(0.46 0.008 60);
 
 		--ink: oklch(0.95 0.006 70);
 		--ink-2: oklch(0.74 0.008 70);
@@ -141,7 +146,7 @@
 
 		--accent: oklch(0.78 0.14 65);
 		--accent-ink: oklch(0.2 0.03 60);
-		--accent-soft: oklch(0.3 0.05 60);
+		--accent-soft: oklch(0.33 0.06 60);
 
 		--shadow:
 			0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.35);
@@ -156,8 +161,9 @@
 		--ground: oklch(0.09 0.005 60);
 		--surface: oklch(0.125 0.006 60);
 		--surface-2: oklch(0.16 0.006 60);
-		--line: oklch(0.21 0.006 60);
-		--line-strong: oklch(0.28 0.006 60);
+		--surface-raised: oklch(0.23 0.006 60);
+		--line: oklch(0.24 0.006 60);
+		--line-strong: oklch(0.33 0.006 60);
 
 		--ink: oklch(0.78 0.02 70);
 		--ink-2: oklch(0.58 0.02 70);
@@ -165,7 +171,7 @@
 
 		--accent: oklch(0.66 0.11 60);
 		--accent-ink: oklch(0.1 0.01 60);
-		--accent-soft: oklch(0.2 0.04 60);
+		--accent-soft: oklch(0.24 0.05 60);
 
 		--shadow: none;
 	}
@@ -260,6 +266,10 @@
      for a document and wrong for an application. */
 	html {
 		font-size: 16px;
+		/* Android colours the system navigation bar from the root element's
+       own background, not the body's propagated one — without this the
+       installed app gets a white bar under a dark page. */
+		background: var(--ground);
 	}
 
 	body {

@@ -18,7 +18,7 @@ One hue. Surfaces sit at chroma 0; all warmth lives in the accent and nowhere el
 
 - Accent (day): `oklch(0.55 0.15 45)` — a burnt orange; night `oklch(0.78 0.14 65)`; deep `oklch(0.66 0.11 60)`.
 - Ink ramp per appearance: `--ink` (body, 15.9:1 day), `--ink-2` (secondary, 8.3:1), `--ink-3` (tertiary, ≥5:1).
-- Surfaces: `--ground`, `--surface`, `--surface-2`; lines: `--line`, `--line-strong`.
+- Surfaces: `--ground`, `--surface`, `--surface-2`, `--surface-raised`; lines: `--line`, `--line-strong`. `--surface-raised` is the control that is ON (the seg thumb): equal to `--surface` in day, a step *lighter* than its track in night and deep, where shadows cannot carry the raise.
 - `--warn` and `--live` both resolve to `--accent`: overdue is the number adopting the brand colour. There is no red, no second escalation state.
 - Entry-type tokens `--t-feed` … `--t-milestone` all resolve to `--ink-2`: types are told apart by glyph and label, never by colour. A new type costs nothing.
 - Active chip state is an ink inversion, never the accent — the hue belongs to actions.

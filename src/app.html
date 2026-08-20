@@ -83,6 +83,10 @@
 					   so the 86 tokens we do not map still land on the right side. */
 					root.setAttribute('data-theme', appearance === 'day' ? 'light' : 'dark');
 					root.style.colorScheme = appearance === 'day' ? 'light' : 'dark';
+					/* Android colours the system navigation bar from the root
+					   element's own background; inline, so it also holds for the
+					   frame before the stylesheet arrives. */
+					root.style.backgroundColor = GROUND[appearance];
 
 					var meta = document.querySelector('meta[name="theme-color"]');
 					if (meta) meta.setAttribute('content', GROUND[appearance]);
