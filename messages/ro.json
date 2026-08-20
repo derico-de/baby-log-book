@@ -110,7 +110,7 @@
 	"sheet_contents": "Conținut",
 	"sheet_formula_yields": "→ {value}",
 	"sheet_duration": "Durată",
-	"sheet_start_timer": "Pornește cronometrul",
+	"sheet_feed_end": "Când s-a terminat masa?",
 	"sheet_foods": "Alimente",
 	"sheet_food_add": "Adaugă un aliment",
 	"sheet_food_new": "Adaugă „{name}”",

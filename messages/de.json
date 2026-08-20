@@ -118,7 +118,7 @@
 	"sheet_contents": "Inhalt",
 	"sheet_formula_yields": "→ {value}",
 	"sheet_duration": "Dauer",
-	"sheet_start_timer": "Timer starten",
+	"sheet_feed_end": "Wann war die Mahlzeit zu Ende?",
 	"sheet_foods": "Lebensmittel",
 	"sheet_food_add": "Lebensmittel hinzufügen",
 	"sheet_food_new": "„{name}“ hinzufügen",

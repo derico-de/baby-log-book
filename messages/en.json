@@ -118,7 +118,7 @@
 	"sheet_contents": "Contents",
 	"sheet_formula_yields": "→ {value}",
 	"sheet_duration": "Duration",
-	"sheet_start_timer": "Start timer",
+	"sheet_feed_end": "When did the feed end?",
 	"sheet_foods": "Foods",
 	"sheet_food_add": "Add a food",
 	"sheet_food_new": "Add “{name}”",

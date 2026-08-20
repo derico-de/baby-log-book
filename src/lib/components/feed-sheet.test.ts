@@ -211,16 +211,13 @@ describe('what a save writes', () => {
 		});
 	});
 
-	it('starts the timer at the sheet’s time field, not silently at now', async () => {
+	it('saves a breast feed with no duration as a running timer, started at the sheet’s time field', async () => {
 		open();
 		const time = fieldInput('Time');
 		time.value = '15:40'; /* 20 minutes before NOW, Berlin */
 		time.dispatchEvent(new Event('input', { bubbles: true }));
 		flushSync();
-		const start = [...host.querySelectorAll<HTMLButtonElement>('button')].find(
-			(b) => b.textContent?.trim() === 'Start timer'
-		);
-		start?.click();
+		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
 		await new Promise((resolve) => setTimeout(resolve, 20));
 		const rows = await db.entries.toArray();
 		expect(rows).toHaveLength(1);
@@ -292,12 +289,10 @@ describe('one feed at a time', () => {
 		expect(running?.ended_at).toBeNull();
 	});
 
-	it('starting a second timer ends the first and leaves only the new one running', async () => {
+	it('saving a second open-ended feed ends the first and leaves only the new one running', async () => {
 		const runningId = await startBreastTimer(NOW - 10 * 60_000);
 		open();
-		[...host.querySelectorAll<HTMLButtonElement>('button')]
-			.find((b) => b.textContent?.trim() === 'Start timer')
-			?.click();
+		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
 		await new Promise((resolve) => setTimeout(resolve, 20));
 		const rows = await db.entries.toArray();
 		expect(rows.find((r) => r.id === runningId)?.ended_at).toBe(NOW);

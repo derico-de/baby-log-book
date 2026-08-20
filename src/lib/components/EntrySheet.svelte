@@ -39,6 +39,7 @@
 		Side
 	} from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
+	import Icon from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
 
 	interface Props {
@@ -57,6 +58,9 @@
 	let startTime = $state(timeInputValue(opened.occurred_at, app.zone));
 	let endTime = $state(opened.ended_at == null ? '' : timeInputValue(opened.ended_at, app.zone));
 	let note = $state(opened.note ?? '');
+	/* The input only when there is something to read: an existing note opens
+	   visible, everything else sits behind one *Add a note* button. */
+	let showNote = $state((opened.note ?? '').length > 0);
 	/* The amount is the Intake, on every era of row: a legacy pair opens as its
 	   derived figure, and saving a change converts the row (ADR-0018). */
 	let intake = $state(intakeMl(opened.payload as BottleFeedPayload));
@@ -65,6 +69,9 @@
 	let milestoneName = $state((opened.payload as MilestonePayload).name ?? '');
 	let busy = $state(false);
 	let history = $state<Revision[]>([]);
+	/* Collapsed by default: the history is evidence for the rare dispute, not
+	   part of the everyday correction. */
+	let showHistory = $state(false);
 
 	/* The date is asked for once, on the start; the end takes its date from the
 	   start, being the first time the clock reads it after she went down. */
@@ -292,7 +299,8 @@
 
 	{#if isSession}
 		<label class="field">
-			{m.stale_woke_when()}
+			<!-- A Sleep's end is her waking; a Feed's end is just the feed ending. -->
+			{entry.type === 'sleep' ? m.stale_woke_when() : m.sheet_feed_end()}
 			<!-- The derived date, shown rather than assumed: a Sleep that starts at
 			     22:30 and ends at 06:00 ends the next morning, and this is where you
 			     can see that it did. -->
@@ -304,25 +312,42 @@
 	{/if}
 
 	{#if entry.type === 'bottle_feed'}
-		<label class="field">
-			{m.sheet_intake()}
-			<input type="number" inputmode="numeric" min="0" max="5000" bind:value={intake} />
-		</label>
-		<!-- Not a stored field: confirming a value subtracts it from the Intake
-		     and the input empties itself (ADR-0018). -->
-		<label class="field">
-			{m.sheet_leftover()} <small>({m.optional()})</small>
-			<input type="number" inputmode="numeric" min="0" max="5000" onchange={(event) => (intake = applyLeftoverInput(event, intake))} />
-		</label>
-		<label class="field">
-			{m.sheet_contents()}
-			<select bind:value={contents}>
-				<option value={null}>{m.contents_unsaid()}</option>
-				<option value="breast_milk">{m.contents_breast_milk()}</option>
-				<option value="formula">{m.contents_formula()}</option>
-				<option value="other">{m.contents_other()}</option>
-			</select>
-		</label>
+		<div class="field pair even">
+			<label>
+				{m.sheet_intake()}
+				<input type="number" inputmode="numeric" min="0" max="5000" bind:value={intake} />
+			</label>
+			<!-- Not a stored field: confirming a value subtracts it from the Intake
+			     and the input empties itself (ADR-0018). -->
+			<label>
+				{m.sheet_leftover()}
+				<input type="number" inputmode="numeric" min="0" max="5000" onchange={(event) => (intake = applyLeftoverInput(event, intake))} />
+			</label>
+		</div>
+		<div class="field pair even">
+			<label>
+				{m.sheet_contents()}
+				<select bind:value={contents}>
+					<option value={null}>{m.contents_unsaid()}</option>
+					<option value="breast_milk">{m.contents_breast_milk()}</option>
+					<option value="formula">{m.contents_formula()}</option>
+					<option value="other">{m.contents_other()}</option>
+				</select>
+			</label>
+			{#if showNote}
+				<label>
+					{m.note()}
+					<input type="text" bind:value={note} />
+				</label>
+			{:else}
+				<div class="note-slot">
+					<button class="chip" type="button" onclick={() => (showNote = true)}>
+						<Icon name="note" />
+						{m.note_add()}
+					</button>
+				</div>
+			{/if}
+		</div>
 	{:else if entry.type === 'breast_feed'}
 		<div class="field seg" role="tablist">
 			{#each [['left', m.side_left()], ['right', m.side_right()], ['both', m.side_both()]] as [value, label] (value)}
@@ -338,20 +363,41 @@
 		</label>
 	{/if}
 
-	<label class="field">
-		{m.note()}
-		<input type="text" bind:value={note} />
-	</label>
+	<!-- A bottle's note shares the contents row above; every other type gets
+	     the full-width field here. -->
+	{#if entry.type !== 'bottle_feed'}
+		{#if showNote}
+			<label class="field">
+				{m.note()}
+				<input type="text" bind:value={note} />
+			</label>
+		{:else}
+			<div class="field">
+				<button class="chip" type="button" onclick={() => (showNote = true)}>
+					<Icon name="note" />
+					{m.note_add()}
+				</button>
+			</div>
+		{/if}
+	{/if}
 
-	<h4>{m.sheet_history()}</h4>
-	<ul class="history">
-		{#each history as revision, index (revision.id)}
-			<li>
-				<span>{describe(revision, index)}</span>
-				<time>{dateAndTime(revision.merge_at, zone)}</time>
-			</li>
-		{/each}
-	</ul>
+	<h4 class="history-head">
+		<button type="button" aria-expanded={showHistory} onclick={() => (showHistory = !showHistory)}>
+			{m.sheet_history()}
+			{#if history.length > 0}({history.length}){/if}
+			<Icon name="chev" size={14} />
+		</button>
+	</h4>
+	{#if showHistory}
+		<ul class="history">
+			{#each history as revision, index (revision.id)}
+				<li>
+					<span>{describe(revision, index)}</span>
+					<time>{dateAndTime(revision.merge_at, zone)}</time>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 
 	<div class="sheet-acts">
 		<button type="button" onclick={onclose}>{m.cancel()}</button>
@@ -372,6 +418,36 @@
 		/* The date input carries three fields and an icon; the time carries two. */
 		grid-template-columns: 1.3fr 1fr;
 		gap: var(--sp-3);
+	}
+	.pair.even {
+		grid-template-columns: 1fr 1fr;
+		align-items: end;
+	}
+	/* Keeps the *Add a note* chip on the input's baseline when its row-mate
+	   is a full labelled field. */
+	.note-slot {
+		display: flex;
+		align-items: center;
+		min-height: 44px;
+	}
+	.history-head button {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-1);
+		border: 0;
+		padding: 0;
+		background: none;
+		cursor: pointer;
+		font: inherit;
+		color: inherit;
+		text-transform: inherit;
+		letter-spacing: inherit;
+	}
+	.history-head :global(svg) {
+		transition: transform var(--dur-1) var(--ease);
+	}
+	.history-head button[aria-expanded='true'] :global(svg) {
+		transform: rotate(90deg);
 	}
 	.history {
 		list-style: none;

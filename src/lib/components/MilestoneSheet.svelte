@@ -14,6 +14,7 @@
 	import { milestoneSuggestions, STARTER_MILESTONE_KEYS } from '$domain/milestones';
 	import { dateInputValue } from '$lib/i18n/format';
 	import * as m from '$lib/paraglide/messages';
+	import Icon from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
 
 	interface Props {
@@ -23,6 +24,7 @@
 
 	let name = $state('');
 	let note = $state('');
+	let showNote = $state(false);
 	let date = $state(dateInputValue(app.now, app.zone));
 	let busy = $state(false);
 
@@ -91,10 +93,19 @@
 		<input type="date" bind:value={date} max={dateInputValue(app.now, app.zone)} />
 	</label>
 
-	<label class="field">
-		{m.note()} <small>({m.optional()})</small>
-		<input type="text" bind:value={note} />
-	</label>
+	{#if showNote}
+		<label class="field">
+			{m.note()}
+			<input type="text" bind:value={note} />
+		</label>
+	{:else}
+		<div class="field">
+			<button class="chip" type="button" onclick={() => (showNote = true)}>
+				<Icon name="note" />
+				{m.note_add()}
+			</button>
+		</div>
+	{/if}
 
 	<div class="sheet-acts">
 		<button type="button" onclick={onclose}>{m.cancel()}</button>

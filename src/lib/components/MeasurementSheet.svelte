@@ -4,9 +4,10 @@
 	   these inputs are the display units and nothing else. */
 	import { app } from '$client/state.svelte';
 	import { logMeasurement } from '$client/mutate';
-	import { timeInputValue } from '$lib/i18n/format';
-	import { wallTimeAtOrBefore } from '$domain/time';
+	import { dateInputValue } from '$lib/i18n/format';
+	import { dayStartInstant } from '$domain/time';
 	import * as m from '$lib/paraglide/messages';
+	import Icon from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
 
 	interface Props {
@@ -18,13 +19,20 @@
 	let heightCm = $state<number | null>(null);
 	let headCm = $state<number | null>(null);
 	let note = $state('');
-	let time = $state(timeInputValue(app.now, app.zone));
+	let showNote = $state(false);
+	/* A date, not a clock time: a weight is a fact about a day — the scale at
+	   the check-up, not a minute on the clock. */
+	let date = $state(dateInputValue(app.now, app.zone));
 	let busy = $state(false);
 
 	const baby = $derived(app.baby);
 	const nothingEntered = $derived(kg == null && heightCm == null && headCm == null);
 
-	const occurredAt = $derived(wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now);
+	/* Dated today → the moment of logging. Back-dated → the Day Start of that
+	   date, so it sits at the head of its day — the Milestone rule (spec §3.6). */
+	const occurredAt = $derived(
+		date === dateInputValue(app.now, app.zone) ? app.now : dayStartInstant(date, app.dayStart, app.zone)
+	);
 
 	async function save() {
 		if (!baby || busy || nothingEntered) return;
@@ -65,14 +73,23 @@
 			<input type="number" inputmode="decimal" step="0.1" min="0" max="200" bind:value={headCm} />
 		</label>
 		<label>
-			{m.sheet_time()}
-			<input type="time" bind:value={time} />
+			{m.sheet_date()}
+			<input type="date" bind:value={date} max={dateInputValue(app.now, app.zone)} />
 		</label>
 	</div>
-	<label class="field">
-		{m.note()} <small>({m.optional()})</small>
-		<input type="text" bind:value={note} />
-	</label>
+	{#if showNote}
+		<label class="field">
+			{m.note()}
+			<input type="text" bind:value={note} />
+		</label>
+	{:else}
+		<div class="field">
+			<button class="chip" type="button" onclick={() => (showNote = true)}>
+				<Icon name="note" />
+				{m.note_add()}
+			</button>
+		</div>
+	{/if}
 
 	<div class="sheet-acts">
 		<button type="button" onclick={onclose}>{m.cancel()}</button>
