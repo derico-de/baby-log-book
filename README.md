@@ -48,7 +48,9 @@ parent creates in Settings, or through a rescue link you mint from the container
 
 A [`compose.yaml`](compose.yaml) example is included. The container publishes no
 host port and ships no proxy configuration — put nginx, Caddy or Traefik in front
-of it, whichever you already run.
+of it, whichever you already run. A full walkthrough — Compose plus a worked
+Caddy and nginx configuration, including the SSE and `X-Forwarded-For` details
+that bite — is in [`docs/deployment.md`](docs/deployment.md).
 
 ### Configuration
 
