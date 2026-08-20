@@ -56,7 +56,7 @@
 	}
 </script>
 
-<Sheet title={m.sheet_measurement_title()} {onclose}>
+<Sheet title={m.sheet_measurement_title()} icon="measure" t="measure" {onclose}>
 	<div class="field pair">
 		<label>
 			{m.sheet_weight()} <small>(kg)</small>

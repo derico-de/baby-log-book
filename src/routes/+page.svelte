@@ -215,10 +215,12 @@
 {:else if sheet === 'filter'}
 	<FilterSheet onclose={() => (sheet = null)} />
 {:else if sheet === 'sleep-start'}
-	<TimeSheet title={m.sheet_sleep_start_title()} onsave={(t) => void beginSleep(t)} onclose={() => (sheet = null)} />
+	<TimeSheet title={m.sheet_sleep_start_title()} icon="sleep" t="sleep" onsave={(t) => void beginSleep(t)} onclose={() => (sheet = null)} />
 {:else if sheet === 'awake'}
 	<TimeSheet
 		title={m.fan_awake()}
+		icon="sleep"
+		t="sleep"
 		onsave={(t) => void awake(t)}
 		onclose={() => {
 			sheet = null;

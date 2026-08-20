@@ -13,6 +13,53 @@
 
 @layer app {
 	/* ==================================================================
+     ENTRY-TYPE COLOUR PLUMBING (issue 24, ADR-0026)
+
+     One attribute, four generic roles. An element — or any ancestor —
+     carrying data-t="feed" resolves --t / --t-ink / --t-soft /
+     --t-soft-ink to that type's tokens; everything below only ever says
+     var(--t). A component with no data-t in scope falls back to the
+     neutral it always had.
+     ================================================================== */
+
+	[data-t='feed'] {
+		--t: var(--t-feed);
+		--t-ink: var(--t-feed-ink);
+		--t-soft: var(--t-feed-soft);
+		--t-soft-ink: var(--t-feed-soft-ink);
+	}
+	[data-t='sleep'] {
+		--t: var(--t-sleep);
+		--t-ink: var(--t-sleep-ink);
+		--t-soft: var(--t-sleep-soft);
+		--t-soft-ink: var(--t-sleep-soft-ink);
+	}
+	[data-t='nappy'] {
+		--t: var(--t-nappy);
+		--t-ink: var(--t-nappy-ink);
+		--t-soft: var(--t-nappy-soft);
+		--t-soft-ink: var(--t-nappy-soft-ink);
+	}
+	[data-t='meal'] {
+		--t: var(--t-meal);
+		--t-ink: var(--t-meal-ink);
+		--t-soft: var(--t-meal-soft);
+		--t-soft-ink: var(--t-meal-soft-ink);
+	}
+	[data-t='measure'] {
+		--t: var(--t-measure);
+		--t-ink: var(--t-measure-ink);
+		--t-soft: var(--t-measure-soft);
+		--t-soft-ink: var(--t-measure-soft-ink);
+	}
+	[data-t='milestone'] {
+		--t: var(--t-milestone);
+		--t-ink: var(--t-milestone-ink);
+		--t-soft: var(--t-milestone-soft);
+		--t-soft-ink: var(--t-milestone-soft-ink);
+	}
+
+	/* ==================================================================
      APP SHELL
      ================================================================== */
 
@@ -171,7 +218,7 @@
 		transition: border-color var(--dur-2) var(--ease);
 	}
 	.live-cell[data-live='1'] {
-		border-color: var(--live);
+		border-color: var(--t, var(--live));
 	}
 	/* Each column is named for what it reports — the state word below stays
 	   the quiet, changing part. */
@@ -349,6 +396,8 @@
 		color: var(--ink-3);
 	}
 
+	/* The disc is the recognition point: it takes the type's solid fill with
+	   the white (deep: capped) glyph on it. Neutral where no type applies. */
 	.glyph {
 		display: grid;
 		place-items: center;
@@ -356,8 +405,8 @@
 		width: 38px;
 		height: 38px;
 		border-radius: 50%;
-		background: var(--surface-2);
-		color: var(--ink-2);
+		background: var(--t, var(--surface-2));
+		color: var(--t-ink, var(--ink-2));
 	}
 	.glyph svg {
 		width: 19px;
@@ -386,8 +435,8 @@
 		font-size: var(--fs-0);
 		font-weight: var(--fw-bold);
 		letter-spacing: 0.02em;
-		color: var(--live);
-		background: color-mix(in oklch, var(--live) 12%, transparent);
+		color: var(--t, var(--live));
+		background: color-mix(in oklch, var(--t, var(--live)) 12%, transparent);
 		border-radius: 999px;
 		padding: 2px 8px;
 	}
@@ -396,7 +445,7 @@
 		width: 6px;
 		height: 6px;
 		border-radius: 50%;
-		background: var(--live);
+		background: var(--t, var(--live));
 		animation: pulse 2.4s var(--ease) infinite;
 	}
 	@keyframes pulse {
@@ -592,6 +641,18 @@
 		color: var(--ink-3);
 		font-weight: var(--fw-normal);
 	}
+	/* A fan pill wears its type's fill end to end — the other recognition
+	   point, for the thumb that logs without reading. Pee and poop share the
+	   nappy teal and are told apart by glyph and label. */
+	.fan button[data-t] {
+		background: var(--t);
+		border-color: transparent;
+		color: var(--t-ink);
+	}
+	.fan button[data-t] .fan-glyph,
+	.fan button[data-t] .fan-sub {
+		color: var(--t-ink);
+	}
 	@keyframes rise {
 		from {
 			opacity: 0;
@@ -625,6 +686,25 @@
 		font-size: var(--fs-4);
 		font-weight: var(--fw-bold);
 		color: var(--ink);
+	}
+	/* A typed sheet leads with its type's disc — the same recognition point
+	   the timeline row uses, one size down. */
+	.sheet-head {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-3);
+		margin: 0 var(--sp-4) var(--sp-3);
+	}
+	.sheet-head .glyph {
+		width: 32px;
+		height: 32px;
+	}
+	.sheet-head .glyph svg {
+		width: 16px;
+		height: 16px;
+	}
+	.sheet-head h3 {
+		margin: 0;
 	}
 	.sheet h4 {
 		margin: var(--sp-4) var(--sp-4) var(--sp-2);
@@ -834,8 +914,9 @@
 		width: 15px;
 		height: 15px;
 	}
-	/* Active is an INK inversion, never the accent — the hue belongs to
-     actions, and a filter is not an action. */
+	/* A non-type chip's active state is an INK inversion, never the accent —
+     the accent belongs to actions, and a filter is not an action. Type
+     chips override this below with their own hue (issue 24). */
 	.chip[aria-pressed='true'] {
 		background: var(--ink);
 		border-color: var(--ink);
@@ -914,6 +995,23 @@
 		border-color: var(--ground);
 		color: var(--ink);
 	}
+	/* A TYPE chip wears its type: soft tint idle, solid fill active. The
+	   soft pair carries its own contrast, so the same chip reads on the
+	   inverted header and on a plain surface alike. Non-type chips (food,
+	   member, period) keep the ink inversion above — and the accent stays
+	   out of filtering either way. */
+	.chip[data-t],
+	.head-filter .chip[data-t] {
+		background: var(--t-soft);
+		border-color: transparent;
+		color: var(--t-soft-ink);
+	}
+	.chip[data-t][aria-pressed='true'],
+	.head-filter .chip[data-t][aria-pressed='true'] {
+		background: var(--t);
+		border-color: transparent;
+		color: var(--t-ink);
+	}
 
 	/* ---- stats ------------------------------------------------------- */
 
@@ -949,6 +1047,14 @@
 		display: flex;
 		align-items: center;
 		gap: var(--sp-2);
+	}
+	/* The per-type mark: the soft ink is the hue as a stroke colour, built
+	   for sitting on a plain surface in every appearance. The size is stated
+	   here because Icon only sizes itself when a context doesn't. */
+	.card-name svg {
+		width: 16px;
+		height: 16px;
+		color: var(--t-soft-ink, currentColor);
 	}
 	.card-delta {
 		font-size: var(--fs-1);
@@ -1017,18 +1123,21 @@
 		display: block;
 		width: 100%;
 		border-radius: var(--r-1) var(--r-1) 2px 2px;
-		background: var(--ink-3);
+		background: var(--t, var(--ink-3));
 		opacity: 0.55;
 		min-height: 3px;
 	}
 	.bar[data-today='1'] {
 		opacity: 1;
-		background: repeating-linear-gradient(-45deg, var(--ink-2) 0 3px, transparent 3px 6px);
-		box-shadow: inset 0 0 0 1.5px var(--ink-2);
+		background: repeating-linear-gradient(-45deg, var(--t, var(--ink-2)) 0 3px, transparent 3px 6px);
+		box-shadow: inset 0 0 0 1.5px var(--t, var(--ink-2));
 	}
+	/* Selected is the hue at full strength, not the accent: tapping a day is
+	   reading, not acting, and an orange bar inside a rose chart would be
+	   noise (issue 24). */
 	.bar[data-selected='1'] {
 		opacity: 1;
-		background: var(--accent);
+		background: var(--t, var(--ink-2));
 		box-shadow: none;
 	}
 	.bar-labels {

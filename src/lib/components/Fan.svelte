@@ -15,12 +15,15 @@
 	   *She's awake* ends the Sleep and the fan reflows **in place** to the awake
 	   set, so wake-then-feed is one FAB open and a few taps rather than two
 	   trips. */
+	import type { FacetKey } from '$domain/filter';
 	import * as m from '$lib/paraglide/messages';
 	import Icon, { type IconName } from './Icon.svelte';
 
 	interface Action {
 		key: string;
 		icon: IconName;
+		/** Which entry type's colour the pill wears (issue 24). */
+		t: FacetKey;
 		label: string;
 		sub?: string;
 		run: () => void;
@@ -45,30 +48,31 @@
 	   action in the list ends up closest to the FAB. */
 	const actions = $derived.by((): Action[] => {
 		const common: Action[] = [
-			{ key: 'pee', icon: 'nappy', label: m.fan_pee(), run: props.onPee },
-			{ key: 'poop', icon: 'nappy', label: m.fan_poop(), run: props.onPoop }
+			{ key: 'pee', icon: 'nappy', t: 'nappy', label: m.fan_pee(), run: props.onPee },
+			{ key: 'poop', icon: 'nappy', t: 'nappy', label: m.fan_poop(), run: props.onPoop }
 		];
 		const tail: Action[] = [
-			{ key: 'measurement', icon: 'measure', label: m.fan_measurement(), run: props.onMeasurement },
+			{ key: 'measurement', icon: 'measure', t: 'measure', label: m.fan_measurement(), run: props.onMeasurement },
 			/* Measurement holds the second-to-last slot and is just as rare as
 			   Milestone, which is why frequency is not the fan's admission test. */
-			{ key: 'milestone', icon: 'flag', label: m.fan_milestone(), run: props.onMilestone }
+			{ key: 'milestone', icon: 'flag', t: 'milestone', label: m.fan_milestone(), run: props.onMilestone }
 		];
 
 		const middle: Action[] = props.asleep
 			? [
-					{ key: 'awake', icon: 'sleep', label: m.fan_awake(), sub: m.fan_awake_sub(), run: props.onAwake },
+					{ key: 'awake', icon: 'sleep', t: 'sleep', label: m.fan_awake(), sub: m.fan_awake_sub(), run: props.onAwake },
 					{
 						key: 'feed-asleep',
 						icon: 'feed',
+						t: 'feed',
 						label: m.fan_feed_asleep(),
 						sub: m.fan_feed_asleep_sub(),
 						run: props.onFeedAsleep
 					}
 				]
 			: [
-					{ key: 'sleep', icon: 'sleep', label: m.fan_sleep(), run: props.onSleep },
-					{ key: 'feed', icon: 'feed', label: m.fan_feed(), run: props.onFeed }
+					{ key: 'sleep', icon: 'sleep', t: 'sleep', label: m.fan_sleep(), run: props.onSleep },
+					{ key: 'feed', icon: 'feed', t: 'feed', label: m.fan_feed(), run: props.onFeed }
 				];
 
 		return [...common, ...middle, ...tail];
@@ -89,6 +93,7 @@
 			<button
 				type="button"
 				role="menuitem"
+				data-t={action.t}
 				style={`animation-delay:${index * 22}ms`}
 				onclick={() => pick(action)}
 			>

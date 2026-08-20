@@ -1,7 +1,9 @@
 <script lang="ts" module>
 	/* The glyph set. A stroke-1.7 geometric family, legible at 19px in a dark
-	   room (spec §8.1). Entry types are told apart by glyph and label, never by
-	   colour — which is why a seventh type cost one glyph and nothing else.
+	   room (spec §8.1). Entry types carry a colour since ADR-0026, but glyph
+	   and label stay on every surface so identification never depends on it —
+	   which is why a seventh type still costs one glyph, one hue and nothing
+	   else.
 
 	   The Milestone glyph is a flag: literally the marker on a milestone, and
 	   nothing else in the set of seven is that shape. (Star reads as *favourite*;

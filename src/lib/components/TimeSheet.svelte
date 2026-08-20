@@ -11,21 +11,25 @@
 	   means, because a start reads backwards from now while an end reads
 	   forwards from its Sleep's start. */
 	import { app } from '$client/state.svelte';
+	import type { FacetKey } from '$domain/filter';
 	import { timeInputValue } from '$lib/i18n/format';
 	import * as m from '$lib/paraglide/messages';
 	import Sheet from './Sheet.svelte';
+	import type { IconName } from './Icon.svelte';
 
 	interface Props {
 		title: string;
+		icon?: IconName;
+		t?: FacetKey;
 		onsave: (time: string) => void;
 		onclose: () => void;
 	}
-	let { title, onsave, onclose }: Props = $props();
+	let { title, icon, t, onsave, onclose }: Props = $props();
 
 	let time = $state(timeInputValue(app.now, app.zone));
 </script>
 
-<Sheet {title} {onclose}>
+<Sheet {title} {icon} {t} {onclose}>
 	<label class="field">
 		{m.sheet_time()}
 		<input type="time" bind:value={time} />

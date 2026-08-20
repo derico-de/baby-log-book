@@ -12,7 +12,7 @@
 	       ended, so a forgotten stop is harmless (spec §3.3). */
 	import { app } from '$client/state.svelte';
 	import { clockTime, duration, millilitres, length, weight } from '$lib/i18n/format';
-	import { highlightParts } from '$domain/filter';
+	import { FACET_OF, highlightParts } from '$domain/filter';
 	import { classifySleep, isSleepFeed } from '$domain/sleep';
 	import { intakeMl } from '$domain/entries';
 	import { bottleLife } from '$domain/targets';
@@ -160,7 +160,7 @@
 {/snippet}
 
 <li>
-	<button class="row" type="button" onclick={() => onopen(entry)}>
+	<button class="row" type="button" data-t={FACET_OF[entry.type]} onclick={() => onopen(entry)}>
 		<span class="glyph"><Icon name={GLYPH[entry.type]} /></span>
 		<span class="row-main">
 			<span class="row-title">

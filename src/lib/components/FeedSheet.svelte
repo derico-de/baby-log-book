@@ -167,7 +167,7 @@
 	}
 </script>
 
-<Sheet title={m.sheet_feed_title()} {onclose}>
+<Sheet title={m.sheet_feed_title()} icon="feed" t="feed" {onclose}>
 	<div class="seg" role="tablist">
 		{#each [['breast', m.sheet_breast()], ['bottle', m.sheet_bottle()], ['food', m.sheet_food()]] as [value, label] (value)}
 			<button

@@ -23,6 +23,7 @@
 		weight,
 		length
 	} from '$lib/i18n/format';
+	import { FACET_OF } from '$domain/filter';
 	import { instantOnDate, wallTimeAtOrAfter } from '$domain/time';
 	import { intakeMl } from '$domain/entries';
 	import { applyLeftoverInput } from './leftover';
@@ -39,7 +40,7 @@
 		Side
 	} from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
-	import Icon from './Icon.svelte';
+	import Icon, { type IconName } from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
 
 	interface Props {
@@ -93,6 +94,16 @@
 				history = rows.sort(compareRevisions).reverse();
 			});
 	});
+
+	const GLYPH: Record<Entry['type'], IconName> = {
+		breast_feed: 'feed',
+		bottle_feed: 'feed',
+		meal: 'meal',
+		sleep: 'sleep',
+		nappy: 'nappy',
+		measurement: 'measure',
+		milestone: 'flag'
+	};
 
 	const title = $derived.by(() => {
 		switch (entry.type) {
@@ -281,7 +292,7 @@
 	}
 </script>
 
-<Sheet {title} {onclose}>
+<Sheet {title} icon={GLYPH[entry.type]} t={FACET_OF[entry.type]} {onclose}>
 	{#if detail}
 		<p class="note-line">{detail}</p>
 	{/if}

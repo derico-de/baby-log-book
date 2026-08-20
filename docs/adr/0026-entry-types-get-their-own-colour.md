@@ -1,0 +1,12 @@
+# Entry types get their own colour
+
+Issue 11 ratified D1 "Instrument" with a one-hue rule: entry types were told apart by glyph and label, never by colour, and the `--t-*` tokens all resolved to `--ink-2` to enforce it. This reverses the category half of that rule (issue 24, the "Signal" reversal): **each entry type carries its own hue — feed rose 15°, meal green 150°, nappy teal 215°, measurement blue 250°, sleep indigo 285°, milestone plum 330° — applied as saturated fill with white glyph on the two recognition points (timeline discs, fan pills) and echoed everywhere a type appears.** Living with the log showed that colour is the fastest scanning channel a timeline has, and the app was paying for purity with slower reads at arm's length. What made the rejected D3 direction confetti was not the hues but the missing guards, so the guards are the decision: glyph and label stay on every surface, so identification never *depends* on colour and colour-vision deficiency loses nothing by construction; no category hue enters the accent's 35–70° band, so burnt orange keeps its monopoly on actions, the FAB and overdue; and overdue never adopts a category hue — "report, never nag" is untouched.
+
+Each type defines four token roles per appearance in `tokens.css` — `--t-<type>` (solid fill), `--t-<type>-ink` (on-fill ink), `--t-<type>-soft` (tint) and `--t-<type>-soft-ink` — and components reach them only through the `data-t` attribute plumbing in `components.css`. Deep night dims fills to L≈0.35 with chroma halved and caps on-fill ink at L 0.78, per [ADR-0008](0008-appearance-follows-the-clock.md)'s luminance cap. Every fill/ink pair is contrast-verified at ≥4.5:1 in all three appearances.
+
+## Consequences
+
+- **A new entry type costs a glyph, a hue and nothing else** — but it does now cost a hue: twelve token values per appearance, contrast-verified, picked outside the accent band and away from its neighbours.
+- **The accent's meaning sharpens.** With categories coloured, anything burnt orange is unambiguously an action or an overdue report; the active state of non-type filter chips stays an ink inversion for the same reason.
+- **Issue 11's ratification and older comments describe the pre-reversal rule.** DESIGN.md, PRODUCT.md and the token comments were amended with this ADR; the issue-11 record stands as history.
+- **The stat cards' selected bar is the type hue at full strength, not the accent** — tapping a day is reading, not acting.

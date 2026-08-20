@@ -18,7 +18,7 @@ A shared, local-first log of a baby's day — Feeds, Sleeps, Nappies, Meals, Mea
 
 ## Positioning
 
-The instrument on the nightstand: it reports elapsed time against the Targets the Household stated, and it never nags. (Targets are stated, never learned — ADR-0006; overdue is reported in the one brand hue, because the palette contains no second escalation colour and no red.)
+The instrument on the nightstand: it reports elapsed time against the Targets the Household stated, and it never nags. (Targets are stated, never learned — ADR-0006; overdue is reported in the one brand hue, because the palette contains no second escalation colour and no red. The six entry types each carry a calm hue of their own — a scanning aid, never a signal; the brand hue keeps its monopoly on actions and overdue — ADR-0026.)
 
 ## Brand Personality
 
@@ -26,7 +26,7 @@ Calm, precise, trustworthy. An instrument, not a companion app: it shows numbers
 
 ## Anti-references
 
-- Colour-coded category confetti: entry types are told apart by glyph and label, never by hue (the rejected D3 "Signal" direction).
+- Colour as the *only* channel, or as escalation: entry types carry a hue (ADR-0026), but glyph and label stay on every surface, no category hue enters the accent's band, and overdue never adopts one — the D3 "Signal" failure was confetti without those guards.
 - Warm background plus warm accent — the combination that makes an interface look generated. Surfaces stay at chroma 0; all warmth lives in the single accent.
 - Nagging baby-tracker apps: red badges, alarms, guilt-inducing streaks, health guidance the user never asked for.
 - Blue-lit night modes: blue is the wrong physiology for an unlit room.

@@ -74,7 +74,7 @@
 	}
 </script>
 
-<Sheet title={m.sheet_milestone_title()} {onclose}>
+<Sheet title={m.sheet_milestone_title()} icon="flag" t="milestone" {onclose}>
 	<label class="field">
 		{m.sheet_milestone_name()}
 		<input type="text" bind:value={name} maxlength="200" autocomplete="off" />

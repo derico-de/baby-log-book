@@ -13,6 +13,7 @@
 	import { dateShort, decimal, duration, millilitres, plural, weekdayShort } from '$lib/i18n/format';
 	import { dayStartInstant, MS } from '$domain/time';
 	import type { FeedsSecondary, NappiesSecondary, SleepSecondary, SolidsSecondary, StatsCard } from '$domain/stats';
+	import type { FacetKey } from '$domain/filter';
 	import * as m from '$lib/paraglide/messages';
 	import Icon, { type IconName } from './Icon.svelte';
 
@@ -22,6 +23,15 @@
 	let { card }: Props = $props();
 
 	const GLYPH: Record<StatsCard['kind'], IconName> = {
+		sleep: 'sleep',
+		feeds: 'feed',
+		nappies: 'nappy',
+		solids: 'meal'
+	};
+
+	/* The card wears its entry type's colour (issue 24) — bars and the head
+	   mark read it from this one attribute. */
+	const T: Record<StatsCard['kind'], FacetKey> = {
 		sleep: 'sleep',
 		feeds: 'feed',
 		nappies: 'nappy',
@@ -113,7 +123,7 @@
 	});
 </script>
 
-<article class="card">
+<article class="card" data-t={T[card.kind]}>
 	<div class="card-head">
 		<div class="card-name"><Icon name={GLYPH[card.kind]} />{NAME[card.kind]()}</div>
 		{#if delta}<div class="card-delta">{delta}</div>{/if}

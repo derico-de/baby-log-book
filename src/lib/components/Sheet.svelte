@@ -10,14 +10,20 @@
 	   entry again, so history ends up exactly where it started. */
 	import { onMount } from 'svelte';
 	import { pushState } from '$app/navigation';
+	import type { FacetKey } from '$domain/filter';
 	import * as m from '$lib/paraglide/messages';
+	import Icon, { type IconName } from './Icon.svelte';
 
 	interface Props {
 		title: string;
+		/** A typed sheet leads with its type's glyph disc (issue 24); the
+		    filter sheet passes neither and keeps the bare title. */
+		icon?: IconName;
+		t?: FacetKey;
 		onclose: () => void;
 		children: import('svelte').Snippet;
 	}
-	let { title, onclose, children }: Props = $props();
+	let { title, icon, t, onclose, children }: Props = $props();
 
 	onMount(() => {
 		/* Outside the SvelteKit router — component tests mount this bare —
@@ -48,6 +54,13 @@
 
 <button class="scrim" type="button" aria-label={m.close()} onclick={onclose}></button>
 <div class="sheet" role="dialog" aria-modal="true" aria-label={title}>
-	<h3>{title}</h3>
+	{#if icon}
+		<header class="sheet-head">
+			<span class="glyph" data-t={t}><Icon name={icon} /></span>
+			<h3>{title}</h3>
+		</header>
+	{:else}
+		<h3>{title}</h3>
+	{/if}
 	{@render children()}
 </div>

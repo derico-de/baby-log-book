@@ -14,14 +14,15 @@ Three appearances, driven by the local wall clock, not by a toggle and not by `p
 
 ## Color
 
-One hue. Surfaces sit at chroma 0; all warmth lives in the accent and nowhere else.
+One *action* hue plus six category hues (ADR-0026 amends D1's original one-hue rule). Surfaces sit at chroma 0; all warmth lives in the accent and nowhere else — no category hue enters the accent's 35–70° band.
 
 - Accent (day): `oklch(0.55 0.15 45)` — a burnt orange; night `oklch(0.78 0.14 65)`; deep `oklch(0.66 0.11 60)`.
 - Ink ramp per appearance: `--ink` (body, 15.9:1 day), `--ink-2` (secondary, 8.3:1), `--ink-3` (tertiary, ≥5:1).
 - Surfaces: `--ground`, `--surface`, `--surface-2`, `--surface-raised`; lines: `--line`, `--line-strong`. `--surface-raised` is the control that is ON (the seg thumb): equal to `--surface` in day, a step *lighter* than its track in night and deep, where shadows cannot carry the raise.
 - `--warn` and `--live` both resolve to `--accent`: overdue is the number adopting the brand colour. There is no red, no second escalation state.
-- Entry-type tokens `--t-feed` … `--t-milestone` all resolve to `--ink-2`: types are told apart by glyph and label, never by colour. A new type costs nothing.
-- Active chip state is an ink inversion, never the accent — the hue belongs to actions.
+- Entry-type tokens carry four roles per type and appearance — `--t-<type>` (solid fill), `--t-<type>-ink` (on-fill ink: white in day/night, capped at L 0.78 in deep), `--t-<type>-soft` (tint) and `--t-<type>-soft-ink` (ink on the tint). Six hues, evenly spread, all skipping the accent band: feed rose 15°, meal green 150°, nappy teal 215°, measurement blue 250°, sleep indigo 285°, milestone plum 330°. Deep night dims fills to L≈0.35 with chroma halved. Every pair is contrast-verified ≥4.5:1. Glyph and label stay on every surface, so identification never *depends* on the hue (ADR-0026); overdue never adopts a category hue.
+- Components reach the type colour through one attribute: `data-t="feed|sleep|nappy|meal|measure|milestone"` resolves the generic `--t` / `--t-ink` / `--t-soft` / `--t-soft-ink` roles (plumbing at the top of `components.css`). Colour lands on the timeline glyph discs, fan pills, filter type-chips (soft tint idle → solid fill active), the live grid's running bar and live-pills, stat-card bars and marks, and typed sheet headers; forms stay Pico-neutral.
+- A non-type chip's active state is an ink inversion, never the accent — the accent belongs to actions.
 
 ## Typography
 

@@ -109,6 +109,7 @@
 			<button
 				class="chip"
 				type="button"
+				data-t={key}
 				aria-pressed={app.filter.types.includes(key)}
 				onclick={() => toggle(key)}
 			>
