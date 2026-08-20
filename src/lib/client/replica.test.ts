@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyLocal, applyRevisions } from './apply';
 import { META, resetReplica, ReplicaDb, setMeta, wipeEverything } from './db';
-import { deleteEntry, logNappy, startSleep, stopSession, undoDelete, type Writer } from './mutate';
+import { addBaby, deleteBaby, deleteEntry, logNappy, startSleep, stopSession, undoDelete, type Writer } from './mutate';
 import { SyncEngine, toWireRevision } from './sync';
 import { PROTOCOL_VERSION, type Revision } from '$domain/types';
 
@@ -82,6 +82,19 @@ describe('a local write', () => {
 		expect(tombstoned?.payload).toMatchObject({ pee: true, poop: true });
 		await undoDelete(writer(), id);
 		expect((await db.entries.get(id))?.deleted_at).toBeNull();
+	});
+});
+
+describe('deleting a Baby', () => {
+	it('is a tombstone: the fold keeps her name, only deleted_at is new', async () => {
+		const id = await addBaby(writer(), 'Lina', '2026-04-15');
+		expect((await db.babies.get(id))?.deleted_at).toBeNull();
+		await deleteBaby(writer(), id);
+		const gone = await db.babies.get(id);
+		expect(gone?.deleted_at).not.toBeNull();
+		/* The tombstone revision names only deleted_at; the fold keeps the rest. */
+		expect(gone).toMatchObject({ name: 'Lina', birth_date: '2026-04-15' });
+		expect(await db.revisions.where({ kind: 'baby', entity_id: id }).count()).toBe(2);
 	});
 });
 

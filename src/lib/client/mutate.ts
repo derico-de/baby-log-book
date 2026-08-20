@@ -301,6 +301,13 @@ export function updateBaby(
 	return write(w, 'baby', babyId, fields);
 }
 
+/** A tombstone, same shape as an Entry's: the Baby and everything logged for
+    her disappear from every Device on the next pull, and nothing is purged.
+    The settings screen demands the name typed back before calling this. */
+export function deleteBaby(w: Writer, babyId: string): Promise<string> {
+	return write(w, 'baby', babyId, { deleted_at: w.mergeAt() });
+}
+
 /* --- Household settings and Members ----------------------------------- */
 
 /** Changing the Day Start re-buckets the past, and the settings screen says so

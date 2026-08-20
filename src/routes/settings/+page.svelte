@@ -8,6 +8,7 @@
 	import { app } from '$client/state.svelte';
 	import {
 		addBaby,
+		deleteBaby,
 		removeFood,
 		removeMember,
 		renameFood,
@@ -62,6 +63,8 @@
 	let resetNote = $state<string | null>(null);
 	let newBabyName = $state('');
 	let newBabyBirth = $state('');
+	let deletingBabyId = $state<string | null>(null);
+	let deleteBabyTyped = $state('');
 	let installed = $state(false);
 
 	const baby = $derived(app.baby);
@@ -199,6 +202,23 @@
 	async function removeThem(id: string, name: string) {
 		if (!confirm(m.settings_member_remove_confirm({ name }))) return;
 		await app.edit((w) => removeMember(w, id));
+	}
+
+	/* Deleting a Baby is the one control here that swallows months of logging,
+	   so it is gated twice: an explicit reveal, then the name typed back. A
+	   native confirm() is too easy to click through at 3am. */
+	function babyEntryCount(babyId: string): number {
+		return app.entries.filter((e) => e.baby_id === babyId && e.deleted_at == null).length;
+	}
+
+	function nameMatches(typed: string, name: string): boolean {
+		return typed.trim().toLowerCase() === name.trim().toLowerCase();
+	}
+
+	async function confirmDeleteBaby(babyId: string) {
+		await app.edit((w) => deleteBaby(w, babyId));
+		deletingBabyId = null;
+		deleteBabyTyped = '';
 	}
 
 	function showFood(id: string) {
@@ -402,6 +422,49 @@
 							/>
 						</label>
 					</div>
+					{#if isParent}
+						{#if deletingBabyId === child.id}
+							<div class="danger" role="group" aria-label={m.settings_baby_delete_confirm({ name: child.name })}>
+								<p>{m.settings_baby_delete_warn({ name: child.name, count: babyEntryCount(child.id) })}</p>
+								<label>
+									{m.settings_baby_delete_type()}
+									<input
+										type="text"
+										bind:value={deleteBabyTyped}
+										autocomplete="off"
+										autocapitalize="off"
+										spellcheck="false"
+									/>
+								</label>
+								<div class="danger-acts">
+									<button
+										type="button"
+										class="secondary"
+										onclick={() => {
+											deletingBabyId = null;
+											deleteBabyTyped = '';
+										}}>{m.cancel()}</button
+									>
+									<button
+										type="button"
+										disabled={!nameMatches(deleteBabyTyped, child.name)}
+										onclick={() => void confirmDeleteBaby(child.id)}
+									>
+										{m.settings_baby_delete_confirm({ name: child.name })}
+									</button>
+								</div>
+							</div>
+						{:else}
+							<button
+								type="button"
+								class="secondary baby-delete"
+								onclick={() => {
+									deletingBabyId = child.id;
+									deleteBabyTyped = '';
+								}}>{m.delete()}</button
+							>
+						{/if}
+					{/if}
 				{/each}
 				{#if isParent}
 					<form
@@ -652,5 +715,31 @@
 		display: block;
 		overflow-wrap: anywhere;
 		margin: var(--sp-2) 0;
+	}
+	.baby-delete {
+		width: auto;
+		margin: 0 0 var(--sp-4);
+		padding: 6px 10px;
+		font-size: var(--fs-1);
+	}
+	.danger {
+		border: 1px solid var(--line-strong);
+		border-radius: var(--r-1);
+		padding: var(--sp-3);
+		margin-bottom: var(--sp-4);
+	}
+	.danger p {
+		color: var(--ink-2);
+		font-size: var(--fs-1);
+		margin-bottom: var(--sp-3);
+	}
+	.danger-acts {
+		display: flex;
+		gap: var(--sp-2);
+		justify-content: flex-end;
+	}
+	.danger-acts button {
+		width: auto;
+		margin: 0;
 	}
 </style>
