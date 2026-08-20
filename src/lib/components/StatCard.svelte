@@ -94,7 +94,12 @@
 
 	<div class="card-value">
 		{value(card.today)}
-		<small>{m.stats_today_avg({ avg: value(card.average) })}</small>
+		<!-- No average on the first logged day: until a complete logged day
+		     exists there is nothing to state, and a made-up zero would read as
+		     "worse than every day before". -->
+		{#if card.average != null}
+			<small>{m.stats_today_avg({ avg: value(card.average) })}</small>
+		{/if}
 	</div>
 
 	{#each secondary as line (line)}

@@ -89,6 +89,48 @@ describe('the window', () => {
 	});
 });
 
+describe('unlogged days', () => {
+	it('leaves days nobody logged on out of the average', () => {
+		/* Two a day on three logged days; the other four complete days are
+		   untracked, not zero — the average is 2, not 6/7ths of it. */
+		const entries = ['2026-08-14', '2026-08-15', '2026-08-16'].flatMap((d) => [
+			nappy(`${d}T08:00:00Z`),
+			nappy(`${d}T14:00:00Z`)
+		]);
+		const [card] = statsFor({ ...LENS, entries });
+		expect(card.average).toBe(2);
+	});
+
+	it('still counts a logged day without the type as a real zero', () => {
+		const entries = [
+			nappy('2026-08-15T08:00:00Z'),
+			nappy('2026-08-15T14:00:00Z'),
+			/* A bottle makes the 16th a logged day — its zero nappies are real. */
+			bottle('2026-08-16T08:00:00Z')
+		];
+		const nappies = statsFor({ ...LENS, entries }).find((c) => c.kind === 'nappies');
+		expect(nappies?.average).toBe(1);
+	});
+
+	it('states no average at all on the first day of use', () => {
+		const [card] = statsFor({ ...LENS, entries: [nappy('2026-08-17T08:00:00Z')] });
+		expect(card.average).toBeNull();
+		expect(card.delta).toBeNull();
+	});
+
+	it('measures the delta against the previous week’s logged days only', () => {
+		const entries = [
+			/* previous week: two logged days, one a day */
+			nappy('2026-08-05T08:00:00Z'),
+			nappy('2026-08-07T08:00:00Z'),
+			/* this week: two logged complete days, two a day */
+			...['2026-08-14', '2026-08-15'].flatMap((d) => [nappy(`${d}T08:00:00Z`), nappy(`${d}T14:00:00Z`)])
+		];
+		const [card] = statsFor({ ...LENS, entries });
+		expect(card.delta).toBe(1);
+	});
+});
+
 describe('which cards appear', () => {
 	it('shows nothing at all for an empty window', () => {
 		expect(statsFor({ ...LENS, entries: [] })).toEqual([]);
@@ -158,7 +200,8 @@ describe('the Feeds card', () => {
 		});
 		const s = card.secondary as FeedsSecondary;
 		expect(s.volumeMlToday).toBe(210);
-		expect(s.volumeMlAverage).toBeCloseTo(100 / 7);
+		/* One logged complete day at 100 ml — unlogged days do not dilute it. */
+		expect(s.volumeMlAverage).toBe(100);
 	});
 
 	it('counts what she drank, not what was poured', () => {

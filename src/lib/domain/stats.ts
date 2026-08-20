@@ -8,7 +8,9 @@
    in-progress bar and is excluded from the delta: including a half-finished day
    would tell you every single morning that things are getting worse. One rule
    covers both today and a running Sleep — show the truth so far, keep it out of
-   the comparison.
+   the comparison. The same honesty governs gaps: a day nobody logged anything
+   on is excluded from every average and delta, because an untracked day is not
+   a day of zeros.
 
    Computed client-side over the local replica, nothing cached. A year is ~7,300
    entries and under 2 MB, which folds in milliseconds. */
@@ -54,8 +56,12 @@ export interface StatsCard {
 	bars: DayBar[];
 	/** Today so far. */
 	today: number;
-	/** The mean over the seven complete days. */
-	average: number;
+	/** The mean over the complete days somebody logged on. A day with no
+	    Entries at all is a day nobody tracked, not a day of zeros — counting
+	    it would drag every average down whenever the log has a gap. A logged
+	    day without this card's type still counts as zero: that zero is real.
+	    Null when no complete day in the window was logged at all. */
+	average: number | null;
 	/** Complete seven against the seven before. Null when there is nothing
 	    before to compare with — a delta against zero history is not a trend. */
 	delta: number | null;
@@ -133,6 +139,10 @@ export function statsFor(input: StatsInput): StatsCard[] {
 	let peeToday = 0;
 	let poopToday = 0;
 	const firstSeen = new Map<string, number>();
+	/* The days somebody logged *anything* on. Averages stand on these days
+	   alone, so a gap in the log — the week before the app was adopted, a
+	   holiday nobody tracked — never masquerades as a day of zeros. */
+	const loggedDays = new Set<string>();
 
 	const bump = (map: Map<string, number>, key: string, by: number) =>
 		map.set(key, (map.get(key) ?? 0) + by);
@@ -142,6 +152,7 @@ export function statsFor(input: StatsInput): StatsCard[] {
 		const current = inWindow.has(key);
 		const earlier = inPrevious.has(key);
 		const target = current ? acc : earlier ? previous : null;
+		if (target) loggedDays.add(key);
 
 		if (e.type === 'meal') {
 			/* First exposure is derived, so the Solids secondary reads the whole
@@ -204,12 +215,21 @@ export function statsFor(input: StatsInput): StatsCard[] {
 	const bars = (map: Map<string, number>): DayBar[] =>
 		windowKeys.map((key) => ({ key, value: map.get(key) ?? 0, isToday: key === today }));
 
-	const completeAverage = (map: Map<string, number>) =>
-		mean(windowKeys.filter((k) => k !== today).map((k) => map.get(k) ?? 0));
+	/* Only the days somebody logged on carry weight. An unlogged day is absent
+	   from the mean entirely — on the first day of use there is no complete
+	   logged day yet, and the average is null rather than a fabricated zero. */
+	const completeDays = windowKeys.filter((k) => k !== today && loggedDays.has(k));
+	const previousDays = previousKeys.filter((k) => loggedDays.has(k));
+
+	const completeAverage = (map: Map<string, number>): number | null =>
+		completeDays.length === 0 ? null : mean(completeDays.map((k) => map.get(k) ?? 0));
 
 	const deltaOf = (current: Map<string, number>, before: Map<string, number>): number | null => {
-		if (before.size === 0) return null;
-		return completeAverage(current) - mean(previousKeys.map((k) => before.get(k) ?? 0));
+		/* No delta without ground on both sides: unlogged days cannot vote, and
+		   a previous week that never saw this type is no history to compare
+		   with. */
+		if (completeDays.length === 0 || previousDays.length === 0 || before.size === 0) return null;
+		return (completeAverage(current) ?? 0) - mean(previousDays.map((k) => before.get(k) ?? 0));
 	};
 
 	const cards: StatsCard[] = [];
