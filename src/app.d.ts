@@ -16,6 +16,11 @@ declare global {
 			removed?: boolean;
 		}
 		interface PageData {}
+		interface PageState {
+			/** A bottom sheet is open: its shallow history entry, so the back
+			    button closes the sheet rather than leaving the app. */
+			sheet?: boolean;
+		}
 		interface Platform {}
 	}
 
