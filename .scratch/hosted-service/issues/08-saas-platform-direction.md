@@ -1,7 +1,7 @@
 # Platform direction for the paid service
 
 Type: grilling
-Status: open
+Status: claimed
 
 ## Question
 
