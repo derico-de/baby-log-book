@@ -129,6 +129,12 @@
 
 		--shadow:
 			0 1px 2px oklch(0 0 0 / 0.05), 0 8px 24px oklch(0 0 0 / 0.06);
+
+		/* The veil behind the fan and the sheet. In the dark appearances it
+       must be LIGHTER than the ground, not blacker: the panels it sets off
+       are dark themselves, and a black scrim on a dark page separates
+       nothing — it only muddies. */
+		--scrim: oklch(0 0 0 / 0.5);
 	}
 
 	/* --- night: lamps on, she is going down ---------------------------- */
@@ -150,6 +156,8 @@
 
 		--shadow:
 			0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px oklch(0 0 0 / 0.35);
+
+		--scrim: oklch(0.52 0.008 60 / 0.7);
 	}
 
 	/* --- deep night: 23:00 to Day Start, an unlit room ------------------
@@ -174,6 +182,10 @@
 		--accent-soft: oklch(0.24 0.05 60);
 
 		--shadow: none;
+
+		/* Dimmer than night's: still lighter than the ground, but capped so
+       the fog cannot outshine the room. */
+		--scrim: oklch(0.35 0.006 60 / 0.7);
 	}
 
 	/* ===================================================================
