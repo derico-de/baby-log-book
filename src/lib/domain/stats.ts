@@ -22,6 +22,11 @@ import { isFeed, intakeMl } from './entries';
 
 export const WINDOW_DAYS = 7;
 
+/** Feeds closer together than this are one round of feeding: the breast feed
+    and the formula topped up right after are one answer to *has she eaten*,
+    not two. Measured from the end of one feed to the start of the next. */
+export const FEED_ROUND_GAP_MS = 15 * MS.minute;
+
 export type CardKind = 'sleep' | 'feeds' | 'nappies' | 'solids';
 
 export interface DayBar {
@@ -198,20 +203,32 @@ export function statsFor(input: StatsInput): StatsCard[] {
 				bump(target.meals, key, 1);
 				if (current) hasMeal = true;
 				break;
-			default:
-				if (isFeed(e.type)) {
-					bump(target.feeds, key, 1);
-					if (current) hasFeed = true;
-					if (e.type === 'bottle_feed') {
-						/* The Intake — what she drank (ADR-0018). A legacy bottle she
-						   left 30 ml of did not put 180 ml into her. */
-						const volume = intakeMl(e.payload as BottleFeedPayload);
-						if (volume != null) {
-							bump(target.volume, key, volume);
-							if (current) hasBottle = true;
-						}
-					}
-				}
+		}
+	}
+
+	/* Feeds are counted as rounds, not rows: a feed starting within
+	   FEED_ROUND_GAP_MS of the previous feed's end joins its round. The round
+	   counts once, on the day it began, and its volume is the sum of its
+	   bottles — so breast-then-formula is one feed with one total. */
+	const feeds = mine.filter((e) => isFeed(e.type)).sort((a, b) => a.occurred_at - b.occurred_at);
+	let roundKey = '';
+	let roundEdge = -Infinity;
+	for (const e of feeds) {
+		const newRound = e.occurred_at - roundEdge >= FEED_ROUND_GAP_MS;
+		if (newRound) roundKey = dayBucketOf(e.occurred_at, dayStart, zone);
+		roundEdge = Math.max(roundEdge, e.ended_at ?? e.occurred_at);
+		const target = inWindow.has(roundKey) ? acc : inPrevious.has(roundKey) ? previous : null;
+		if (!target) continue;
+		if (newRound) bump(target.feeds, roundKey, 1);
+		if (target === acc) hasFeed = true;
+		if (e.type === 'bottle_feed') {
+			/* The Intake — what she drank (ADR-0018). A legacy bottle she
+			   left 30 ml of did not put 180 ml into her. */
+			const volume = intakeMl(e.payload as BottleFeedPayload);
+			if (volume != null) {
+				bump(target.volume, roundKey, volume);
+				if (target === acc) hasBottle = true;
+			}
 		}
 	}
 

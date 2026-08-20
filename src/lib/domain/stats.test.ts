@@ -230,8 +230,9 @@ describe('the Feeds card', () => {
 		expect((card.secondary as FeedsSecondary).volumeMlToday).toBe(240);
 	});
 
-	it('counts a combined feed as the two bottles it was', () => {
-		// Pumped breast milk, then formula: two Feeds, two volumes, both real.
+	it('folds a combined feed into one round with one summed volume', () => {
+		// Pumped breast milk, then formula 12 minutes later: one round of
+		// feeding, not two — and the intake is the sum of both bottles.
 		const [card] = statsFor({
 			...LENS,
 			entries: [
@@ -243,8 +244,49 @@ describe('the Feeds card', () => {
 				bottle('2026-08-17T08:12:00Z', 120)
 			]
 		});
-		expect(card.today).toBe(2);
+		expect(card.today).toBe(1);
 		expect((card.secondary as FeedsSecondary).volumeMlToday).toBe(180);
+	});
+
+	it('folds the formula after the breast into the round the breast began', () => {
+		// She nursed until 08:20; the bottle at 08:30 is ten minutes later —
+		// the same round. The gap reads from the end of one feed to the start
+		// of the next.
+		const [card] = statsFor({
+			...LENS,
+			entries: [
+				entry({
+					type: 'breast_feed',
+					occurred_at: iso('2026-08-17T08:00:00Z'),
+					ended_at: iso('2026-08-17T08:20:00Z'),
+					payload: { side: 'left' }
+				}),
+				bottle('2026-08-17T08:30:00Z', 90)
+			]
+		});
+		expect(card.today).toBe(1);
+		expect((card.secondary as FeedsSecondary).volumeMlToday).toBe(90);
+	});
+
+	it('keeps feeds a quarter hour or more apart as separate rounds', () => {
+		const [card] = statsFor({
+			...LENS,
+			entries: [bottle('2026-08-17T08:00:00Z', 100), bottle('2026-08-17T08:15:00Z', 50)]
+		});
+		expect(card.today).toBe(2);
+	});
+
+	it('chains a round: each feed extends the window for the next', () => {
+		const [card] = statsFor({
+			...LENS,
+			entries: [
+				bottle('2026-08-17T08:00:00Z', 40),
+				bottle('2026-08-17T08:10:00Z', 40),
+				bottle('2026-08-17T08:20:00Z', 40)
+			]
+		});
+		expect(card.today).toBe(1);
+		expect((card.secondary as FeedsSecondary).volumeMlToday).toBe(120);
 	});
 
 	it('does not count a breast feed as zero millilitres', () => {
