@@ -89,6 +89,7 @@
 	"row_night_sleep": "night",
 	"row_nap": "nap",
 	"row_no_time": "—",
+	"row_time_range": "{start} – {end}",
 	"row_new_food": "first time",
 	"row_bottle_left": "bottle {left} left",
 	"row_bottle_past": "bottle {over} past",
@@ -108,6 +109,7 @@
 	"fan_close": "Close",
 
 	"sheet_feed_title": "Feed",
+	"sheet_sleep_start_title": "Fell asleep",
 	"sheet_breast": "Breast",
 	"sheet_bottle": "Bottle",
 	"sheet_food": "Food",

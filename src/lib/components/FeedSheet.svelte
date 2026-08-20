@@ -163,11 +163,14 @@
 	}
 
 	/** A timer needs no protection: a Live Session is a row with no end and the
-	    elapsed figure is derived from its start instant on every paint. */
+	    elapsed figure is derived from its start instant on every paint. It starts
+	    at the sheet's time field — prefilled with now, so the untouched path is
+	    unchanged, but "she latched on ten minutes ago" is one edit here rather
+	    than a correction afterwards. */
 	async function startTimer() {
 		if (!baby || busy) return;
 		busy = true;
-		const at = app.now;
+		const at = occurredAt;
 		/* Captured before the write — the new timer must not end itself. */
 		const feed = runningFeed;
 		const trimmed = note.trim();

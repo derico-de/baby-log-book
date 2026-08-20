@@ -242,6 +242,32 @@ describe('headerState', () => {
 		expect(h.feed.remainingMs).toBe(50 * 60_000);
 	});
 
+	it('surfaces the running Feed — the latest started when two are open at once', () => {
+		const h = headerState({
+			...base,
+			entries: [
+				entry({ type: 'breast_feed', occurred_at: iso('2026-08-17T12:00:00Z') }),
+				entry({ type: 'bottle_feed', occurred_at: iso('2026-08-17T12:30:00Z') })
+			]
+		});
+		expect(h.feed.running?.occurred_at).toBe(iso('2026-08-17T12:30:00Z'));
+	});
+
+	it('reports no running Feed once every Feed has ended, and a Meal never runs', () => {
+		const h = headerState({
+			...base,
+			entries: [
+				entry({
+					type: 'bottle_feed',
+					occurred_at: iso('2026-08-17T12:00:00Z'),
+					ended_at: iso('2026-08-17T12:20:00Z')
+				}),
+				entry({ type: 'meal', occurred_at: iso('2026-08-17T13:00:00Z') })
+			]
+		});
+		expect(h.feed.running).toBeNull();
+	});
+
 	it('shifts colour once when overdue, and there is no second state to shift to', () => {
 		const h = headerState({
 			...base,

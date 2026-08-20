@@ -47,7 +47,7 @@ One family: `system-ui` stack (`--font-ui`), no webfont — the 3am first paint 
 
 ## Components
 
-Pico v2 is the framework, imported into `@layer framework` so app styles never out-specify it; 63 of its 149 tokens are mapped in `tokens.css`. Custom components live in `src/styles/components.css`: app shell + header, the live grid (sleep | feed) with its quiet nappy line, sync status line, timeline rows, stale-Sleep banner, FAB + fan (FAB at `bottom: 76px` clearing the tab bar), bottom sheet, segmented control (`[role=tab]`), toast, bottom tab bar (3 destinations), chips + filter rail, stat cards (hand-drawn bars, numbers stated as text), settings, and the chrome-less claim page.
+Pico v2 is the framework, imported into `@layer framework` so app styles never out-specify it; 63 of its 149 tokens are mapped in `tokens.css`. Custom components live in `src/styles/components.css`: app shell + header, the live grid (sleep | feed) with its quiet nappy line; each column closes with a 5px bar above the nappy line — hairline grey while idle, the live colour while that column's session runs — which also serves as the grid's separator, sync status line, timeline rows, stale-Sleep banner, FAB + fan (FAB at `bottom: 76px` clearing the tab bar), bottom sheet, segmented control (`[role=tab]`), toast, bottom tab bar (3 destinations), chips + filter rail, stat cards (hand-drawn bars, numbers stated as text), settings, and the chrome-less claim page.
 
 - Forms and standard controls are Pico as shipped.
 - Layout is mobile-first, one column, thumb-zone driven; nothing may compete with the FAB.

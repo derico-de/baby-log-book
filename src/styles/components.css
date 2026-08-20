@@ -91,7 +91,7 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: var(--sp-3);
-		margin-bottom: var(--sp-3);
+		margin-bottom: 0;
 		min-height: 32px;
 	}
 	.head-top:last-child {
@@ -157,7 +157,21 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: var(--sp-4);
-		align-items: start;
+		/* Stretch, not start: the columns' bottom bars must sit on one line
+		   even when only one column carries a due line. */
+		align-items: stretch;
+	}
+	/* Each column closes with a 5px bar above the nappy line — the live
+	   marker's track. Quiet hairline grey while idle; the running column's
+	   bar takes the live colour, the overdue line's one-shift grammar with
+	   no badge and no extra word. Text never moves or resizes for it. */
+	.live-cell {
+		padding-bottom: var(--sp-2);
+		border-bottom: 5px solid var(--line);
+		transition: border-color var(--dur-2) var(--ease);
+	}
+	.live-cell[data-live='1'] {
+		border-color: var(--live);
 	}
 	/* Each column is named for what it reports — the state word below stays
 	   the quiet, changing part. */
@@ -198,9 +212,9 @@
 	/* The quiet line mirrors the grid's columns, so the last-poop fact starts
 	   exactly where the Feeding column does. */
 	.due-quiet {
-		margin-top: var(--sp-3);
-		padding-top: var(--sp-2);
-		border-top: 1px solid var(--line);
+		/* The columns' bottom bars are the separator now — a hairline on top
+		   of them would be a double rule. */
+		margin-top: var(--sp-2);
 		font-size: var(--fs-1);
 		color: var(--ink-3);
 		font-variant-numeric: tabular-nums;

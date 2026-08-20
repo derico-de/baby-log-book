@@ -13,6 +13,7 @@ import type { Baby, Entry, Household, MemberRecord, Target } from '$domain/types
 import FilterHeader from './FilterHeader.svelte';
 import LiveHeader from './LiveHeader.svelte';
 import TimelineRow from './TimelineRow.svelte';
+import TimeSheet from './TimeSheet.svelte';
 import StatCard from './StatCard.svelte';
 import Fan from './Fan.svelte';
 import StaleBanner from './StaleBanner.svelte';
@@ -154,6 +155,26 @@ describe('the sticky header', () => {
 	it('carries the age along with the name', () => {
 		expect(draw(LiveHeader, { onFilter: () => {} })).toContain('Lina · 6 months');
 	});
+
+	it('marks both columns live while their sessions run — the underline, no extra word', () => {
+		app.entries = [
+			entry({ type: 'breast_feed', occurred_at: NOW - 10 * 60_000 }),
+			entry({ type: 'sleep', occurred_at: NOW - 30 * 60_000 })
+		];
+		const text = draw(LiveHeader, { onFilter: () => {} });
+		expect(text).not.toContain('running');
+		expect(host.querySelectorAll('.live-cell[data-live="1"]')).toHaveLength(2);
+	});
+
+	it('lets both columns fall back once their sessions carry an end', () => {
+		app.entries = [
+			entry({ type: 'bottle_feed', occurred_at: NOW - 3600_000, ended_at: NOW - 50 * 60_000 }),
+			entry({ type: 'sleep', occurred_at: NOW - 3 * 3600_000, ended_at: NOW - 30 * 60_000 })
+		];
+		draw(LiveHeader, { onFilter: () => {} });
+		expect(host.querySelectorAll('.live-cell[data-live="1"]')).toHaveLength(0);
+		expect(host.querySelectorAll('.live-cell[data-live="0"]')).toHaveLength(2);
+	});
 });
 
 describe('the filter header', () => {
@@ -265,6 +286,31 @@ describe('a timeline row', () => {
 		expect(text).not.toContain('Stop');
 	});
 
+	it('states both ends of a finished Sleep, with the duration underneath', () => {
+		const row = entry({
+			type: 'sleep',
+			occurred_at: Date.parse('2026-08-17T11:45:00Z') /* 13:45 Berlin */,
+			ended_at: Date.parse('2026-08-17T12:05:00Z') /* 14:05 Berlin */
+		});
+		app.entries = [row];
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		expect(text).toContain('13:45 – 14:05');
+		expect(host.querySelector('.row-dur')?.textContent).toBe('20m');
+	});
+
+	it('keeps the single clock time on a finished feed — only a Sleep states its end', () => {
+		const row = entry({
+			type: 'breast_feed',
+			occurred_at: NOW - 3600_000 /* 15:00 Berlin */,
+			ended_at: NOW - 40 * 60_000,
+			payload: { side: 'left' }
+		});
+		app.entries = [row];
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		expect(text).toContain('15:00');
+		expect(text).not.toContain('–');
+	});
+
 	it('gives a Milestone an em dash where the clock time would be', () => {
 		const row = entry({ type: 'milestone', occurred_at: NOW - 86_400_000, payload: { name: 'First tooth' } });
 		app.entries = [row];
@@ -343,6 +389,24 @@ describe('the fan', () => {
 		   near-synonymous labels in one fan is the 3am discrimination problem. */
 		expect(labels).not.toContain('Feed');
 		expect(labels).not.toContain('Sleep');
+	});
+});
+
+describe('the time sheet', () => {
+	it('opens prefilled with the current wall time in the Household Zone', () => {
+		draw(TimeSheet, { title: 'Fell asleep', onsave: () => {}, onclose: () => {} });
+		expect(host.querySelector<HTMLInputElement>('input[type="time"]')?.value).toBe('16:00');
+	});
+
+	it('hands the typed wall time back on save — the caller decides what instant it means', () => {
+		let saved: string | null = null;
+		draw(TimeSheet, { title: "She's awake", onsave: (t: string) => (saved = t), onclose: () => {} });
+		const input = host.querySelector<HTMLInputElement>('input[type="time"]');
+		if (!input) throw new Error('no time input');
+		input.value = '15:40';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		flushSync(() => host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click());
+		expect(saved).toBe('15:40');
 	});
 });
 

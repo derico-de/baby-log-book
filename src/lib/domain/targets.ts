@@ -208,6 +208,11 @@ export function pastBottleRevision(
 }
 
 export interface FeedHeader {
+	/** The running Feed, if there is one — a breast timer or a still-open
+	    bottle, the Live Session everyone's Device can see. With two open at
+	    once (a Combined Feed across Devices), the latest started is the one
+	    being fed right now. */
+	running: Entry | null;
 	lastAt: number | null;
 	elapsedMs: number | null;
 	/** True past a day: the figure has stopped being a number anyone reads, so
@@ -269,7 +274,12 @@ export function headerState(input: HeaderInput): HeaderState {
 
 	/* --- feeds: anchored by their start, always counting ----------------- */
 	const lastFeedAt = anchorInstant({ anchor: 'feed_start' } as Target, mine);
+	const runningFeed =
+		mine
+			.filter((e) => isFeed(e.type) && e.ended_at == null)
+			.sort((a, b) => b.occurred_at - a.occurred_at)[0] ?? null;
 	const feed: FeedHeader = {
+		running: runningFeed,
 		lastAt: lastFeedAt,
 		elapsedMs: lastFeedAt == null ? null : now - lastFeedAt,
 		absolute: lastFeedAt != null && !withinLastDay(lastFeedAt, now),

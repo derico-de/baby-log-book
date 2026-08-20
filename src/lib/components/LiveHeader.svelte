@@ -83,7 +83,11 @@
 
 	{#if header}
 		<div class="live-grid">
-			<div class="live-cell">
+			<!-- A running session is its column's bottom bar taking the live
+			     colour; the idle column keeps the quiet grey bar, so the marker
+			     is a colour shift on a line that is always there — no badge, no
+			     extra word, and no text moves or resizes for it. -->
+			<div class="live-cell" data-live={header.sleep.running ? '1' : '0'}>
 				<div class="live-title">{m.header_sleep_title()}</div>
 				{#if header.sleep.running}
 					<!-- While a Sleep runs there is no Wake Window to show. -->
@@ -108,7 +112,7 @@
 				{/if}
 			</div>
 
-			<div class="live-cell">
+			<div class="live-cell" data-live={header.feed.running ? '1' : '0'}>
 				<div class="live-title">{m.header_feed_title()}</div>
 				{#if header.feed.elapsedMs == null}
 					<!-- Never compute a due instant from nothing. -->

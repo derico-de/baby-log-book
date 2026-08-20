@@ -210,6 +210,24 @@ describe('what a save writes', () => {
 			contents: 'formula'
 		});
 	});
+
+	it('starts the timer at the sheet’s time field, not silently at now', async () => {
+		open();
+		const time = fieldInput('Time');
+		time.value = '15:40'; /* 20 minutes before NOW, Berlin */
+		time.dispatchEvent(new Event('input', { bubbles: true }));
+		flushSync();
+		const start = [...host.querySelectorAll<HTMLButtonElement>('button')].find(
+			(b) => b.textContent?.trim() === 'Start timer'
+		);
+		start?.click();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		const rows = await db.entries.toArray();
+		expect(rows).toHaveLength(1);
+		expect(rows[0].type).toBe('breast_feed');
+		expect(rows[0].occurred_at).toBe(NOW - 20 * 60_000);
+		expect(rows[0].ended_at).toBeNull();
+	});
 });
 
 /* A Baby eats one thing at a time: a new feeding ends a running Feed at the

@@ -7,12 +7,13 @@
 
 	   Nappies log straight from the fan: no sheet, no confirm. A nappy is two taps
 	   and the second is a large target, and no sheet chrome ever renders for the
-	   app's most frequent, least informative action. Only Feeds, Measurements and
-	   Milestones open the sheet, because only they carry real data.
+	   app's most frequent, least informative action. Everything else opens a
+	   sheet — Feeds, Measurements and Milestones because they carry real data,
+	   Sleep and *She's awake* only a one-field time sheet prefilled with now.
 
 	   While a Sleep runs the fan reflows and there is no ambiguous "Feed" item:
 	   *She's awake* ends the Sleep and the fan reflows **in place** to the awake
-	   set, so wake-then-feed is one FAB open and three taps rather than two
+	   set, so wake-then-feed is one FAB open and a few taps rather than two
 	   trips. */
 	import * as m from '$lib/paraglide/messages';
 	import Icon, { type IconName } from './Icon.svelte';

@@ -185,7 +185,19 @@
 			<span class="row-time">
 				<!-- A Milestone gets an em dash where the clock time would be, which is
 				     what makes a row with no visible time legible among timed ones. -->
-				{entry.type === 'milestone' ? m.row_no_time() : clockTime(entry.occurred_at, zone)}
+				{#if entry.type === 'milestone'}
+					{m.row_no_time()}
+				{:else if entry.type === 'sleep' && entry.ended_at != null}
+					<!-- A finished Sleep states both ends — `13:45 – 14:05` — because
+					     when it ended matters as much as when it began: the Wake Window
+					     counts from the end. The duration stays underneath. -->
+					{m.row_time_range({
+						start: clockTime(entry.occurred_at, zone),
+						end: clockTime(entry.ended_at, zone)
+					})}
+				{:else}
+					{clockTime(entry.occurred_at, zone)}
+				{/if}
 				{#if durationText}<span class="row-dur">{durationText}</span>{/if}
 			</span>
 		{/if}

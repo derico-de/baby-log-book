@@ -190,16 +190,10 @@ class AppState {
 		return this.header?.sleep.running ?? null;
 	}
 
+	/** The running Feed, if there is one — same fold the header prints, so the
+	    feed sheet and the header can never disagree about what is running. */
 	get runningFeed(): Entry | null {
-		return (
-			this.babyEntries.find(
-				(e) =>
-					(e.type === 'breast_feed' || e.type === 'bottle_feed') &&
-					e.ended_at == null &&
-					e.deleted_at == null &&
-					e.merged_into == null
-			) ?? null
-		);
+		return this.header?.feed.running ?? null;
 	}
 
 	get stale(): StaleState & { sleep: Entry | null } {

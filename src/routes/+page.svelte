@@ -3,7 +3,7 @@
 	   demoted below the fold (spec §8.4). */
 	import { app } from '$client/state.svelte';
 	import { addBaby, deleteEntry, endSleep, logNappy, startSleep, stopSession } from '$client/mutate';
-	import { dayBucketOf, dayStartInstant } from '$domain/time';
+	import { dayBucketOf, dayStartInstant, wallTimeAtOrAfter, wallTimeAtOrBefore } from '$domain/time';
 	import { dayLabel } from '$lib/i18n/format';
 	import type { Entry } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
@@ -18,10 +18,14 @@
 	import Notices from '$lib/components/Notices.svelte';
 	import StaleBanner from '$lib/components/StaleBanner.svelte';
 	import TimelineRow from '$lib/components/TimelineRow.svelte';
+	import TimeSheet from '$lib/components/TimeSheet.svelte';
 
-	type SheetName = 'feed' | 'feed-asleep' | 'measurement' | 'milestone' | 'filter' | null;
+	type SheetName = 'feed' | 'feed-asleep' | 'measurement' | 'milestone' | 'filter' | 'sleep-start' | 'awake' | null;
 	let sheet = $state<SheetName>(null);
 	let openEntry = $state<Entry | null>(null);
+	/** The Sleep *She's awake* is aimed at — the row's own, or the running one
+	    when the statement comes from the fan. */
+	let awakeTarget = $state<Entry | null>(null);
 	let newBabyName = $state('');
 	let newBabyBirth = $state('');
 
@@ -52,9 +56,14 @@
 		});
 	}
 
-	async function beginSleep() {
+	/** Starting a Sleep asks for its time first — prefilled with now, so the
+	    common path is one confirming tap. Backwards from now, like a feed's
+	    time: 23:45 typed at 00:20 is thirty-five minutes ago. */
+	async function beginSleep(time: string) {
+		sheet = null;
 		if (!baby) return;
-		const id = await app.log((w) => startSleep(w, { babyId: baby.id }), {
+		const at = wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now;
+		const id = await app.log((w) => startSleep(w, { babyId: baby.id, occurredAt: at }), {
 			text: m.toast_sleep_started(),
 			undo: async () => {
 				if (id) await app.edit((w) => deleteEntry(w, id), { text: m.toast_undone() });
@@ -62,11 +71,18 @@
 		});
 	}
 
-	/** *She's awake* ends the Sleep; the fan stays open and reflows in place. */
-	async function awake() {
-		const running = app.runningSleep;
-		if (!running) return;
-		await app.edit((w) => endSleep(w, running.id), { text: m.toast_sleep_ended() });
+	/** *She's awake* ends the Sleep at the time the sheet asked for; opened from
+	    the fan it aims at the running Sleep, and the fan reflows in place once
+	    the end lands. The time is an end, so it reads forwards from the Sleep's
+	    start — the same lens the entry edit sheet uses. */
+	async function awake(time: string) {
+		const target = awakeTarget ?? app.runningSleep;
+		sheet = null;
+		awakeTarget = null;
+		if (!target) return;
+		const at = wallTimeAtOrAfter(time, target.occurred_at, app.zone);
+		if (at == null) return;
+		await app.edit((w) => endSleep(w, target.id, at), { text: m.toast_sleep_ended() });
 	}
 
 	/** Stopping a row you are already looking at does not clear the filter. */
@@ -78,8 +94,9 @@
 
 	/** The row's *She's awake* — the same statement the fan makes, aimed at the
 	    row's own Sleep rather than whichever one is running. */
-	async function awakeRow(entry: Entry) {
-		await app.edit((w) => endSleep(w, entry.id), { text: m.toast_sleep_ended() });
+	function awakeRow(entry: Entry) {
+		awakeTarget = entry;
+		sheet = 'awake';
 	}
 
 	async function createBaby(event: SubmitEvent) {
@@ -161,7 +178,7 @@
 							{entry}
 							onopen={(e) => (openEntry = e)}
 							onstop={stop}
-							onawake={(e) => void awakeRow(e)}
+							onawake={awakeRow}
 							onfeedasleep={() => (sheet = 'feed-asleep')}
 						/>
 					{/each}
@@ -177,11 +194,14 @@
 		asleep={app.runningSleep != null}
 		onPee={() => void nappy(true, false)}
 		onPoop={() => void nappy(false, true)}
-		onSleep={() => void beginSleep()}
+		onSleep={() => (sheet = 'sleep-start')}
 		onFeed={() => (sheet = 'feed')}
 		onMeasurement={() => (sheet = 'measurement')}
 		onMilestone={() => (sheet = 'milestone')}
-		onAwake={() => void awake()}
+		onAwake={() => {
+			awakeTarget = app.runningSleep;
+			sheet = 'awake';
+		}}
 		onFeedAsleep={() => (sheet = 'feed-asleep')}
 	/>
 {/if}
@@ -194,6 +214,17 @@
 	<MilestoneSheet onclose={() => (sheet = null)} />
 {:else if sheet === 'filter'}
 	<FilterSheet onclose={() => (sheet = null)} />
+{:else if sheet === 'sleep-start'}
+	<TimeSheet title={m.sheet_sleep_start_title()} onsave={(t) => void beginSleep(t)} onclose={() => (sheet = null)} />
+{:else if sheet === 'awake'}
+	<TimeSheet
+		title={m.fan_awake()}
+		onsave={(t) => void awake(t)}
+		onclose={() => {
+			sheet = null;
+			awakeTarget = null;
+		}}
+	/>
 {/if}
 
 {#if openEntry}
