@@ -1,0 +1,10 @@
+# The paid trust answer is a written access policy, not encryption
+
+[ADR-0020](0020-one-deployment-many-households.md) answered the operator-sees-everything fact with one honest sentence to invited friends and said a paid service owes a stronger answer. This is that answer: **plain disclosure plus a short written operator access policy — not encryption.** The privacy policy states the fact directly — the operator can technically read everything a Household stores, and the explicit Art. 9 consent covers it — and cites an access policy the operator can actually keep: Household data is looked at only for support or rescue and only on a Member's request, never browsed; per-Household recovery work happens on ask; backups stay on the hosting VM and its off-box snapshots, never anywhere else. We chose procedure over cryptography because end-to-end encryption would take the server out of the product it sells: sleep merging ([ADR-0014](0014-only-sleeps-merge.md)), rescue and claim flows ([ADR-0005](0005-claim-links-instead-of-passwords.md)), and the revision log that makes best-effort recovery possible all require the server to read what it stores. A checkable promise kept beats an encryption story a solo operator can neither build soon nor honestly operate — and gating billing on an encryption research effort would gate it indefinitely.
+
+## Consequences
+
+- **Consent, not obfuscation, is the legal ground.** The privacy policy's job is to make the trust boundary impossible to misunderstand, in the same plain register as the pilot's one sentence.
+- **The access policy is short, public, and versioned with the repo.** Self-hosters inherit it as a template for their own households — the dogfood principle of [ADR-0021](0021-the-paid-service-scales-by-files-not-by-postgres.md) applied to operations.
+- **Encryption is not promised anywhere** — not "coming", not "planned". Investigating at-rest or end-to-end encryption is its own future effort and never gates billing.
+- **Access leaves a trace.** When support or rescue requires looking inside a Household, the requesting Member is told what was looked at; unrequested access does not happen.

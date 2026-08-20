@@ -179,8 +179,12 @@ _Avoid_: Entry timezone, offset, device timezone
 ### Getting data out
 
 **Export**:
-Everything the Household has ever logged, taken off the app in one act — complete, raw and unfiltered, because the data belongs to the people who keep it. It is a way *out*, not a way back in: nothing that leaves this way can be loaded back.
+Everything the Household has ever logged, taken off the app in one act — complete, raw and unfiltered, because the data belongs to the people who keep it. Each Entry leaves at its final state — nothing the family logged is missing, and nothing that is mere sync plumbing rides along. It is also the way back in: an Import can found a Household from it.
 _Avoid_: Backup, download, report, dump
+
+**Import**:
+Founding a Household in another deployment from an Export. Everything the family logged arrives — Babies, Entries, Foods, Milestones, settings, and who logged what — but access does not travel: Members are re-created without Devices, everyone re-enters through new Claim Links, and the new Household begins a fresh sync history.
+_Avoid_: Restore, migration, upload
 
 ### Paying for it
 
@@ -191,3 +195,15 @@ _Avoid_: Account, licence, seat, tier, premium
 **Trial**:
 The first month of a Plan, full-featured and free, begun without giving any payment method. Its job is to prove the convenience, not to lock anyone in — the lasting free option is self-hosting.
 _Avoid_: Free tier, freemium, demo
+
+**Payer**:
+The Parent whose email address and payment method back the Household's Plan. The email is a billing address, never a credential — every other Member remains email-free, and getting in is still a Claim Link. Any Parent becomes the Payer by entering their own payment details, which replaces the old ones.
+_Avoid_: Account holder, owner, subscriber, billing admin
+
+**Lapsed**:
+The state of a hosted Household whose Plan has stopped — Trial over, charge failed past dunning, or cancellation reached its date. Sync pauses entirely; every Device keeps working from its own replica, the data stays safe, and Export keeps working until deletion. Shown to the family as hosting being *paused*, never as an error.
+_Avoid_: Suspended, expired, frozen, blocked, read-only
+
+**Guest Household**:
+A Household the operator hosts free, by personal arrangement — the pilot friends' Households, grandfathered when billing arrived, and any other the operator chooses to host as a guest. It has no Plan, is never on Trial and can never lapse. The standing belongs to the Household, not its people: someone from a Guest Household founding a further Household is a standard, paying affair.
+_Avoid_: Free tier, grandfathered account, comp, pilot Household (after launch)
