@@ -17,7 +17,9 @@ Read those before changing anything structural.
   history surface.
 - **Light schedules**: one target per activity per baby, elapsed-vs-target in a
   sticky header. Stated, never learned.
-- **Stats**: five trend cards over a rolling seven days plus today.
+- **Stats**: a day grid — an hour axis with every entry drawn in its own slot
+  and its own colour, in a week or a single-day view, steppable back through
+  the log — over five trend cards on a rolling seven days plus today.
 - **Export**: a zip of per-type CSVs. Everything, always.
 - **Offline sync** with a full local replica, a durable outbox and silent
   conflict resolution.
@@ -167,7 +169,7 @@ The layers, and what each is allowed to know:
 
 | Path | Holds |
 | --- | --- |
-| `src/lib/domain/` | Pure functions: the fold, time and the Day Start, targets, the stale-sleep rule, filtering, stats, the CSV export. No I/O, no framework, fully tested. |
+| `src/lib/domain/` | Pure functions: the fold, time and the Day Start, targets, the stale-sleep rule, filtering, stats, the day grid's geometry, the CSV export. No I/O, no framework, fully tested. |
 | `src/lib/server/` | SQLite, the boot-time migration runner, sessions and claim links, push/pull, backups. |
 | `src/lib/client/` | The Dexie replica, the durable outbox, the sync loop, the write API, the PWA lifecycle. |
 | `src/lib/components/`, `src/routes/` | The UI. Nothing here derives a domain figure by hand. |

@@ -100,6 +100,34 @@ export function dateAndTime(instant: number, zone: string): string {
 	}).format(new Date(instant));
 }
 
+/** The hour axis label — `05`, or `01:30` in the half-hour zones whose DST
+    shift pushes a day's ticks off the hour for part of the year. */
+export function hourLabel(hour: number, minute: number): string {
+	return minute === 0 ? pad(hour) : `${pad(hour)}:${pad(minute)}`;
+}
+
+/** `15 – 21 Aug`, the day grid's week heading. `formatRange` collapses whatever
+    the two ends share the way the locale would, so a week inside one month does
+    not print the month twice. */
+export function dayRange(from: number, to: number, zone: string): string {
+	return new Intl.DateTimeFormat(activeLocale(), {
+		timeZone: zone,
+		day: 'numeric',
+		month: 'short'
+	}).formatRange(new Date(from), new Date(to));
+}
+
+/** `Fri 21 Aug` — the day grid's single-day heading. Short enough to sit
+    between two stepper buttons on a 360px phone in all three locales. */
+export function dateWithWeekday(instant: number, zone: string): string {
+	return new Intl.DateTimeFormat(activeLocale(), {
+		timeZone: zone,
+		weekday: 'short',
+		day: 'numeric',
+		month: 'short'
+	}).format(new Date(instant));
+}
+
 /** Two letters for a stats bar label. */
 export function weekdayShort(instant: number, zone: string): string {
 	return new Intl.DateTimeFormat(activeLocale(), { timeZone: zone, weekday: 'short' })

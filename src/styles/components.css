@@ -1043,7 +1043,458 @@
 		color: var(--t-ink);
 	}
 
-	/* ---- stats ------------------------------------------------------- */
+	/* ---- stats: the day grid ------------------------------------------
+     One column per day, an hour axis down the side, every Entry in its own
+     slot and its own hue. The geometry is `grid.ts`; everything here is
+     tokens.
+
+     The hour rows are part of the page scroll rather than an inner
+     scroller — a phone should never have to find the 30px seam between two
+     scrolling regions — so only the weekday strip is sticky. */
+
+	/* Named `daygrid`, not `grid`: Pico ships its own `.grid` utility that turns
+     an element into an auto-fit column grid above 768px. Nothing here declared
+     `display`, so on a tablet the whole screen inherited Pico's and the
+     weekday strip and the hour body were laid out as two half-width columns. */
+	.daygrid {
+		display: block;
+		position: relative;
+		/* Seven columns are a shape to read, not a surface to fill: past this
+       the day stops being scannable in one glance and starts being a wall. */
+		max-width: 1100px;
+		margin-inline: auto;
+		--gutter: 34px;
+		--hour: 44px;
+		/* Three tracks across a column, and they never overlap: the sleep
+       ground, the inset one feeds and tummy time sit in — so a Sleep Feed
+       reads as being *inside* its Sleep — and a rail on the right for the
+       Entries that have an instant and no duration. */
+		--rail: 20%;
+		--over-in: 34%;
+		padding-bottom: var(--sp-5);
+		/* The mark rail runs to the last column's outer edge, so the grid keeps
+       a couple of pixels off the screen. */
+		padding-inline-end: var(--sp-2);
+	}
+	.daygrid[data-view='day'] {
+		--gutter: 46px;
+		/* A day column is a phone wide, so it can afford the hour height that
+       makes a twenty-minute feed a block with a glyph in it rather than a
+       sliver — and a rail wide enough for a disc and the word beside it. */
+		--hour: 62px;
+		--rail: 28%;
+		/* Starts clear of the sleep block's glyph-and-duration label, and leaves
+       the feed track wide enough for "Bottle · Formula · 120 ml". The feed
+       carries far more to say than the sleep does, so it gets the width. */
+		--over-in: 18%;
+	}
+
+	.daygrid-days,
+	.daygrid-body {
+		display: grid;
+		grid-template-columns: var(--gutter) repeat(var(--cols), 1fr);
+	}
+
+	.daygrid-days {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background: var(--ground);
+		border-bottom: 1px solid var(--line);
+	}
+	.daygrid-day {
+		display: flex;
+		align-items: baseline;
+		justify-content: center;
+		gap: 4px;
+		padding: var(--sp-2) 2px;
+		/* Pico gives every button a 16px bottom margin. Left alone it adds a
+       whole row of dead space under the weekday strip, another under the
+       segmented control and another under the period stepper. */
+		margin: 0;
+		border: 0;
+		background: none;
+		font: inherit;
+		font-size: var(--fs-0);
+		font-weight: var(--fw-medium);
+		color: var(--ink-3);
+		cursor: pointer;
+		min-width: 0;
+		border-radius: var(--r-1) var(--r-1) 0 0;
+		transition: background var(--dur-1) var(--ease);
+	}
+	/* One column, and the heading above already names the day — a second
+     "Fri, 21 Aug" under it is a word doing no work. */
+	.daygrid[data-view='day'] .daygrid-days {
+		display: none;
+	}
+	.daygrid-day:hover {
+		background: var(--surface-2);
+	}
+	.daygrid-day-num {
+		font-variant-numeric: tabular-nums lining-nums;
+		color: var(--ink-2);
+		font-weight: var(--fw-bold);
+	}
+	/* Today is stated in ink weight, not in the accent: the accent on this
+     screen belongs to the now line alone. */
+	/* You are here — stated in ink, because the accent on this screen belongs
+     to the now line and nothing else. */
+	.daygrid-day[data-today='1'] {
+		color: var(--ink);
+		box-shadow: inset 0 -2px 0 var(--ink);
+	}
+	.daygrid-day[data-today='1'] .daygrid-day-num {
+		color: var(--ink);
+	}
+
+	.daygrid-body {
+		position: relative;
+		/* 24 rows of --hour, give or take the two days a year a day is 23 or 25
+       hours long — the column's own ticks carry that, and one extra row of
+       height costs nothing. */
+		height: calc(24 * var(--hour));
+	}
+
+	.daygrid-gutter {
+		position: relative;
+	}
+	.daygrid-hour {
+		position: absolute;
+		right: var(--sp-2);
+		transform: translateY(-0.5em);
+		font-size: var(--fs-0);
+		font-variant-numeric: tabular-nums lining-nums;
+		color: var(--ink-3);
+		line-height: 1;
+	}
+
+	.daygrid-col {
+		position: relative;
+		min-width: 0;
+		/* Pico gives a <section> a block margin. Left alone it makes every
+       column 16px shorter than the gutter beside it, and the hour labels
+       drift a whole label off their own lines by the bottom of the day. */
+		margin: 0;
+		border-left: 1px solid var(--line);
+	}
+	.daygrid-lines {
+		position: absolute;
+		inset: 0;
+	}
+	.daygrid-line {
+		position: absolute;
+		inset-inline: 0;
+		height: 1px;
+		background: var(--line);
+	}
+	/* Every third line reads a shade stronger, so the eye can count six hours
+     without reading a single label. */
+	.daygrid-line:nth-child(6n + 1) {
+		background: var(--line-strong);
+	}
+
+	.daygrid-ground,
+	.daygrid-over,
+	.daygrid-marks {
+		position: absolute;
+		inset-block: 0;
+	}
+	.daygrid-ground {
+		inset-inline: 0 var(--rail);
+	}
+	.daygrid-over {
+		inset-inline: var(--over-in) var(--rail);
+	}
+	.daygrid-marks {
+		inset-inline: auto 0;
+		width: var(--rail);
+	}
+
+	.block {
+		position: absolute;
+		border: 0;
+		padding: 0;
+		margin: 0;
+		font: inherit;
+		text-align: left;
+		border-radius: 4px;
+		background: var(--t, var(--ink-3));
+		color: var(--t-ink, var(--ground));
+		/* A five-minute feed is one pixel of true height. It is drawn at its
+       true start and never re-centred, so ordering and start times stay
+       honest; the floor only stops it vanishing. */
+		min-height: 3px;
+		overflow: hidden;
+		display: block;
+	}
+	.daygrid[data-view='day'] .block {
+		min-height: 5px;
+		cursor: pointer;
+	}
+	/* Sleep is the ground layer, so it is quieter than what sits on it —
+     otherwise an eleven-hour block is the only thing anyone sees. */
+	.daygrid-ground .block {
+		background: var(--t-soft);
+		border: 1px solid color-mix(in oklch, var(--t) 22%, transparent);
+		color: var(--t-soft-ink);
+		border-radius: 3px;
+	}
+	/* A block that runs past its column's edge says so: the edge goes flat and
+     the fill fades out, rather than ending in a clean corner it does not
+     have. */
+	.block[data-clip-start='1'] {
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+	}
+	.block[data-clip-end='1'] {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+	/* A Live Session is drawn as far as it has got, with an open bottom edge.
+     Not the accent: the accent on this screen is the now line, and a
+     running block is already the block that touches it. */
+	.block[data-running='1'] {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+		mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
+	}
+
+	.block-label {
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		padding: 3px 6px;
+		font-size: var(--fs-0);
+		font-weight: var(--fw-medium);
+		line-height: 1.25;
+		min-width: 0;
+	}
+	.block-label svg {
+		width: 13px;
+		height: 13px;
+		flex: none;
+	}
+	.block-text {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.daygrid-ground .block-text {
+		font-variant-numeric: tabular-nums lining-nums;
+	}
+	/* Under about two rows of type there is no room for a label at all, and a
+     clipped half-word is worse than the colour alone — the block's
+     accessible name carries the whole sentence either way. */
+	.block-label {
+		container-type: size;
+	}
+
+	.mark {
+		position: absolute;
+		display: block;
+		border: 0;
+		padding: 0;
+		margin: 0;
+		font: inherit;
+		background: var(--t, var(--ink-3));
+		height: 3px;
+		border-radius: 2px;
+		transform: translateY(-1px);
+	}
+	.daygrid[data-view='day'] .mark {
+		background: none;
+		height: auto;
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		transform: translateY(-11px);
+		cursor: pointer;
+		min-width: 0;
+	}
+	.mark-disc {
+		flex: none;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: var(--t);
+		color: var(--t-ink);
+		display: grid;
+		place-items: center;
+	}
+	.mark-disc svg {
+		width: 13px;
+		height: 13px;
+	}
+	/* Two lines rather than a truncation: a rail 100px wide cuts "Pee and poop"
+     mid-word, and a Meal names its Foods, which is the whole point of reading
+     it here. */
+	.mark-text {
+		min-width: 0;
+		font-size: var(--fs-0);
+		line-height: 1.25;
+		color: var(--ink-2);
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		line-clamp: 2;
+		-webkit-line-clamp: 2;
+		overflow-wrap: anywhere;
+	}
+
+	/* The one accent on this screen. `--live` and `--accent` are the same
+     token by design: the brand hue means *the thing happening now*, here as
+     on the home screen. */
+	.daygrid-now {
+		position: absolute;
+		inset-inline: 0;
+		height: 1px;
+		background: var(--live);
+		pointer-events: none;
+	}
+	.daygrid-now::before {
+		content: '';
+		position: absolute;
+		left: -3px;
+		top: -2.5px;
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--live);
+	}
+
+	.daygrid-empty {
+		position: absolute;
+		inset-inline: var(--sp-4);
+		top: calc(var(--hour) * 5);
+		margin: 0;
+		text-align: center;
+		font-size: var(--fs-2);
+		color: var(--ink-3);
+		background: var(--surface);
+		border: 1px solid var(--line);
+		padding: var(--sp-3);
+		border-radius: var(--r-1);
+	}
+
+	/* The legend is a colour key that happens to filter, so it is sized like a
+     key: seven solid pills at chip size turn the top of the screen into the
+     confetti ADR-0026 was written against. */
+	.daygrid-legend {
+		padding-block: var(--sp-3) var(--sp-2);
+		gap: 6px;
+	}
+	.daygrid-legend .chip {
+		min-height: 30px;
+		padding-inline: var(--sp-2) var(--sp-3);
+		font-size: var(--fs-1);
+		gap: 6px;
+	}
+	/* Seven solid pills at once is the confetti ADR-0026 was written against,
+     so here the hue lives in the glyph disc and the chip stays a tint. The
+     filter rail keeps its solid-fill grammar: there you press one, here all
+     seven start pressed. */
+	.daygrid-legend .chip[data-t][aria-pressed='true'] {
+		background: var(--t-soft);
+		border-color: transparent;
+		color: var(--t-soft-ink);
+	}
+	.daygrid-legend .chip svg {
+		width: 15px;
+		height: 15px;
+		flex: none;
+		padding: 3px;
+		box-sizing: content-box;
+		border-radius: 50%;
+		background: var(--surface);
+		color: var(--ink-3);
+	}
+	.daygrid-legend .chip[aria-pressed='true'] svg {
+		background: var(--t);
+		color: var(--t-ink);
+	}
+
+	/* Stepping a period or switching a view moves the grid; it is a state
+     change, so it is the one animation on this screen. The global
+     reduced-motion block collapses it to nothing. */
+	.daygrid-swap {
+		animation: daygrid-in var(--dur-2) var(--ease) both;
+	}
+	@keyframes daygrid-in {
+		from {
+			opacity: 0;
+			transform: translateY(6px);
+		}
+	}
+
+	/* The sheet's segmented control wraps its labels rather than truncating
+     them, which is right in a four-up row inside a sheet and wrong for two
+     words in a header: "Week" came out as "Wee / k" and took the header to
+     176px. */
+	.seg-view {
+		margin: 0;
+		flex: none;
+	}
+	.seg-view button {
+		min-height: 32px;
+		margin: 0;
+		padding-block: var(--sp-1);
+		padding-inline: var(--sp-3);
+		font-size: var(--fs-1);
+		white-space: nowrap;
+		hyphens: manual;
+		overflow-wrap: normal;
+	}
+
+	.period {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-1);
+		margin-top: var(--sp-1);
+	}
+	.period .icon-btn {
+		width: 36px;
+		height: 36px;
+		margin: 0;
+	}
+	.period-label {
+		flex: 1;
+		min-width: 0;
+		margin: 0;
+		font-size: var(--fs-4);
+		font-weight: var(--fw-medium);
+		letter-spacing: -0.01em;
+		line-height: 1.2;
+		text-align: center;
+		color: var(--ink);
+	}
+	.period .icon-btn:disabled {
+		opacity: 0.3;
+		cursor: default;
+	}
+	.period .icon-btn:disabled:hover {
+		background: none;
+		color: var(--ink-2);
+	}
+	.period-today {
+		min-height: 34px;
+		padding-inline: var(--sp-2);
+		font-size: var(--fs-1);
+	}
+
+	.trends {
+		border-top: 1px solid var(--line);
+		padding-top: var(--sp-2);
+	}
+	.trends-head {
+		margin: 0;
+		padding: var(--sp-4) var(--sp-4) 0;
+		font-size: var(--fs-2);
+		font-weight: var(--fw-medium);
+		color: var(--ink-3);
+	}
+
+	/* ---- stats: the trend cards --------------------------------------- */
 
 	.cards {
 		padding: var(--sp-3);

@@ -35,6 +35,7 @@ Calm, precise, trustworthy. An instrument, not a companion app: it shows numbers
 ## Design Principles
 
 - The timeline is the screen; everything else is two taps away and must not compete with the FAB for the thumb.
+- Stats says what a day looked like before it says whether it is improving: the grid answers *when*, the cards answer *is this getting better*, and neither is a substitute for the other.
 - Colour belongs to actions, not to categories. One hue.
 - The appearance follows the clock, and the clock can only ever make it darker, never lighter (ADR-0008).
 - Report, never nag. Overdue is the number adopting the brand colour; there is no escalation state.

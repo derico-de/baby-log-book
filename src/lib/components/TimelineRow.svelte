@@ -11,22 +11,15 @@
 	       button and draws nothing else: nothing downstream depends on when a Feed
 	       ended, so a forgotten stop is harmless (spec §3.3). */
 	import { app } from '$client/state.svelte';
-	import { clockTime, duration, millilitres, length, weight } from '$lib/i18n/format';
+	import { clockTime, duration } from '$lib/i18n/format';
+	import { entryTitle, GLYPH_OF } from '$lib/i18n/entry-label';
 	import { FACET_OF, highlightParts } from '$domain/filter';
 	import { classifySleep, isSleepFeed } from '$domain/sleep';
-	import { intakeMl, isSession } from '$domain/entries';
+	import { isSession } from '$domain/entries';
 	import { bottleLife } from '$domain/targets';
-	import type {
-		BottleFeedPayload,
-		BreastFeedPayload,
-		Entry,
-		MealPayload,
-		MeasurementPayload,
-		MilestonePayload,
-		NappyPayload
-	} from '$domain/types';
+	import type { Entry, MealPayload, NappyPayload } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
-	import Icon, { type IconName } from './Icon.svelte';
+	import Icon from './Icon.svelte';
 
 	interface Props {
 		entry: Entry;
@@ -39,17 +32,6 @@
 	}
 	let { entry, onopen, onstop, onawake, onfeedasleep }: Props = $props();
 
-	const GLYPH: Record<Entry['type'], IconName> = {
-		breast_feed: 'feed',
-		bottle_feed: 'feed',
-		meal: 'meal',
-		sleep: 'sleep',
-		nappy: 'nappy',
-		measurement: 'measure',
-		milestone: 'flag',
-		tummy_time: 'tummy'
-	};
-
 	const zone = $derived(app.zone);
 	const live = $derived(entry.ended_at == null && isSession(entry.type));
 	const query = $derived(app.filter.text.trim());
@@ -61,59 +43,9 @@
 	   reads younger than the milk when the bottle was poured earlier (ADR-0016). */
 	const bottle = $derived(app.bottleTarget ? bottleLife(entry, app.bottleTarget, app.now) : null);
 
-	const title = $derived.by(() => {
-		switch (entry.type) {
-			case 'breast_feed': {
-				const side = (entry.payload as BreastFeedPayload).side;
-				return `${m.type_breast_feed()} · ${side === 'left' ? m.side_left() : side === 'right' ? m.side_right() : m.side_both()}`;
-			}
-			case 'bottle_feed': {
-				/* Bottle · Formula · 150 ml. The milk type earns its place in the
-				   title rather than the meta line: on a combined feed it is the only
-				   thing telling two adjacent bottles apart. The figure is the Intake,
-				   on legacy and new rows alike — the "X of Y" form is retired
-				   (ADR-0018). */
-				const p = entry.payload as BottleFeedPayload;
-				const intake = intakeMl(p);
-				const parts: string[] = [m.type_bottle_feed()];
-				if (p.contents) {
-					parts.push(
-						p.contents === 'breast_milk'
-							? m.contents_breast_milk()
-							: p.contents === 'formula'
-								? m.contents_formula()
-								: m.contents_other()
-					);
-				}
-				if (intake != null) parts.push(millilitres(intake));
-				return parts.join(' · ');
-			}
-			case 'meal': {
-				const foods = (entry.payload as MealPayload).foods.map((f) => app.foodName(f.food_id)).filter(Boolean);
-				return foods.length > 0 ? foods.join(', ') : m.type_meal();
-			}
-			case 'sleep':
-				return m.type_sleep();
-			case 'nappy': {
-				const p = entry.payload as NappyPayload;
-				if (p.pee && p.poop) return m.nappy_both();
-				return p.poop ? m.nappy_poop() : m.nappy_pee();
-			}
-			case 'measurement': {
-				const p = entry.payload as MeasurementPayload;
-				const parts = [
-					p.weight_g == null ? null : weight(p.weight_g),
-					p.height_mm == null ? null : length(p.height_mm),
-					p.head_mm == null ? null : length(p.head_mm)
-				].filter(Boolean);
-				return parts.length > 0 ? parts.join(' · ') : m.type_measurement();
-			}
-			case 'milestone':
-				return (entry.payload as MilestonePayload).name || m.type_milestone();
-			case 'tummy_time':
-				return m.type_tummy_time();
-		}
-	});
+	/* One vocabulary for the whole app: the same words name this Entry on the
+	   timeline, in the day grid and in the grid block's accessible name. */
+	const title = $derived(entryTitle(entry, (id) => app.foodName(id)));
 
 	/** The secondary line: who logged it, and whatever this type derives. */
 	const meta = $derived.by(() => {
@@ -170,7 +102,7 @@
 
 <li>
 	<button class="row" type="button" data-t={FACET_OF[entry.type]} onclick={() => onopen(entry)}>
-		<span class="glyph"><Icon name={GLYPH[entry.type]} /></span>
+		<span class="glyph"><Icon name={GLYPH_OF[entry.type]} /></span>
 		<span class="row-main">
 			<span class="row-title">
 				{@render highlighted(title)}

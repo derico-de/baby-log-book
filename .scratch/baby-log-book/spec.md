@@ -609,11 +609,13 @@ Free text is a substring scan over the local replica, **not an index**: the whol
 
 ## 9. Read-side and lifecycle
 
-### 9.1 Stats — a trend screen and only that
+### 9.1 Stats — the shape of a day, and then the trend
 
-[Stats and CSV export](issues/10-stats-and-export.md).
+[Stats and CSV export](issues/10-stats-and-export.md), [The day grid](issues/28-the-day-grid.md).
 
-The home screen already answers *when did she last eat*; the timeline already answers *what happened yesterday*. The only question left is **is this getting better** — reassurance, not reporting and not handover. The paediatrician's "how much is she taking?" falls out of a trend screen for free.
+The home screen already answers *when did she last eat*; the timeline already answers *what happened yesterday*. Two questions are left, and the screen answers them in this order down one scroll: **what does her day look like** (the grid) and **is this getting better** (the cards). The paediatrician's "how much is she taking?" falls out of the second for free.
+
+**Ticket 28 overturns two of this section's rules**, both stated where they stood: stats is no longer a trend screen *and only that*, and earlier periods are navigable. Everything else below is unchanged.
 
 **Per Baby**, with the selector appearing only when a second Baby exists.
 
@@ -631,11 +633,19 @@ The home screen already answers *when did she last eat*; the timeline already an
 - **A rolling seven days, with no controls at all.** Each bar is a day, so daily-and-weekly is one view rather than a switcher. Rolling rather than calendar also dodges an i18n trap: calendar weeks start Monday in DE and RO, and a stats screen that disagrees with itself across languages is an endless bug.
 - **Today is drawn as an eighth, visibly in-progress bar, and is excluded from the delta**, which compares the seven complete days against the seven before. Including a half-finished day would tell you *every single morning* that things are getting worse.
 - **A running Sleep counts up to now**, so the bar grows live. One rule covers both cases: **show the truth so far, keep it out of the comparison.** Everything the delta is computed from is visible on screen.
-- **No navigation to earlier weeks in v1.** Browsing aggregates is the v3 question, and inventing that navigation now means inventing it twice.
+- ~~**No navigation to earlier weeks in v1.**~~ **Overturned by [ticket 28](issues/28-the-day-grid.md).** A grid you cannot step is a grid you can only ever check once. `‹ ›` steps a week or a day, forward is capped at today, and a *Today* button appears once the window has left it. **The window is never remembered across a cold start** — the screen always opens on today, the same rule §8.7 gives the filter. The cards keep their fixed rolling window whatever the grid is showing; they are not a view of it. What v3 still owns is *aggregating* over a period longer than a day.
 
 **Computed client-side, nothing cached.** A year is ~7,300 entries and under 2 MB, which folds in milliseconds. Day Start re-bucketing follows for free.
 
 **Bars are hand-rolled, no charting dependency.** Eight bars with no axes, tooltips or zoom is not a charting problem. **Every card states its numbers as text with the bars as the secondary read** — at 3am a shape you have to interpret is worse than a sentence, and it is the accessible version for free.
+
+**The day grid — above the cards, and the reason this screen is no longer *a trend screen and only that*.** [Ticket 28](issues/28-the-day-grid.md). An hour axis down the side, one column per day, every Entry drawn in the slot it happened in and wearing its type's hue. **Week** is seven columns; **Day** is one, with the blocks labelled and tappable into the entry sheet. Also hand-rolled, also client-side over the replica.
+
+- **A column is a day bucket, not a calendar day** — Day Start to Day Start, so the grid can never disagree with the cards, the timeline or the export about which day an Entry belongs to. It also makes DST free: a column is its two instants and a block is its share of the span between them, so a 23-hour day is a shorter column with one tick fewer and the axis labels simply skip the hour the day skipped (§7.4, [ADR-0010](../../docs/adr/0010-instants-are-stored-the-zone-is-a-lens.md)).
+- **Drawing overlaps, counting attributes.** A card gives a session to the bucket it *began* in; the grid draws time rather than counting days, so a session appears in **every** column it touches, clipped flat at the edge. The one place in the app that does not use start-bucket attribution, deliberately.
+- **Sleep is the ground layer.** A Sleep Feed overlaps its Sleep by definition (§3.4), so treating them as rivals for a lane would draw the domain wrong. Sleep takes the column; feeds and tummy time sit inset on top, which draws the Feed *inside* the Sleep. Two genuinely-overlapping foreground sessions still split lanes, per cluster.
+- **Instants get a rail, not a block.** Pee & poop, Meals, Measurements and Milestones have one time and no duration, so a minimum-height block would be the grid lying about a length they do not have.
+- **Colour is the scanning channel and never the identifying one.** A legend names every hue with its glyph and its word — and doubles as a type filter, showing only facets with data in the window. Every week column also carries a visually-hidden ordered list of its Entries, with times and durations, so the whole grid reads linearly. **The accent appears exactly once on this screen: the now line.**
 
 ### 9.2 Export
 
