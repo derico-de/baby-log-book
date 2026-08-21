@@ -118,10 +118,23 @@
 	   which is what a sitting from more than one source is (ADR-0019). Two
 	   bottles of the same milk are not a handover and get no plus: they are one
 	   figure. */
-	const combinedTitle = (b: GridBlock) =>
-		runs(b)
-			.map((run) => feedRunTitle(run.map((part) => part.entry), (id) => app.foodName(id)))
+	function combinedTitle(b: GridBlock): string {
+		const rs = runs(b);
+		return rs
+			.map((run, index) =>
+				feedRunTitle(
+					run.map((part) => part.entry),
+					(id) => app.foodName(id),
+					/* The word *Bottle* only has to be said once per stretch of
+					   bottles: "Bottle · Breast milk · 60 ml + Formula · 80 ml"
+					   loses nothing and buys the width back. A breast in between
+					   makes the next bottle say it again — it is the neighbour
+					   that licenses the shorthand, not the whole sitting. */
+					index > 0 && rs[index - 1][0].entry.type === run[0].entry.type
+				)
+			)
 			.join(' + ');
+	}
 
 	/* Percentages, computed once per block rather than in the template — the
 	   week view can hold a couple of hundred of them. */

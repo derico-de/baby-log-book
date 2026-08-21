@@ -609,6 +609,47 @@ describe('the day grid', () => {
 		expect(host.querySelectorAll('.daygrid-over .block-part')).toHaveLength(2);
 	});
 
+	it('says Bottle once across a stretch of bottles', () => {
+		app.entries = [bottle(noon, noon + 10 * M, 60, 'breast_milk'), bottle(noon + 15 * M, noon + 25 * M, 80)];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('Bottle · Breast milk · 60 ml + Formula · 80 ml');
+	});
+
+	it('says Breast once across a stretch of breasts', () => {
+		app.entries = [
+			entry({ type: 'breast_feed', occurred_at: noon, ended_at: noon + 8 * M, payload: { side: 'left' } }),
+			entry({ type: 'breast_feed', occurred_at: noon + 13 * M, ended_at: noon + 22 * M, payload: { side: 'right' } })
+		];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('Breast · Left + Right');
+	});
+
+	it('says it again when the other kind interrupts', () => {
+		app.entries = [
+			bottle(noon, noon + 8 * M, 90),
+			entry({ type: 'breast_feed', occurred_at: noon + 12 * M, ended_at: noon + 20 * M, payload: { side: 'left' } }),
+			bottle(noon + 25 * M, noon + 33 * M, 60, 'breast_milk')
+		];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('Bottle · Formula · 90 ml + Breast · Left + Bottle · Breast milk · 60 ml');
+	});
+
+	it('keeps the word when a bottle has nothing else to call itself by', () => {
+		/* A bare "120 ml" after another bottle would read as more of the same
+		   milk, which is exactly what nobody recorded. */
+		app.entries = [
+			bottle(noon, noon + 8 * M, 90),
+			entry({
+				type: 'bottle_feed',
+				occurred_at: noon + 13 * M,
+				ended_at: noon + 22 * M,
+				payload: { volume_ml: 120, leftover_ml: null, contents: null }
+			})
+		];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('Bottle · Formula · 90 ml + Bottle · 120 ml');
+	});
+
 	it('states a genuine Combined Feed as the handover it was', () => {
 		app.entries = [
 			entry({ type: 'breast_feed', occurred_at: noon, ended_at: noon + 10 * M, payload: { side: 'left' } }),

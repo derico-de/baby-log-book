@@ -39,34 +39,51 @@ export const GLYPH_OF: Record<EntryType, IconName> = {
     module reaching for app state. */
 export type FoodName = (id: string) => string;
 
+/** What a run of Feeds is called, in pieces, so both the whole title and the
+    shortened one in a Combined Feed come out of the same place.
+
+    `entries` is one Feed for an ordinary title and several when they were the
+    same milk twice — in which case the millilitres add up (`feedRunTitle`).
+
+    `omitType` drops the leading *Breast* / *Bottle*, for a run whose neighbour
+    already said it. It is honoured only when the run has something else to
+    call itself by: a bottle nobody recorded the contents of would come out as
+    a bare "120 ml", which reads as more of whatever came before it. */
+function feedParts(entries: Entry[], omitType: boolean): string[] {
+	const first = entries[0];
+	if (first.type === 'breast_feed') {
+		const side = (first.payload as BreastFeedPayload).side;
+		const which = side === 'left' ? m.side_left() : side === 'right' ? m.side_right() : m.side_both();
+		return omitType ? [which] : [m.type_breast_feed(), which];
+	}
+	/* Bottle · Formula · 150 ml. The milk type earns its place in the title
+	   rather than the meta line: on a Combined Feed it is the only thing
+	   telling two adjacent bottles apart. The figure is the Intake, on legacy
+	   and new rows alike — the "X of Y" form is retired (ADR-0018). */
+	const p = first.payload as BottleFeedPayload;
+	const contents = p.contents
+		? p.contents === 'breast_milk'
+			? m.contents_breast_milk()
+			: p.contents === 'formula'
+				? m.contents_formula()
+				: m.contents_other()
+		: null;
+	const amounts = entries
+		.map((e) => intakeMl(e.payload as BottleFeedPayload))
+		.filter((ml): ml is number => ml != null);
+
+	const parts: string[] = [];
+	if (!omitType || contents == null) parts.push(m.type_bottle_feed());
+	if (contents) parts.push(contents);
+	if (amounts.length > 0) parts.push(millilitres(amounts.reduce((a, b) => a + b, 0)));
+	return parts;
+}
+
 export function entryTitle(entry: Entry, foodName: FoodName): string {
 	switch (entry.type) {
-		case 'breast_feed': {
-			const side = (entry.payload as BreastFeedPayload).side;
-			const which = side === 'left' ? m.side_left() : side === 'right' ? m.side_right() : m.side_both();
-			return `${m.type_breast_feed()} · ${which}`;
-		}
-		case 'bottle_feed': {
-			/* Bottle · Formula · 150 ml. The milk type earns its place in the
-			   title rather than the meta line: on a Combined Feed it is the only
-			   thing telling two adjacent bottles apart. The figure is the Intake,
-			   on legacy and new rows alike — the "X of Y" form is retired
-			   (ADR-0018). */
-			const p = entry.payload as BottleFeedPayload;
-			const intake = intakeMl(p);
-			const parts: string[] = [m.type_bottle_feed()];
-			if (p.contents) {
-				parts.push(
-					p.contents === 'breast_milk'
-						? m.contents_breast_milk()
-						: p.contents === 'formula'
-							? m.contents_formula()
-							: m.contents_other()
-				);
-			}
-			if (intake != null) parts.push(millilitres(intake));
-			return parts.join(' · ');
-		}
+		case 'breast_feed':
+		case 'bottle_feed':
+			return feedParts([entry], false).join(' · ');
 		case 'meal': {
 			const foods = (entry.payload as MealPayload).foods.map((f) => foodName(f.food_id)).filter(Boolean);
 			return foods.length > 0 ? foods.join(', ') : m.type_meal();
@@ -104,33 +121,15 @@ export function entryTitle(entry: Entry, foodName: FoodName): string {
 
     Whether two Feeds *are* the same thing is `feedContentKey()`; this only
     states the answer. A run of one is just its title, so every caller can go
-    through here. */
-export function feedRunTitle(entries: Entry[], foodName: FoodName): string {
-	const first = entries[0];
-	if (entries.length === 1 || !isFeed(first.type)) return entryTitle(first, foodName);
-	if (first.type === 'breast_feed') return entryTitle(first, foodName);
+    through here.
 
-	/* Bottles: the contents are shared by construction, so only the figure has
-	   to be recomputed — and it is the Intake, on legacy and new rows alike
-	   (ADR-0018). Null when not one bottle in the run said how much went in;
-	   a run where only some did states the part it knows, which is the same
-	   thing a single bottle does with a null volume. */
-	const p = first.payload as BottleFeedPayload;
-	const amounts = entries
-		.map((e) => intakeMl(e.payload as BottleFeedPayload))
-		.filter((ml): ml is number => ml != null);
-	const parts: string[] = [m.type_bottle_feed()];
-	if (p.contents) {
-		parts.push(
-			p.contents === 'breast_milk'
-				? m.contents_breast_milk()
-				: p.contents === 'formula'
-					? m.contents_formula()
-					: m.contents_other()
-		);
-	}
-	if (amounts.length > 0) parts.push(millilitres(amounts.reduce((a, b) => a + b, 0)));
-	return parts.join(' · ');
+    `omitType` is for the run after a run of the same kind: *Bottle · Breast
+    milk · 60 ml + Bottle · Formula · 80 ml* says the word twice for no reason,
+    and a grid block is the one place in the app where the width is genuinely
+    scarce. */
+export function feedRunTitle(entries: Entry[], foodName: FoodName, omitType = false): string {
+	if (!isFeed(entries[0].type)) return entryTitle(entries[0], foodName);
+	return feedParts(entries, omitType).join(' · ');
 }
 
 /** The short name a grid block wears when there is room for a word but not for
