@@ -11,6 +11,7 @@ import { logBreastFeed, startSleep } from '$client/mutate';
 import type { Writer } from '$client/mutate';
 import type { Baby, BottleFeedPayload, Household, MealPayload, MemberRecord } from '$domain/types';
 import FeedSheet from './FeedSheet.svelte';
+import { landed } from './test-wait';
 
 const BERLIN = 'Europe/Berlin';
 const NOW = Date.parse('2026-08-17T14:00:00Z');
@@ -200,7 +201,7 @@ describe('what a save writes', () => {
 		open();
 		tapPreset('150');
 		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		await landed(async () => (await db.entries.count()) === 1);
 		const rows = await db.entries.toArray();
 		expect(rows).toHaveLength(1);
 		expect(rows[0].type).toBe('bottle_feed');
@@ -218,7 +219,7 @@ describe('what a save writes', () => {
 		time.dispatchEvent(new Event('input', { bubbles: true }));
 		flushSync();
 		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		await landed(async () => (await db.entries.count()) === 1);
 		const rows = await db.entries.toArray();
 		expect(rows).toHaveLength(1);
 		expect(rows[0].type).toBe('breast_feed');
@@ -266,7 +267,7 @@ describe('one feed at a time', () => {
 		expect(host.textContent).toContain('ends the running feed at');
 		tapPreset('150');
 		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		await landed(async () => (await db.entries.count()) === 2);
 		const running = await db.entries.get(runningId);
 		expect(running?.ended_at).toBe(NOW);
 	});
@@ -284,7 +285,7 @@ describe('one feed at a time', () => {
 		expect(host.textContent).not.toContain('ends the running feed at');
 		tapPreset('150');
 		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		await landed(async () => (await db.entries.count()) === 2);
 		const running = await db.entries.get(runningId);
 		expect(running?.ended_at).toBeNull();
 	});
@@ -293,7 +294,7 @@ describe('one feed at a time', () => {
 		const runningId = await startBreastTimer(NOW - 10 * 60_000);
 		open();
 		host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click();
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		await landed(async () => (await db.entries.count()) === 2);
 		const rows = await db.entries.toArray();
 		expect(rows.find((r) => r.id === runningId)?.ended_at).toBe(NOW);
 		const stillRunning = rows.filter((r) => r.ended_at == null);
@@ -327,10 +328,7 @@ describe('food mode', () => {
 		await db.delete();
 	});
 
-	async function settle(): Promise<void> {
-		await new Promise((resolve) => setTimeout(resolve, 20));
-		flushSync();
-	}
+	const settle = landed;
 
 	/** Types a new Food's name and taps the Add “…” chip the query reveals. */
 	async function addNewFood(name: string): Promise<void> {
@@ -341,7 +339,7 @@ describe('food mode', () => {
 		const chip = [...host.querySelectorAll<HTMLButtonElement>('.chip')].find((b) => b.textContent?.includes(name));
 		if (!chip) throw new Error(`no Add chip for ${name}`);
 		chip.click();
-		await settle();
+		await settle(async () => (await db.foods.toArray()).some((f) => f.name === name));
 	}
 
 	function save(): void {
@@ -362,7 +360,7 @@ describe('food mode', () => {
 		tab('Lots').click();
 		flushSync();
 		save();
-		await settle();
+		await settle(async () => (await db.entries.toArray()).some((e) => e.type === 'meal'));
 		const foods = await db.foods.toArray();
 		expect(foods).toHaveLength(1);
 		expect(foods[0].name).toBe('Banane');
@@ -385,7 +383,7 @@ describe('food mode', () => {
 		flushSync();
 		expect(host.textContent).not.toContain('marked awake from');
 		save();
-		await settle();
+		await settle(async () => (await db.entries.toArray()).some((e) => e.type === 'meal'));
 		const sleep = await db.entries.get(sleepId);
 		expect(sleep?.ended_at).toBeNull();
 		const meal = (await db.entries.toArray()).find((e) => e.type === 'meal');
@@ -400,7 +398,7 @@ describe('food mode', () => {
 		await addNewFood('Brei');
 		expect(host.textContent).toContain('marked awake from');
 		save();
-		await settle();
+		await settle(async () => (await db.entries.get(sleepId))?.ended_at != null);
 		const sleep = await db.entries.get(sleepId);
 		expect(sleep?.ended_at).toBe(NOW);
 	});

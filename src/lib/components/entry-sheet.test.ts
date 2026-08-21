@@ -10,6 +10,7 @@ import { ReplicaDb } from '$client/db';
 import type { Writer } from '$client/mutate';
 import type { Baby, Entry, Household, MemberRecord } from '$domain/types';
 import EntrySheet from './EntrySheet.svelte';
+import { landed } from './test-wait';
 
 const BERLIN = 'Europe/Berlin';
 const NOW = Date.parse('2026-08-17T14:00:00Z');
@@ -62,10 +63,14 @@ function fieldInput(labelText: string): HTMLInputElement {
 	return input;
 }
 
-async function save(): Promise<void> {
+/** Clicks Save and waits for the write to land — `done` names what landing
+    means. Without it (the nothing-changed cases) one fixed beat has to do:
+    there is no arrival to poll for when the save writes nothing. */
+async function save(done?: () => boolean | Promise<boolean>): Promise<void> {
 	const buttons = [...host.querySelectorAll<HTMLButtonElement>('button')];
 	buttons.find((b) => b.getAttribute('data-primary') === '1')?.click();
-	await new Promise((resolve) => setTimeout(resolve, 20));
+	if (done) await landed(done);
+	else await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
 beforeEach(() => {
@@ -132,7 +137,7 @@ describe('a bottle row in the edit sheet', () => {
 		intake.value = '120';
 		intake.dispatchEvent(new Event('input', { bubbles: true }));
 		flushSync();
-		await save();
+		await save(async () => (await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).count()) > 0);
 		const revisions = await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray();
 		expect(revisions).toHaveLength(1);
 		expect(revisions[0].fields).toEqual({ volume_ml: 120, leftover_ml: null });
