@@ -127,6 +127,12 @@ describe('sessions are drawn where the time is, not where the count goes', () =>
 		expect(cols[1].blocks[0].to).toBeCloseTo(1.5 / 24, 6);
 	});
 
+	it('gives an ordinary session exactly one member, spanning the block', () => {
+		const [col] = grid([sleep('2026-08-17T12:00:00Z', '2026-08-17T13:00:00Z')], ['2026-08-17']);
+		expect(col.blocks[0].members).toHaveLength(1);
+		expect(col.blocks[0].members[0]).toMatchObject({ from: 0, to: 1 });
+	});
+
 	it('draws a running session as far as it has got', () => {
 		const [col] = grid([sleep('2026-08-17T12:00:00Z', null)], ['2026-08-17']);
 		expect(col.blocks[0].running).toBe(true);
@@ -191,6 +197,101 @@ describe('sleep is the ground layer', () => {
 		);
 		const late = col.blocks.find((b) => b.entry.occurred_at === iso('2026-08-17T15:00:00Z'))!;
 		expect(late.lanes).toBe(1);
+	});
+});
+
+describe('a Combined Feed is drawn as the one sitting it was', () => {
+	/* Two Feeds close together are one answer to *has she eaten* — pumped
+	   breast milk, then formula. `stats.ts` already counts them as one round;
+	   the grid draws them as one block and states both values. */
+	it('joins two feeds inside the round gap into one block', () => {
+		const [col] = grid(
+			[
+				entry({ type: 'breast_feed', occurred_at: iso('2026-08-17T12:00:00Z'), ended_at: iso('2026-08-17T12:10:00Z'), payload: { side: 'left' } }),
+				bottle('2026-08-17T12:15:00Z', '2026-08-17T12:30:00Z')
+			],
+			['2026-08-17']
+		);
+		expect(col.blocks).toHaveLength(1);
+		expect(col.blocks[0].members).toHaveLength(2);
+		/* From the first start to the last end: 14:00 to 14:30 Berlin, nine
+		   hours after the 05:00 Day Start. */
+		expect(col.blocks[0].from).toBeCloseTo(9 / 24, 6);
+		expect(col.blocks[0].to).toBeCloseTo(9.5 / 24, 6);
+	});
+
+	it('positions each source inside the block it shares', () => {
+		const [col] = grid(
+			[bottle('2026-08-17T12:00:00Z', '2026-08-17T12:15:00Z'), bottle('2026-08-17T12:15:00Z', '2026-08-17T12:30:00Z')],
+			['2026-08-17']
+		);
+		const [a, b] = col.blocks[0].members;
+		expect(a.from).toBe(0);
+		expect(a.to).toBeCloseTo(0.5, 6);
+		expect(b.from).toBeCloseTo(0.5, 6);
+		expect(b.to).toBe(1);
+	});
+
+	it('leaves feeds beyond the gap as separate blocks', () => {
+		const [col] = grid(
+			[bottle('2026-08-17T12:00:00Z', '2026-08-17T12:10:00Z'), bottle('2026-08-17T12:40:00Z', '2026-08-17T12:50:00Z')],
+			['2026-08-17']
+		);
+		expect(col.blocks).toHaveLength(2);
+		expect(col.blocks.every((b) => b.members.length === 1)).toBe(true);
+	});
+
+	it('measures the gap from the end of one feed, not its start', () => {
+		/* A 40-minute breast feed followed 5 minutes later by a bottle is one
+		   sitting, even though the two starts are 45 minutes apart. */
+		const [col] = grid(
+			[
+				entry({ type: 'breast_feed', occurred_at: iso('2026-08-17T12:00:00Z'), ended_at: iso('2026-08-17T12:40:00Z'), payload: { side: 'both' } }),
+				bottle('2026-08-17T12:45:00Z', '2026-08-17T12:55:00Z')
+			],
+			['2026-08-17']
+		);
+		expect(col.blocks).toHaveLength(1);
+		expect(col.blocks[0].members).toHaveLength(2);
+	});
+
+	it('groups over the whole log, so a sitting across the Day Start is one sitting', () => {
+		/* 04:55 and 05:05 Berlin — either side of the 05:00 bucket edge. */
+		const cols = grid(
+			[bottle('2026-08-18T02:55:00Z', '2026-08-18T02:58:00Z'), bottle('2026-08-18T03:05:00Z', '2026-08-18T03:12:00Z')],
+			['2026-08-17', '2026-08-18']
+		);
+		for (const col of cols) {
+			expect(col.blocks).toHaveLength(1);
+			expect(col.blocks[0].members).toHaveLength(2);
+		}
+		expect(cols[0].blocks[0].clippedEnd).toBe(true);
+		expect(cols[1].blocks[0].clippedStart).toBe(true);
+	});
+
+	it('keeps a running last feed running for the whole round', () => {
+		const [col] = grid([bottle('2026-08-17T12:00:00Z', '2026-08-17T12:10:00Z'), bottle('2026-08-17T12:15:00Z', null)], [
+			'2026-08-17'
+		]);
+		expect(col.blocks).toHaveLength(1);
+		expect(col.blocks[0].running).toBe(true);
+	});
+
+	it('lists both Entries in the linear read', () => {
+		const [col] = grid(
+			[bottle('2026-08-17T12:00:00Z', '2026-08-17T12:10:00Z'), bottle('2026-08-17T12:15:00Z', '2026-08-17T12:25:00Z')],
+			['2026-08-17']
+		);
+		expect(col.ordered).toHaveLength(2);
+	});
+
+	it('never joins a feed to a sleep or a tummy stretch', () => {
+		const [col] = grid(
+			[bottle('2026-08-17T12:00:00Z', '2026-08-17T12:10:00Z'), tummy('2026-08-17T12:12:00Z', '2026-08-17T12:20:00Z')],
+			['2026-08-17']
+		);
+		expect(col.blocks).toHaveLength(2);
+		expect(col.blocks.every((b) => b.members.length === 1)).toBe(true);
 	});
 });
 

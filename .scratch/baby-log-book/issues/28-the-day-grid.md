@@ -1,7 +1,7 @@
 # 28 — The day grid: what her day actually looks like
 
 Type: feature
-Status: **resolved 2026-08-21** — shipped: a Week and a Day view over an hour axis, stepping periods, a legend that filters, and the five trend cards kept below it.
+Status: **resolved 2026-08-21** — shipped: a Week and a Day view over an hour axis, stepping periods, a legend that filters, and the five trend cards kept below it. Amended the same day after review: **every Entry takes the whole column**, and a **Combined Feed is drawn as the one sitting it was**.
 
 ## Question
 
@@ -33,13 +33,30 @@ Cost, accepted: a night Sleep still crosses a column edge, at 05:00 instead of a
 
 `stats.ts` gives a session to the bucket it *began* in, because "she slept eleven hours last night" belongs to the night it started. A grid draws time rather than counting days, so **a session appears in every column it overlaps**. This is the one place in the app that does not use start-bucket attribution, and it is deliberate; it is stated at the top of `grid.ts` so nobody has to rediscover why.
 
-### Sleep is the ground layer
+### Every Entry takes the whole column; layering does the rest
 
-A **Sleep Feed** overlaps its Sleep by definition (spec §3.4), so any packing algorithm that treats the two as rivals for a lane draws the domain wrong — it would narrow both and say they compete. Instead Sleep takes the column as a ground layer and everything with a duration sits inset on top of it, which draws the Feed *inside* the Sleep, which is what it is. Two genuinely-overlapping foreground sessions still split lanes, per cluster, so one busy afternoon never narrows the whole day.
+The first build split a column into three tracks — a sleep ground, an inset one for feeds and tummy time, a rail on the right for the instants — so nothing could ever cover anything. **Reversed on review: every Entry is full width.** What the tracks were carrying is carried by layer order instead: Sleep underneath, sessions with a duration over it, instants over both.
 
-### Instants get a rail, not a block
+The domain reading is better, not just the picture. A **Sleep Feed** overlaps its Sleep by definition (spec §3.4), and a full-width Feed drawn across a full-width Sleep says *inside* far more plainly than a narrow column drawn beside it — which is what the inset track actually looked like. A ring in the ground colour on the upper layers is what keeps them reading as objects lying on a Sleep rather than as slices cut out of it.
 
-Pee & poop, Meals, Measurements and Milestones have one time and no duration. Giving them a minimum-height block would be the grid lying about a length they do not have, so they get a rail down the right of each column: a 3px tick in the week, a glyph disc with the Entry's name in the day. In the day view two within half an hour take lanes side by side — **at their true times**, never nudged to a time they did not happen at.
+Costs, and what pays them:
+
+- **A block's label can be crossed by an instant landing on the same minute.** Block labels keep a disc's width of clear space at the trailing edge, and a mark's text sits on a plate in the ground colour — invisible over empty grid, a chip over a block.
+- **A short block cannot hold a line of type.** Under about 17px the label is dropped rather than clipped; a container query states it, so the number lives in one place and a browser without container queries shows the label rather than hiding it.
+- **Two genuinely-overlapping foreground sessions** still split lanes, per cluster, so one busy afternoon never narrows the whole day.
+
+Pee & poop, Meals, Measurements and Milestones have one time and no duration; giving them a minimum-height block would be the grid lying about a length they do not have, so they stay a 3px full-width tick in the week and a glyph disc with the Entry's name in the day. Two within half an hour still cannot share the same trailing edge, so a cluster **packs against that edge** rather than spreading across the column — a disc adrift in the middle of a Feed's label is worse than a tight row of discs. Their vertical position is never nudged: they sit at the time they happened.
+
+### A Combined Feed is drawn as the one sitting it was
+
+A **Combined Feed** is one sitting of milk from more than one source — pumped breast milk, then formula — logged as the several Feeds it was and never merged ([ADR-0019](../../../docs/adr/0019-a-new-feed-ends-the-running-one.md), CONTEXT.md). It follows from two Feeds close together and is never recorded as such, which is exactly what makes it a *drawing* question: two blocks a minute apart are one answer to *has she eaten*, and the grid should say so.
+
+- **The rule is `stats.ts`'s, imported rather than restated.** The cards have counted feeds as rounds since [issue 10](10-stats-and-export.md) — 15 minutes, measured end-of-one to start-of-next. A grid that grouped differently from the card beneath it would be the screen disagreeing with itself.
+- **Grouped over the whole log, not per column**, so a sitting that straddles a Day Start is the same sitting on both sides of it.
+- **One envelope, both values**: `Breast · Left + Bottle · Formula · 90 ml`. The plus is doing real work — it says *and then*.
+- **One tap target per source, at its own slice.** A sitting is one thing to read and two things to correct; a single button would have put the second bottle out of reach of the only screen that can open it.
+- **A hairline seam at the handover, in the week view only.** There it is all there is to say a sitting had two sources; in the day view the label says it in words, and a line drawn at the handover cuts straight through them.
+- Nothing else groups. A Feed never joins a Sleep or a tummy stretch, and Sleeps still never merge ([ADR-0014](../../../docs/adr/0014-only-sleeps-merge.md) is about storage; this is about drawing).
 
 ### Two overturned rules from §9.1
 
@@ -66,6 +83,7 @@ Colour is the **scanning** channel and never the identifying one:
 ## Accepted costs
 
 - **Week-view blocks are not individually tappable.** A 46px column cannot carry a 48px target; the day view and the timeline are where an Entry is opened.
+- **A mark's label can still cross a block's** when an instant lands inside one and the block's own label runs the full width. The plate keeps it readable; the two are not always on separate rows. The price of full width, paid knowingly.
 - **Day-view blocks are below the 48px tap floor** when the Entry is short. Accepted on a read surface whose primary editing path is elsewhere; blocks render at their true height with a 5px floor and are never re-centred, so ordering and start times stay honest.
 - **One hour gutter serves seven columns**, so on the two days a year one column is 23 or 25 hours long the *labels* can only be right for the length most of the week has. The hour **lines** are drawn per column from that column's own ticks, so the geometry never lies even on the day the labels do. A single-day view has one column and is exact.
 - **Marks in a multi-lane cluster lose their word** and keep their disc; the accessible name keeps the sentence.

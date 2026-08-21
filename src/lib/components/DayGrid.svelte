@@ -15,9 +15,12 @@
 	       what is in it, in order, with times and durations. The legend names
 	       every hue, and the day view writes the labels out. Nothing on this
 	       screen is knowable *only* by its colour.
-	     - **Sleep is the ground.** It takes the whole column; feeds and tummy
-	       time sit inset on top of it. A Sleep Feed is then drawn inside its
-	       Sleep, which is what it is (spec §3.4). */
+	     - **Every Entry takes the whole column, and layering does the rest.**
+	       Sleep is the ground, sessions with a duration lie over it, instants
+	       lie over both — so a Sleep Feed is drawn as a band *inside* its
+	       Sleep (spec §3.4) rather than as a column beside it. A ring in the
+	       ground colour keeps the upper layers reading as objects on top of a
+	       Sleep rather than as slices cut out of it. */
 	import { app } from '$client/state.svelte';
 	import { buildGrid, type GridBlock, type GridColumn, type GridMark } from '$domain/grid';
 	import type { FacetKey } from '$domain/filter';
@@ -97,19 +100,29 @@
 		return parts.join(' · ');
 	}
 
+	/* A Combined Feed states every source it was: "Breast · Left + Bottle ·
+	   Formula · 120 ml". The plus is doing real work — it says *and then*,
+	   which is what a sitting from two sources is (ADR-0019). */
+	const combinedTitle = (b: GridBlock) => b.members.map((part) => title(part.entry)).join(' + ');
+
 	/* Percentages, computed once per block rather than in the template — the
 	   week view can hold a couple of hundred of them. */
 	const top = (v: number) => `${(v * 100).toFixed(4)}%`;
 	const height = (b: GridBlock) => `${Math.max(0, (b.to - b.from) * 100).toFixed(4)}%`;
+	const span = (part: { from: number; to: number }) => `${Math.max(0, (part.to - part.from) * 100).toFixed(4)}%`;
 
 	/** Foreground blocks share the inset track; ground blocks take the column. */
 	function across(b: GridBlock): string {
 		const width = 100 / b.lanes;
 		return `left:${(b.lane * width).toFixed(4)}%;width:${width.toFixed(4)}%`;
 	}
+	/** A lone instant takes the whole column, like everything else. A cluster —
+	    two Entries too close to draw at the same trailing edge — packs against
+	    that edge instead of spreading across the column, because a disc adrift
+	    in the middle of a Feed's label is worse than a tight row of discs. */
 	function markAcross(mk: GridMark): string {
-		const width = 100 / mk.lanes;
-		return `left:${(mk.lane * width).toFixed(4)}%;width:${width.toFixed(4)}%`;
+		if (mk.lanes === 1) return 'left:0;right:0';
+		return `left:auto;right:${mk.lane * 28}px`;
 	}
 
 	/* One gutter serves every column, so on the two days a year a column is 23
@@ -221,37 +234,47 @@
 					{/each}
 				</div>
 
-				<!-- Feeds and tummy time, inset and on top, so a Sleep Feed reads
-				     as sitting inside its Sleep rather than fighting it. -->
+				<!-- Feeds and tummy time, over the Sleep ground, so a Sleep Feed
+				     reads as a band lying across its Sleep rather than fighting it.
+				     A Combined Feed is one envelope carrying both sources' values,
+				     divided where one source handed over to the next — each still
+				     its own tap target and its own accessible name, because a
+				     sitting is one thing to read and two things to correct. -->
 				<div class="daygrid-over" aria-hidden={!isDay}>
 					{#each col.blocks.filter((b) => !b.ground) as b (b.entry.id)}
-						{#if isDay}
-							<button
-								class="block"
-								type="button"
-								data-t={b.facet}
-								data-clip-start={b.clippedStart ? '1' : '0'}
-								data-clip-end={b.clippedEnd ? '1' : '0'}
-								data-running={b.running ? '1' : '0'}
-								style={`top:${top(b.from)};height:${height(b)};${across(b)}`}
-								aria-label={blockName(b)}
-								onclick={() => onopen(b.entry)}
-							>
-								<span class="block-label">
+						<div
+							class="block"
+							data-t={b.facet}
+							data-clip-start={b.clippedStart ? '1' : '0'}
+							data-clip-end={b.clippedEnd ? '1' : '0'}
+							data-running={b.running ? '1' : '0'}
+							style={`top:${top(b.from)};height:${height(b)};${across(b)}`}
+						>
+							{#if isDay}
+								<span class="block-label" aria-hidden="true">
 									<Icon name={GLYPH_OF[b.entry.type]} />
-									<span class="block-text">{title(b.entry)}</span>
+									<span class="block-text">{combinedTitle(b)}</span>
 								</span>
-							</button>
-						{:else}
-							<span
-								class="block"
-								data-t={b.facet}
-								data-clip-start={b.clippedStart ? '1' : '0'}
-								data-clip-end={b.clippedEnd ? '1' : '0'}
-								data-running={b.running ? '1' : '0'}
-								style={`top:${top(b.from)};height:${height(b)};${across(b)}`}
-							></span>
-						{/if}
+								{#each b.members as part (part.entry.id)}
+									<button
+										class="block-part"
+										type="button"
+										style={`top:${top(part.from)};height:${span(part)}`}
+										aria-label={sentence(part.entry)}
+										onclick={() => onopen(part.entry)}
+									></button>
+								{/each}
+							{:else}
+								<!-- The seam where one source handed over to the next. A week
+								     column has no room for a label, so the hairline is all
+								     there is to say the sitting had two sources; in the day
+								     view the label says it in words, and a line drawn at the
+								     handover would cut straight through them. -->
+								{#each b.members.slice(1) as part (part.entry.id)}
+									<span class="block-seam" style={`top:${top(part.from)}`}></span>
+								{/each}
+							{/if}
+						</div>
 					{/each}
 				</div>
 

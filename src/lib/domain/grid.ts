@@ -25,21 +25,40 @@
 
    3. **Sleep is the ground.** A Sleep Feed overlaps its Sleep by definition
       (spec §3.4), so a packing algorithm that treats them as rivals draws the
-      domain wrong. Sleep takes the whole column as a ground layer and
-      everything with a duration sits inset on top of it — the Feed is drawn
-      *inside* the Sleep, which is what it is.
+      domain wrong. Every Entry takes the whole column; Sleep is the layer
+      underneath, so the Feed is drawn as a band lying *inside* the Sleep,
+      which is what it is.
+
+   4. **A sitting is one block.** Two Feeds close together are one **Combined
+      Feed** — one answer to *has she eaten* — and are drawn as one block
+      stating both sources' values, divided where one handed over to the next.
+      The gap rule is `stats.ts`'s, imported rather than restated, so the grid
+      and the card beneath it can never group feeds differently.
 
    Everything here is pure: instants in, fractions out. The renderer does no
    arithmetic. */
 
 import { addDays, dayStartInstant, MS, wallPartsOf } from './time';
 import { FACET_OF, type FacetKey } from './filter';
-import { isSession } from './entries';
+import { isFeed, isSession } from './entries';
+import { FEED_ROUND_GAP_MS } from './stats';
 import type { Entry } from './types';
+
+/** One member of a block, positioned as a fraction *of the block*. A block
+    with a single member runs 0 → 1; a Combined Feed has one per source. */
+export interface BlockMember {
+	entry: Entry;
+	from: number;
+	to: number;
+}
 
 /** A positioned Entry with a duration. Fractions are of the column's span. */
 export interface GridBlock {
+	/** The first Entry the block draws — its identity, facet and key. */
 	entry: Entry;
+	/** Everything the block draws, in order. One, except for a Combined Feed
+	    (see `feedRounds`), which is several and states all of their values. */
+	members: BlockMember[];
 	facet: FacetKey;
 	from: number;
 	to: number;
@@ -179,6 +198,27 @@ function endOf(e: Entry, now: number): number {
 	return Math.max(end, e.occurred_at);
 }
 
+/** A **Combined Feed** is one sitting of milk taken from more than one source —
+    pumped breast milk, then formula — logged as the several Feeds it was rather
+    than as one, and never merged (CONTEXT.md, ADR-0019). It follows from two
+    Feeds close together and is never recorded as such, which is exactly what
+    makes it a drawing question: two blocks a minute apart are one answer to
+    *has she eaten*, and the grid should say so.
+
+    The rule is `stats.ts`'s, imported rather than restated — the cards already
+    count feeds as rounds, and a grid that drew a different grouping from the
+    card underneath it would be the screen disagreeing with itself. */
+function feedRounds(feeds: Entry[], now: number): Entry[][] {
+	const rounds: Entry[][] = [];
+	let edge = -Infinity;
+	for (const e of feeds) {
+		if (rounds.length === 0 || e.occurred_at - edge >= FEED_ROUND_GAP_MS) rounds.push([e]);
+		else rounds[rounds.length - 1].push(e);
+		edge = Math.max(edge, endOf(e, now));
+	}
+	return rounds;
+}
+
 export function buildGrid(input: GridInput): GridColumn[] {
 	const { babyId, dayStart, zone, now, keys } = input;
 	const markSlotMs = input.markSlotMs ?? 0;
@@ -191,6 +231,21 @@ export function buildGrid(input: GridInput): GridColumn[] {
 	   lane packing starts from a stable sequence. */
 	mine.sort((a, b) => a.occurred_at - b.occurred_at || (a.id < b.id ? -1 : 1));
 
+	/* Grouped once, over the whole log rather than per column, so a Combined
+	   Feed that straddles a Day Start is the same sitting on both sides of it.
+	   Everything that is not a Feed is a group of one. */
+	const rounds = feedRounds(
+		mine.filter((e) => isFeed(e.type)),
+		now
+	);
+	const roundOf = new Map<string, Entry[]>();
+	for (const round of rounds) roundOf.set(round[0].id, round);
+	const groups: Entry[][] = [];
+	for (const e of mine) {
+		if (!isFeed(e.type)) groups.push([e]);
+		else if (roundOf.has(e.id)) groups.push(roundOf.get(e.id)!);
+	}
+
 	return keys.map((key) => {
 		const start = dayStartInstant(key, dayStart, zone);
 		const end = dayStartInstant(addDays(key, 1), dayStart, zone);
@@ -200,29 +255,39 @@ export function buildGrid(input: GridInput): GridColumn[] {
 		const marks: GridMark[] = [];
 		const ordered: Entry[] = [];
 
-		for (const e of mine) {
-			const facet = FACET_OF[e.type];
-			if (isSession(e.type)) {
-				const stop = endOf(e, now);
+		for (const group of groups) {
+			const first = group[0];
+			const last = group[group.length - 1];
+			const facet = FACET_OF[first.type];
+			if (isSession(first.type)) {
+				const opens = first.occurred_at;
+				const stop = endOf(last, now);
 				/* Touching, not contained: a night Sleep is drawn in both the column
 				   it started in and the one its tail runs into. A zero-length
 				   session still counts as touching the column it sits in. */
-				const touches = e.occurred_at < end && (stop > start || (stop === start && e.occurred_at >= start));
+				const touches = opens < end && (stop > start || (stop === start && opens >= start));
 				if (!touches) continue;
+				const width = Math.max(1, stop - opens);
 				blocks.push({
-					entry: e,
+					entry: first,
+					members: group.map((e) => ({
+						entry: e,
+						from: (e.occurred_at - opens) / width,
+						to: (endOf(e, now) - opens) / width
+					})),
 					facet,
-					from: clamp01((e.occurred_at - start) / span),
+					from: clamp01((opens - start) / span),
 					to: clamp01((stop - start) / span),
-					clippedStart: e.occurred_at < start,
+					clippedStart: opens < start,
 					clippedEnd: stop > end,
-					running: e.ended_at == null,
+					running: last.ended_at == null,
 					ground: facet === 'sleep',
 					lane: 0,
 					lanes: 1
 				});
-				ordered.push(e);
+				for (const e of group) ordered.push(e);
 			} else {
+				const e = first;
 				if (e.occurred_at < start || e.occurred_at >= end) continue;
 				marks.push({
 					entry: e,

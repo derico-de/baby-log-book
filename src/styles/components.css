@@ -1065,15 +1065,9 @@
 		margin-inline: auto;
 		--gutter: 34px;
 		--hour: 44px;
-		/* Three tracks across a column, and they never overlap: the sleep
-       ground, the inset one feeds and tummy time sit in — so a Sleep Feed
-       reads as being *inside* its Sleep — and a rail on the right for the
-       Entries that have an instant and no duration. */
-		--rail: 20%;
-		--over-in: 34%;
 		padding-bottom: var(--sp-5);
-		/* The mark rail runs to the last column's outer edge, so the grid keeps
-       a couple of pixels off the screen. */
+		/* An Entry runs to the last column's outer edge, so the grid keeps a
+       couple of pixels off the screen. */
 		padding-inline-end: var(--sp-2);
 	}
 	.daygrid[data-view='day'] {
@@ -1200,15 +1194,16 @@
 		position: absolute;
 		inset-block: 0;
 	}
-	.daygrid-ground {
-		inset-inline: 0 var(--rail);
-	}
-	.daygrid-over {
-		inset-inline: var(--over-in) var(--rail);
-	}
+	/* Every Entry gets the whole column. Layering carries what three tracks
+     used to: Sleep is the ground, sessions with a duration sit over it, and
+     the instants sit over both — so a Sleep Feed is still drawn *inside* its
+     Sleep (spec §3.4), as a band across it rather than as a column beside it.
+     The ring on the layers above is what keeps them legible as separate
+     objects on top of a Sleep rather than as slices out of it. */
+	.daygrid-ground,
+	.daygrid-over,
 	.daygrid-marks {
-		inset-inline: auto 0;
-		width: var(--rail);
+		inset-inline: 0;
 	}
 
 	.block {
@@ -1231,6 +1226,40 @@
 	.daygrid[data-view='day'] .block {
 		min-height: 5px;
 		cursor: pointer;
+		container-type: size;
+	}
+	/* A ring in the ground colour, so a full-width Feed drawn across a Sleep
+     reads as a band lying on it rather than as a gap cut out of it. */
+	.daygrid-over .block {
+		box-shadow: 0 0 0 1.5px var(--ground);
+	}
+
+	/* A Combined Feed — one sitting of milk from more than one source, stored
+     as the several Feeds it was (ADR-0019). One envelope stating every value,
+     a hairline where one source handed over to the next, and one tap target
+     per source: it is one thing to read and two things to correct. */
+	.block-seam {
+		position: absolute;
+		inset-inline: 0;
+		height: 1px;
+		background: color-mix(in oklch, var(--t-ink) 45%, transparent);
+		pointer-events: none;
+	}
+	.block-part {
+		position: absolute;
+		inset-inline: 0;
+		border: 0;
+		margin: 0;
+		padding: 0;
+		background: none;
+		cursor: pointer;
+	}
+	.block-part:focus-visible {
+		outline-offset: -2px;
+	}
+	/* Under the tap targets, so a tap lands on the source it points at. */
+	.block-label {
+		pointer-events: none;
 	}
 	/* Sleep is the ground layer, so it is quieter than what sits on it —
      otherwise an eleven-hour block is the only thing anyone sees. */
@@ -1265,6 +1294,10 @@
 		align-items: center;
 		gap: 5px;
 		padding: 3px 6px;
+		/* Room at the trailing edge for a mark disc landing on the same minute:
+       full-width Entries mean an instant can cross a block, and the two
+       should not share a pixel. */
+		padding-inline-end: var(--sp-5);
 		font-size: var(--fs-0);
 		font-weight: var(--fw-medium);
 		line-height: 1.25;
@@ -1280,14 +1313,19 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	/* A ten-minute stretch is ten pixels tall and cannot hold a line of type:
+     half a clipped word is worse than the colour alone, and the block's
+     accessible name carries the whole sentence either way. Stated as a
+     container query rather than a number shared with the script, and phrased
+     so that a browser without them shows the label rather than hiding it. */
+	@container (max-height: 17px) {
+		.block-label {
+			display: none;
+		}
+	}
+
 	.daygrid-ground .block-text {
 		font-variant-numeric: tabular-nums lining-nums;
-	}
-	/* Under about two rows of type there is no room for a label at all, and a
-     clipped half-word is worse than the colour alone — the block's
-     accessible name carries the whole sentence either way. */
-	.block-label {
-		container-type: size;
 	}
 
 	.mark {
@@ -1307,7 +1345,12 @@
 		height: auto;
 		display: flex;
 		align-items: center;
-		gap: 5px;
+		/* Trailing edge, because the leading edge is where every block writes
+       its own label — an instant landing on the same minute as a Sleep would
+       otherwise sit on top of the word. */
+		justify-content: flex-end;
+		gap: 6px;
+		padding-inline-end: var(--sp-2);
 		transform: translateY(-11px);
 		cursor: pointer;
 		min-width: 0;
@@ -1321,25 +1364,28 @@
 		color: var(--t-ink);
 		display: grid;
 		place-items: center;
+		/* It now crosses a Sleep's tint and may land on a Feed's solid fill. */
+		box-shadow: 0 0 0 1.5px var(--ground);
 	}
 	.mark-disc svg {
 		width: 13px;
 		height: 13px;
 	}
-	/* Two lines rather than a truncation: a rail 100px wide cuts "Pee and poop"
-     mid-word, and a Meal names its Foods, which is the whole point of reading
-     it here. */
 	.mark-text {
 		min-width: 0;
 		font-size: var(--fs-0);
-		line-height: 1.25;
 		color: var(--ink-2);
+		text-align: right;
 		overflow: hidden;
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		line-clamp: 2;
-		-webkit-line-clamp: 2;
-		overflow-wrap: anywhere;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		/* Now that every Entry is full width, an instant can land on a Feed's
+       solid fill, where secondary ink is unreadable. The plate is the ground
+       colour, so over empty grid it is invisible and over a block it reads
+       as a chip. */
+		background: var(--ground);
+		padding: 1px 5px;
+		border-radius: var(--r-1);
 	}
 
 	/* The one accent on this screen. `--live` and `--accent` are the same
