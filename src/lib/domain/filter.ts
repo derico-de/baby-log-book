@@ -11,7 +11,7 @@ import type { Entry, EntryType, MealPayload, MilestonePayload } from './types';
 
 /** Breast and Bottle collapse into one Feeds facet: nobody at 3am thinks
     "breast OR bottle". */
-export const FACET_KEYS = ['feed', 'sleep', 'nappy', 'meal', 'measure', 'milestone'] as const;
+export const FACET_KEYS = ['feed', 'sleep', 'nappy', 'meal', 'tummy', 'measure', 'milestone'] as const;
 export type FacetKey = (typeof FACET_KEYS)[number];
 
 export const FACET_OF: Record<EntryType, FacetKey> = {
@@ -21,7 +21,8 @@ export const FACET_OF: Record<EntryType, FacetKey> = {
 	sleep: 'sleep',
 	nappy: 'nappy',
 	measurement: 'measure',
-	milestone: 'milestone'
+	milestone: 'milestone',
+	tummy_time: 'tummy'
 };
 
 /** Three preset chips, and no date picker in v1. */

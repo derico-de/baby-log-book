@@ -2,7 +2,15 @@
 	/* The timeline — the primary screen, not a dashboard of tiles with the log
 	   demoted below the fold (spec §8.4). */
 	import { app } from '$client/state.svelte';
-	import { addBaby, deleteEntry, endSleep, logNappy, startSleep, stopSession } from '$client/mutate';
+	import {
+		addBaby,
+		deleteEntry,
+		endSleep,
+		logNappy,
+		startSleep,
+		startTummyTime,
+		stopSession
+	} from '$client/mutate';
 	import { dayBucketOf, dayStartInstant, wallTimeAtOrAfter, wallTimeAtOrBefore } from '$domain/time';
 	import { dayLabel } from '$lib/i18n/format';
 	import type { Entry } from '$domain/types';
@@ -20,7 +28,16 @@
 	import TimelineRow from '$lib/components/TimelineRow.svelte';
 	import TimeSheet from '$lib/components/TimeSheet.svelte';
 
-	type SheetName = 'feed' | 'feed-asleep' | 'measurement' | 'milestone' | 'filter' | 'sleep-start' | 'awake' | null;
+	type SheetName =
+		| 'feed'
+		| 'feed-asleep'
+		| 'measurement'
+		| 'milestone'
+		| 'filter'
+		| 'sleep-start'
+		| 'awake'
+		| 'tummy-start'
+		| null;
 	let sheet = $state<SheetName>(null);
 	let openEntry = $state<Entry | null>(null);
 	/** The Sleep *She's awake* is aimed at — the row's own, or the running one
@@ -71,6 +88,30 @@
 		});
 	}
 
+	/** Starting tummy time asks for its time the way a Sleep does, and for the
+	    same reason: it is normally logged a minute or two after she went down on
+	    her front, and confirming the prefill costs one tap. */
+	async function beginTummy(time: string) {
+		sheet = null;
+		if (!baby) return;
+		const at = wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now;
+		const id = await app.log((w) => startTummyTime(w, { babyId: baby.id, occurredAt: at }), {
+			text: m.toast_tummy_started(),
+			undo: async () => {
+				if (id) await app.edit((w) => deleteEntry(w, id), { text: m.toast_undone() });
+			}
+		});
+	}
+
+	/** *Off her tummy* — ends the running stretch at the moment it is pressed,
+	    with no sheet in between: unlike a Sleep, nobody discovers tummy time
+	    ended twenty minutes ago. Correcting it is the entry sheet's job. */
+	async function endTummy() {
+		const running = app.runningTummy;
+		if (!running) return;
+		await app.edit((w) => stopSession(w, running.id, Date.now()), { text: m.toast_tummy_ended() });
+	}
+
 	/** *She's awake* ends the Sleep at the time the sheet asked for; opened from
 	    the fan it aims at the running Sleep, and the fan reflows in place once
 	    the end lands. The time is an end, so it reads forwards from the Sleep's
@@ -88,7 +129,12 @@
 	/** Stopping a row you are already looking at does not clear the filter. */
 	async function stop(entry: Entry) {
 		await app.edit((w) => stopSession(w, entry.id, Date.now()), {
-			text: entry.type === 'sleep' ? m.toast_sleep_ended() : m.toast_logged({ what: m.type_breast_feed() })
+			text:
+				entry.type === 'sleep'
+					? m.toast_sleep_ended()
+					: entry.type === 'tummy_time'
+						? m.toast_tummy_ended()
+						: m.toast_logged({ what: m.type_breast_feed() })
 		});
 	}
 
@@ -192,6 +238,7 @@
 {#if baby}
 	<Fan
 		asleep={app.runningSleep != null}
+		tummyRunning={app.runningTummy != null}
 		onPee={() => void nappy(true, false)}
 		onPoop={() => void nappy(false, true)}
 		onSleep={() => (sheet = 'sleep-start')}
@@ -203,6 +250,8 @@
 			sheet = 'awake';
 		}}
 		onFeedAsleep={() => (sheet = 'feed-asleep')}
+		onTummyStart={() => (sheet = 'tummy-start')}
+		onTummyEnd={() => void endTummy()}
 	/>
 {/if}
 
@@ -216,6 +265,14 @@
 	<FilterSheet onclose={() => (sheet = null)} />
 {:else if sheet === 'sleep-start'}
 	<TimeSheet title={m.sheet_sleep_start_title()} icon="sleep" t="sleep" onsave={(t) => void beginSleep(t)} onclose={() => (sheet = null)} />
+{:else if sheet === 'tummy-start'}
+	<TimeSheet
+		title={m.sheet_tummy_start_title()}
+		icon="tummy"
+		t="tummy"
+		onsave={(t) => void beginTummy(t)}
+		onclose={() => (sheet = null)}
+	/>
 {:else if sheet === 'awake'}
 	<TimeSheet
 		title={m.fan_awake()}

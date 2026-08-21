@@ -220,6 +220,13 @@ export function buildExport(input: ExportInput): ExportFiles {
 		(e.payload as MilestonePayload).name
 	]));
 
+	/* Tummy Time carries no payload at all, so the file is the shared columns
+	   plus its two ends — and the duration those ends are kept for. */
+	files['tummy_times.csv'] = toCsv(
+		[...SHARED_HEADERS, 'ended_at', 'duration_minutes'],
+		ofType('tummy_time').map((e) => [...shared(e), iso(e.ended_at), minutes(e.occurred_at, e.ended_at)])
+	);
+
 	files['babies.csv'] = toCsv(
 		['baby_id', 'name', 'birth_date', 'deleted_at'],
 		input.babies.map((b) => [b.id, b.name, b.birth_date, iso(b.deleted_at)])

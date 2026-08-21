@@ -47,11 +47,11 @@ These emerged separately and kept confirming each other. Treat them as invariant
 
 ### v1 — what gets built
 
-- **Logging** all seven Entry types, with Live Session timers for Feeds and Sleeps.
+- **Logging** all eight Entry types, with Live Session timers for Feeds, Sleeps and Tummy Time.
 - **Timeline** as the primary screen, with attribution, Revision history, correction and undo.
-- **Timeline filtering** across five facets, which is also the history surface and the Food detail view.
+- **Timeline filtering** across six facets, which is also the history surface and the Food detail view.
 - **Light schedules**: one Target per activity per Baby, elapsed-vs-target in a sticky header.
-- **Stats**: four trend cards over a rolling seven days plus today.
+- **Stats**: five trend cards over a rolling seven days plus today.
 - **Export**: a zip of per-type CSVs, everything, always.
 - **Milestones** — in v1 rather than v2 because they are unrepeatable. A missed feed total is noise; a first tooth that happened while the app could not record it is gone. ([Stats and CSV export](issues/10-stats-and-export.md))
 - **Offline sync** with a full local replica, a durable outbox and silent conflict resolution.
@@ -108,9 +108,9 @@ Full vocabulary in [`CONTEXT.md`](../../CONTEXT.md). This section is the shape; 
 
 A Member belongs to **exactly one Household in v1**. The domain model allowed several ([Domain model](issues/05-domain-model.md)); [Accounts](issues/07-accounts-and-invites.md) narrowed it to one so every query is Household-scoped with no exceptions. Build the schema so a second is not a migration, but do not build the switcher.
 
-### 3.2 The seven Entry types
+### 3.2 The eight Entry types
 
-Everything recorded about a Baby at a point in time is an **Entry**. Seven discriminator values:
+Everything recorded about a Baby at a point in time is an **Entry**. Eight discriminator values:
 
 | Type | Records | Session? |
 |---|---|---|
@@ -121,6 +121,7 @@ Everything recorded about a Baby at a point in time is an **Entry**. Seven discr
 | **Nappy** | Pee / poop / both, optional consistency | No |
 | **Measurement** | Weight, height, head circumference — all optional, entered together | No |
 | **Milestone** | A free-text Milestone Name | No |
+| **Tummy Time** | Start and end, nothing else | Yes — **the end is the whole point**, and nothing rescues a forgotten one (§3.7) |
 
 **Every Entry takes an optional free-text Note**, behind an icon so it costs no vertical space in the common path. It is the pressure valve that lets the rest of the model stay narrow — including on Milestone (§3.6).
 
@@ -135,6 +136,8 @@ Breast feeds record the **side and total duration, not per-side timers** — too
 Nothing downstream depends on when a Feed ended — the Feed Interval measures from the previous Feed's *start* — so a Feed's end is optional detail and a forgotten stop is harmless. A Sleep left running has destroyed the record it existed to make.
 
 This splits Stale Session handling in two, and it is why only Sleeps get a recovery banner and Feeds get none. The UI must not imply otherwise: a six-hour running Feed renders as an ordinary Live Session with a Stop button and draws nothing else.
+
+**Tummy Time sits on the Sleep side of the asymmetry and is still refused the banner** — deliberately, and it is the one place the rule is paid for rather than derived. A stretch is minutes long, in daylight, with an adult over her; the stale-Sleep machinery is aimed at hours in the dark with nobody watching. The fan carries the end instead ([ADR-0027](../../docs/adr/0027-tummy-time-ends-in-the-fan.md)).
 
 ### 3.4 Representation
 
@@ -170,6 +173,16 @@ The seventh type costs one fan row, one glyph and one string. Everything that co
 - **It stays an instant.** A date-only field would be the only value in the system that is not an instant, breaking [ADR-0010](../../docs/adr/0010-instants-are-stored-the-zone-is-a-lens.md) and the one-table shape. Precision is dropped at display instead: **the timeline shows no clock time on a Milestone row** — an em dash where the time would be. Dated today → the moment of logging. **Back-dated → the Day Start of that date**, so it sits at the head of its day, which is what makes a row with no visible time legible among timed ones.
 - **Uniqueness is nobody's business.** "First tooth" happens once; "new word" and "new tooth" repeat by design, and the model cannot tell them apart without the stored key already rejected. Derivable by exact string match if anything ever wants it; enforced by nothing.
 - **A single-line input, not a textarea.** The anti-baby-book boundary is held by what is *absent* — no photo, no attachment, no rich text, no dedicated screen, no sharing — not by amputating the Note that all six siblings have.
+
+### 3.7 Tummy Time
+
+The eighth type and the fourth Live Session: a stretch a Baby spent on their front, timed. It costs one fan row, one glyph, one hue and one stats card. ([ADR-0027](../../docs/adr/0027-tummy-time-ends-in-the-fan.md))
+
+- **It is a Sleep without the payload.** Two ends and nothing else, so the payload is empty and the entry file is the shared columns plus a duration. Everything the timeline draws for a running session — the *running* pill, the Stop button, the duration line, both ends on a finished row — follows from membership of `SESSION_TYPES` rather than from anything type-specific.
+- **The fan reflows the way it does for Sleep.** While a stretch runs there is no *Tummy time* to start, only *Off her tummy*, which ends the running one **at the instant it is pressed** — no time sheet in between, because unlike a Sleep nobody discovers twenty minutes late that it ended. Starting one *does* ask, with the same one-field sheet prefilled with now, because a stretch is normally logged a minute or two in.
+- **No banner, and no merge.** A forgotten stop inflates the day's total and nothing corrects it — the accepted cost (§3.3, ADR-0027). Two open stretches are two rows, not a contradiction, so [ADR-0014](../../docs/adr/0014-only-sleeps-merge.md)'s refusal covers them: merging would tombstone one and delete minutes from the day, which is the Feed failure again.
+- **No Target.** Tummy time is reported, never scheduled: nothing is overdue, the live grid keeps its two columns, and no age table seeds a number the app would then measure a Baby against.
+- **A duration stats card with a quarter-hour axis**, appearing only once there is tummy time in the window like every other card. Minutes per day is a rate, which is the admission test; an hourly axis would draw an honest day as a stub. Beside the total it states **how many stretches today and the longest** — 30 minutes in one go is not 30 minutes in six.
 
 ---
 
@@ -532,10 +545,10 @@ The tab bar does put a second control in the thumb zone, which is the trade the 
 
 [Logging interactions](issues/16-logging-interactions.md).
 
-**One FAB, bottom-right in thumb reach.** Tapping it **expands it in place into a stack of six direct actions**, expanding upward: **Pee · Poop · Sleep · Feed · Measurement · Milestone**.
+**One FAB, bottom-right in thumb reach.** Tapping it **expands it in place into a stack of seven direct actions**, expanding upward: **Pee · Poop · Sleep · Feed · Tummy time · Measurement · Milestone**.
 
 - **Nappies log straight from the fan — no sheet, no confirm.** A nappy is two taps and the second is a large target; no sheet chrome ever renders for the app's most frequent, least informative action.
-- **Only Feeds, Measurements and Milestones open the sheet**, because only they carry real data.
+- **Only Feeds, Measurements and Milestones open the sheet**, because only they carry real data. Sleep, *She's awake* and starting tummy time open the one-field time sheet; *Off her tummy* writes straight through (§3.7).
 - **Undo, not confirm — decided explicitly.** Corrections are already first-class: any Member may fix any Member's Entry and the history stays visible. A confirm step taxes every nappy every night to prevent a mistake that is cheap to correct.
 - **Rejected**: a dedicated nappy button (a permanent second control beside a scrolling timeline, with poop behind a 400ms long-press nobody finds at 3am), and putting nappies inside the sheet.
 - **Measurement holds the second-to-last slot and is just as rare as Milestone**, which is why frequency is not the fan's admission test and Milestone earned its row.
@@ -628,7 +641,7 @@ The home screen already answers *when did she last eat*; the timeline already an
 
 [ADR-0007](../../docs/adr/0007-export-is-an-escape-hatch.md). **It is an escape hatch, not a backup.** The data is yours because this is self-hosted. It is explicitly **not re-importable**; the real backup is the SQLite file on the volume.
 
-- **A zip of one CSV per entry type, plus reference tables**: `sleeps`, `breast_feeds`, `bottle_feeds`, `meals` + `meal_foods`, `nappies`, `measurements`, `milestones`, and `babies`, `members`, `foods`, `targets`, `revisions`, `household`. The decisive argument is not sparse columns — it is that **a Meal holds several Foods and therefore does not fit one row**. Both escapes are wrong: repeating the Meal across N rows corrupts every count in the file, and a list in one cell is no longer CSV. Cost: one ~8 KB zip library in the browser.
+- **A zip of one CSV per entry type, plus reference tables**: `sleeps`, `breast_feeds`, `bottle_feeds`, `meals` + `meal_foods`, `nappies`, `measurements`, `milestones`, `tummy_times`, and `babies`, `members`, `foods`, `targets`, `revisions`, `household`. The decisive argument is not sparse columns — it is that **a Meal holds several Foods and therefore does not fit one row**. Both escapes are wrong: repeating the Meal across N rows corrupts every count in the file, and a list in one cell is no longer CSV. Cost: one ~8 KB zip library in the browser.
 - **Everything, always, no options.** One button, all Babies, all time, whole Household. A filtered export is not an escape hatch, and `baby_id` is there for anyone who wants one Baby. **This is the rare feature whose correct UI is zero UI.**
 - **Produced in the browser** from the local replica as a `Blob`. Works offline, needs no endpoint and no auth path, and at 2 MB a year the server's only advantage never gets cashed in. It also keeps the export honest: what comes out is exactly what your Device holds.
 - **The edit history comes out, stratified.** Each entry file carries current values plus `logged_by`, `logged_at`, `edited_by`, `edited_at`, `deleted_at`; the full chain lives in `revisions.csv`. **Soft-deleted entries are included and flagged** — an export that silently drops rows the app still holds is lying about being complete.

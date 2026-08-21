@@ -196,6 +196,24 @@ class AppState {
 		return this.header?.feed.running ?? null;
 	}
 
+	/** The running Tummy Time, if there is one. Read straight off the replica
+	    rather than from the header fold: tummy time has no Target, so it has
+	    nothing to say in the header — what needs it is the fan, which offers to
+	    end the stretch that is running (spec §3.7). */
+	get runningTummy(): Entry | null {
+		return (
+			this.babyEntries
+				.filter(
+					(e) =>
+						e.type === 'tummy_time' &&
+						e.ended_at == null &&
+						e.deleted_at == null &&
+						e.merged_into == null
+				)
+				.sort((a, b) => b.occurred_at - a.occurred_at)[0] ?? null
+		);
+	}
+
 	get stale(): StaleState & { sleep: Entry | null } {
 		const sleep = this.runningSleep;
 		const baby = this.baby;

@@ -27,7 +27,7 @@ export const WINDOW_DAYS = 7;
     not two. Measured from the end of one feed to the start of the next. */
 export const FEED_ROUND_GAP_MS = 15 * MS.minute;
 
-export type CardKind = 'sleep' | 'feeds' | 'nappies' | 'solids';
+export type CardKind = 'sleep' | 'feeds' | 'nappies' | 'solids' | 'tummy';
 
 export interface DayBar {
 	key: string;
@@ -57,6 +57,12 @@ export interface SolidsSecondary {
 	/** "3 new Foods this week", derived from first exposure. */
 	newFoods: number;
 }
+export interface TummySecondary {
+	/** How many stretches today, and the longest of them — the two figures a
+	    daily total hides: 30 minutes in one go is not 30 minutes in six. */
+	sessionsToday: number;
+	longestTodayMs: number;
+}
 
 export interface StatsCard {
 	kind: CardKind;
@@ -73,7 +79,7 @@ export interface StatsCard {
 	/** Complete seven against the seven before. Null when there is nothing
 	    before to compare with — a delta against zero history is not a trend. */
 	delta: number | null;
-	secondary: SleepSecondary | FeedsSecondary | NappiesSecondary | SolidsSecondary;
+	secondary: SleepSecondary | FeedsSecondary | NappiesSecondary | SolidsSecondary | TummySecondary;
 }
 
 export interface StatsInput {
@@ -92,10 +98,11 @@ function dayKeys(today: string, count: number, endingAt = 0): string[] {
 	return keys;
 }
 
-/** A Sleep is attributed to the bucket its start falls in — the same rule every
-    other Entry follows, so "she slept eleven hours last night" lands on the
-    night it began rather than being split across a boundary. */
-function sleepMs(e: Entry, now: number): number {
+/** A session is attributed to the bucket its start falls in — the same rule
+    every other Entry follows, so "she slept eleven hours last night" lands on
+    the night it began rather than being split across a boundary. A running one
+    counts as far as it has got: the truth so far, kept out of the delta. */
+function elapsedMs(e: Entry, now: number): number {
 	const end = e.ended_at ?? now;
 	return Math.max(0, end - e.occurred_at);
 }
@@ -105,7 +112,7 @@ function mean(values: number[]): number {
 	return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-/** The four cards, in the order the screen draws them. A card appears only when
+/** The five cards, in the order the screen draws them. A card appears only when
     its entry type has data in the window, which makes age-appropriateness free:
     a newborn's screen has no Solids card, and no age logic exists anywhere. */
 export function statsFor(input: StatsInput): StatsCard[] {
@@ -125,13 +132,15 @@ export function statsFor(input: StatsInput): StatsCard[] {
 		nappies: Map<string, number>;
 		meals: Map<string, number>;
 		volume: Map<string, number>;
+		tummyMs: Map<string, number>;
 	};
 	const empty = (): Acc => ({
 		sleepMs: new Map(),
 		feeds: new Map(),
 		nappies: new Map(),
 		meals: new Map(),
-		volume: new Map()
+		volume: new Map(),
+		tummyMs: new Map()
 	});
 	const acc = empty();
 	const previous = empty();
@@ -141,11 +150,14 @@ export function statsFor(input: StatsInput): StatsCard[] {
 	let hasNappy = false;
 	let hasMeal = false;
 	let hasBottle = false;
+	let hasTummy = false;
 	let longestMs = 0;
 	let nightMs = 0;
 	let napMs = 0;
 	let peeToday = 0;
 	let poopToday = 0;
+	let tummySessionsToday = 0;
+	let tummyLongestTodayMs = 0;
 	const firstSeen = new Map<string, number>();
 	/* The days somebody logged *anything* on. Averages stand on these days
 	   alone, so a gap in the log — the week before the app was adopted, a
@@ -175,7 +187,7 @@ export function statsFor(input: StatsInput): StatsCard[] {
 
 		switch (e.type) {
 			case 'sleep': {
-				const ms = sleepMs(e, now);
+				const ms = elapsedMs(e, now);
 				bump(target.sleepMs, key, ms);
 				if (current) {
 					hasSleep = true;
@@ -203,6 +215,18 @@ export function statsFor(input: StatsInput): StatsCard[] {
 				bump(target.meals, key, 1);
 				if (current) hasMeal = true;
 				break;
+			case 'tummy_time': {
+				const ms = elapsedMs(e, now);
+				bump(target.tummyMs, key, ms);
+				if (current) {
+					hasTummy = true;
+					if (key === today) {
+						tummySessionsToday += 1;
+						if (ms > tummyLongestTodayMs) tummyLongestTodayMs = ms;
+					}
+				}
+				break;
+			}
 		}
 	}
 
@@ -306,6 +330,24 @@ export function statsFor(input: StatsInput): StatsCard[] {
 			average: completeAverage(acc.meals),
 			delta: deltaOf(acc.meals, previous.meals),
 			secondary: { newFoods } satisfies SolidsSecondary
+		});
+	}
+
+	/* Last card, and a duration one: tummy time is the newest type and the least
+	   urgent read of the five. Same admission rule as its siblings — it appears
+	   when there is tummy time in the window and never otherwise, so a Household
+	   that does not track it never sees an empty card. */
+	if (hasTummy) {
+		cards.push({
+			kind: 'tummy',
+			bars: bars(acc.tummyMs),
+			today: acc.tummyMs.get(today) ?? 0,
+			average: completeAverage(acc.tummyMs),
+			delta: deltaOf(acc.tummyMs, previous.tummyMs),
+			secondary: {
+				sessionsToday: tummySessionsToday,
+				longestTodayMs: tummyLongestTodayMs
+			} satisfies TummySecondary
 		});
 	}
 

@@ -25,7 +25,7 @@
 	} from '$lib/i18n/format';
 	import { FACET_OF } from '$domain/filter';
 	import { instantOnDate, wallTimeAtOrAfter } from '$domain/time';
-	import { intakeMl } from '$domain/entries';
+	import { intakeMl, isSession } from '$domain/entries';
 	import { applyLeftoverInput } from './leftover';
 	import type {
 		BottleContents,
@@ -53,7 +53,7 @@
 	   a draft the Member is editing rather than a mirror of the row. */
 	const opened = untrack(() => entry);
 	const zone = $derived(app.zone);
-	const isSession = $derived(entry.type === 'sleep' || entry.type === 'breast_feed' || entry.type === 'bottle_feed');
+	const session = $derived(isSession(entry.type));
 
 	let startDate = $state(dateInputValue(opened.occurred_at, app.zone));
 	let startTime = $state(timeInputValue(opened.occurred_at, app.zone));
@@ -78,7 +78,7 @@
 	   start, being the first time the clock reads it after she went down. */
 	const startAt = $derived(instantOnDate(startDate, startTime, zone));
 	const endAt = $derived(
-		!isSession || endTime === ''
+		!session || endTime === ''
 			? null
 			: wallTimeAtOrAfter(endTime, startAt ?? entry.occurred_at, zone)
 	);
@@ -102,7 +102,8 @@
 		sleep: 'sleep',
 		nappy: 'nappy',
 		measurement: 'measure',
-		milestone: 'flag'
+		milestone: 'flag',
+		tummy_time: 'tummy'
 	};
 
 	const title = $derived.by(() => {
@@ -121,6 +122,8 @@
 				return m.type_measurement();
 			case 'milestone':
 				return m.type_milestone();
+			case 'tummy_time':
+				return m.type_tummy_time();
 		}
 	});
 
@@ -241,7 +244,7 @@
 
 		if (startAt != null && startAt !== entry.occurred_at) fields.occurred_at = startAt;
 
-		if (isSession) {
+		if (session) {
 			if (endTime === '' && entry.ended_at != null) fields.ended_at = null;
 			else if (endAt != null && endAt !== entry.ended_at) fields.ended_at = endAt;
 		}
@@ -308,10 +311,15 @@
 		</label>
 	</div>
 
-	{#if isSession}
+	{#if session}
 		<label class="field">
-			<!-- A Sleep's end is her waking; a Feed's end is just the feed ending. -->
-			{entry.type === 'sleep' ? m.stale_woke_when() : m.sheet_feed_end()}
+			<!-- A Sleep's end is her waking; a stretch of tummy time ends when she
+			     comes off her tummy; a Feed's end is just the feed ending. -->
+			{entry.type === 'sleep'
+				? m.stale_woke_when()
+				: entry.type === 'tummy_time'
+					? m.sheet_tummy_end()
+					: m.sheet_feed_end()}
 			<!-- The derived date, shown rather than assumed: a Sleep that starts at
 			     22:30 and ends at 06:00 ends the next morning, and this is where you
 			     can see that it did. -->

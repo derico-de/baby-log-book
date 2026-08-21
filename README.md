@@ -11,13 +11,13 @@ Read those before changing anything structural.
 
 ## What it does
 
-- **Logging** all seven entry types, with live timers for feeds and sleeps.
+- **Logging** all eight entry types, with live timers for feeds, sleeps and tummy time.
 - **A timeline** as the primary screen, with attribution, revision history,
   correction and undo — and filtering across five facets, which is also the
   history surface.
 - **Light schedules**: one target per activity per baby, elapsed-vs-target in a
   sticky header. Stated, never learned.
-- **Stats**: four trend cards over a rolling seven days plus today.
+- **Stats**: five trend cards over a rolling seven days plus today.
 - **Export**: a zip of per-type CSVs. Everything, always.
 - **Offline sync** with a full local replica, a durable outbox and silent
   conflict resolution.

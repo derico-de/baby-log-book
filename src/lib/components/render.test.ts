@@ -357,6 +357,33 @@ describe('a timeline row', () => {
 	});
 });
 
+describe('a tummy time row', () => {
+	it('runs as a Live Session with a Stop button', () => {
+		const row = entry({ type: 'tummy_time', occurred_at: NOW - 8 * 60_000 });
+		app.entries = [row];
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		expect(text).toContain('Tummy time');
+		expect(text).toContain('running');
+		expect(text).toContain('Stop');
+		/* Not a Sleep: the Sleep row's two statements belong to a Sleep. */
+		expect(text).not.toContain("She's awake");
+	});
+
+	it('states both ends and the duration once it is over', () => {
+		const row = entry({
+			type: 'tummy_time',
+			occurred_at: NOW - 30 * 60_000,
+			ended_at: NOW - 18 * 60_000
+		});
+		app.entries = [row];
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		expect(text).toContain('15:30');
+		expect(text).toContain('15:42');
+		expect(text).toContain('12m');
+		expect(text).not.toContain('running');
+	});
+});
+
 describe('the fan', () => {
 	const handlers = {
 		onPee: () => {},
@@ -366,21 +393,32 @@ describe('the fan', () => {
 		onMeasurement: () => {},
 		onMilestone: () => {},
 		onAwake: () => {},
-		onFeedAsleep: () => {}
+		onFeedAsleep: () => {},
+		onTummyStart: () => {},
+		onTummyEnd: () => {}
 	};
 
-	it('opens into six direct actions', () => {
-		draw(Fan, { asleep: false, ...handlers });
+	it('opens into seven direct actions', () => {
+		draw(Fan, { asleep: false, tummyRunning: false, ...handlers });
 		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
 		const items = [...host.querySelectorAll('.fan button')].map((b) => b.textContent?.trim() ?? '');
-		expect(items).toHaveLength(6);
+		expect(items).toHaveLength(7);
 		expect(items.join(' ')).toContain('Pee');
 		expect(items.join(' ')).toContain('Sleep');
 		expect(items.join(' ')).toContain('Feed');
+		expect(items.join(' ')).toContain('Tummy time');
+	});
+
+	it('offers to end the stretch instead of starting one while tummy time runs', () => {
+		draw(Fan, { asleep: false, tummyRunning: true, ...handlers });
+		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
+		const labels = [...host.querySelectorAll('.fan .fan-main')].map((el) => el.textContent?.trim() ?? '');
+		expect(labels).toContain('Off her tummy');
+		expect(labels).not.toContain('Tummy time');
 	});
 
 	it('reflows while a Sleep runs, with no ambiguous Feed item', () => {
-		draw(Fan, { asleep: true, ...handlers });
+		draw(Fan, { asleep: true, tummyRunning: false, ...handlers });
 		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
 		const labels = [...host.querySelectorAll('.fan .fan-main')].map((el) => el.textContent?.trim() ?? '');
 		expect(labels).toContain("She's awake");

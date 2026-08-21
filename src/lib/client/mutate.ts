@@ -108,6 +108,15 @@ export async function startSleep(w: Writer, target: EntryTarget): Promise<string
 	return id;
 }
 
+/** Starts a stretch of tummy time. A Live Session like a Sleep, and an
+    ordinary creation for the same reason: a running timer is an Entry with no
+    end, not a second concept (spec §3.7). */
+export async function startTummyTime(w: Writer, target: EntryTarget): Promise<string> {
+	const id = randomId();
+	await write(w, 'entry', id, creation(target.babyId, 'tummy_time', target.occurredAt ?? w.now(), target.note));
+	return id;
+}
+
 export async function logBreastFeed(
 	w: Writer,
 	target: EntryTarget & { side: Side; endedAt?: number | null }

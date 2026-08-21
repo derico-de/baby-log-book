@@ -12,7 +12,14 @@
 	import { app } from '$client/state.svelte';
 	import { dateShort, decimal, duration, millilitres, plural, weekdayShort } from '$lib/i18n/format';
 	import { dayStartInstant, MS } from '$domain/time';
-	import type { FeedsSecondary, NappiesSecondary, SleepSecondary, SolidsSecondary, StatsCard } from '$domain/stats';
+	import type {
+		FeedsSecondary,
+		NappiesSecondary,
+		SleepSecondary,
+		SolidsSecondary,
+		StatsCard,
+		TummySecondary
+	} from '$domain/stats';
 	import type { FacetKey } from '$domain/filter';
 	import * as m from '$lib/paraglide/messages';
 	import Icon, { type IconName } from './Icon.svelte';
@@ -26,7 +33,8 @@
 		sleep: 'sleep',
 		feeds: 'feed',
 		nappies: 'nappy',
-		solids: 'meal'
+		solids: 'meal',
+		tummy: 'tummy'
 	};
 
 	/* The card wears its entry type's colour (issue 24) — bars and the head
@@ -35,23 +43,26 @@
 		sleep: 'sleep',
 		feeds: 'feed',
 		nappies: 'nappy',
-		solids: 'meal'
+		solids: 'meal',
+		tummy: 'tummy'
 	};
 
 	const NAME: Record<StatsCard['kind'], () => string> = {
 		sleep: () => m.stats_card_sleep(),
 		feeds: () => m.stats_card_feeds(),
 		nappies: () => m.stats_card_nappies(),
-		solids: () => m.stats_card_solids()
+		solids: () => m.stats_card_solids(),
+		tummy: () => m.stats_card_tummy()
 	};
 
-	const isDuration = $derived(card.kind === 'sleep');
+	const isDuration = $derived(card.kind === 'sleep' || card.kind === 'tummy');
 
-	/* The axis ceiling is the next even hour (Sleep) or even count above the
-	   tallest bar, so both tick labels are amounts a person would actually say
-	   — at the price of the tallest bar stopping a little short of the top
-	   line. */
-	const unit = $derived(isDuration ? MS.hour : 1);
+	/* The axis ceiling is the next even hour (Sleep), even quarter-hour (Tummy
+	   time) or even count above the tallest bar, so both tick labels are amounts
+	   a person would actually say — at the price of the tallest bar stopping a
+	   little short of the top line. Tummy time is measured in minutes, so an
+	   hourly axis would draw every real day as a stub. */
+	const unit = $derived(card.kind === 'sleep' ? MS.hour : card.kind === 'tummy' ? 15 * MS.minute : 1);
 	const axisMax = $derived.by(() => {
 		const top = Math.max(unit, ...card.bars.map((b) => b.value));
 		return 2 * unit * Math.ceil(top / (2 * unit));
@@ -89,6 +100,22 @@
 			case 'nappies': {
 				const s = card.secondary as NappiesSecondary;
 				return [m.stats_split({ pee: String(s.peeToday), poop: String(s.poopToday) })];
+			}
+			case 'tummy': {
+				const s = card.secondary as TummySecondary;
+				/* A daily total hides the shape of the day: 30 minutes in one go is
+				   not 30 minutes in six, and the difference is the whole reason
+				   anyone counts stretches. */
+				return s.sessionsToday === 0
+					? []
+					: [
+							plural(s.sessionsToday, {
+								one: m.stats_tummy_sessions_one,
+								few: m.stats_tummy_sessions_few,
+								other: m.stats_tummy_sessions_other
+							}),
+							m.stats_longest({ value: duration(s.longestTodayMs) })
+						];
 			}
 			case 'solids': {
 				const s = card.secondary as SolidsSecondary;

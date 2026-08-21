@@ -63,7 +63,7 @@ _Avoid_: Bootstrap link, setup link, admin invite
 ### What gets logged
 
 **Entry**:
-Anything recorded about a Baby at a point in time. The umbrella term for Feeds, Meals, Sleeps, Nappies, Measurements and Milestones.
+Anything recorded about a Baby at a point in time. The umbrella term for Feeds, Meals, Sleeps, Nappies, Measurements, Milestones and Tummy Time.
 _Avoid_: Event, record, log line, activity
 
 **Feed**:
@@ -81,6 +81,10 @@ _Avoid_: Ingredient, dish, item
 **Sleep**:
 A stretch of time a Baby was asleep. Whether it counts as a nap or as night sleep follows from the Day Start, and is never recorded.
 _Avoid_: Nap, rest
+
+**Tummy Time**:
+A stretch a Baby spent on their front, timed from when they went down to when they came off. Like a Sleep it is defined by its end — the question it answers is how many minutes there were today, never when one began — and unlike a Sleep nothing rescues a stretch left running: the fan offers to end the one that is, and a forgotten stop is corrected by hand (ADR-0027). A Household that does not track it never sees it: no stats card, no chip with nothing behind it.
+_Avoid_: Prone play, floor time, exercise, tummy session
 
 **Sleep Feed**:
 A Feed that overlaps a running Sleep, because a Baby can take the breast or a bottle without waking. Follows from the overlap and is never recorded on the Feed itself.

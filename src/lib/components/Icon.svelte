@@ -8,7 +8,12 @@
 	   The Milestone glyph is a flag: literally the marker on a milestone, and
 	   nothing else in the set of seven is that shape. (Star reads as *favourite*;
 	   sparkle blurs at stroke 1.7; footprint is organic in a geometric family;
-	   trophy imports a competitive tone.) */
+	   trophy imports a competitive tone.)
+
+	   The Tummy Time glyph is the posture itself: a floor line, a body arched on
+	   it, and the head lifted clear at the left. It is the only glyph in the set
+	   that draws a baby, which is what keeps it apart from the moon and the bowl
+	   at 19px — a mound alone would read as a hill. */
 	export const ICONS = {
 		feed: 'M8 2h8M9 2v3.2a4 4 0 0 1-.6 2.1L7.6 8.6A4 4 0 0 0 7 10.7V19a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3v-8.3a4 4 0 0 0-.6-2.1l-.8-1.3A4 4 0 0 1 15 5.2V2|M7 13h10',
 		sleep: 'M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z',
@@ -16,6 +21,7 @@
 		meal: 'M3.5 10.5h17a8.5 8.5 0 0 1-8.5 8.5 8.5 8.5 0 0 1-8.5-8.5Z|M8 6.5c0-1.2 1-1.6 1-2.5M12 6c0-1.4 1-1.8 1-2.8M16 6.5c0-1.2 1-1.6 1-2.5',
 		measure: 'M3 8h18v8H3Z|M7 8v3M11 8v4M15 8v3M19 8v4',
 		flag: 'M5 21V4|M5 4.5h11l-2 3.5 2 3.5H5',
+		tummy: 'M3.5 19.5h17|M8 19.5a4.5 4.5 0 0 1 9 0',
 		note: 'M4 6h16M4 12h16M4 18h9',
 		plus: 'M12 5v14M5 12h14',
 		stats: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
@@ -37,6 +43,7 @@
 	   stroke width. */
 	const CIRCLES: Partial<Record<IconName, Array<[number, number, number]>>> = {
 		gear: [[12, 12, 3]],
+		tummy: [[5.8, 16.6, 2.2]],
 		search: [[10.5, 10.5, 6.5]],
 		sliders: [
 			[16, 7, 2],

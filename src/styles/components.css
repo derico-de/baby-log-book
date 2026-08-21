@@ -58,6 +58,12 @@
 		--t-soft: var(--t-milestone-soft);
 		--t-soft-ink: var(--t-milestone-soft-ink);
 	}
+	[data-t='tummy'] {
+		--t: var(--t-tummy);
+		--t-ink: var(--t-tummy-ink);
+		--t-soft: var(--t-tummy-soft);
+		--t-soft-ink: var(--t-tummy-soft-ink);
+	}
 
 	/* ==================================================================
      APP SHELL

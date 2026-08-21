@@ -134,7 +134,8 @@ describe('buildExport', () => {
 			'nappies.csv',
 			'revisions.csv',
 			'sleeps.csv',
-			'targets.csv'
+			'targets.csv',
+			'tummy_times.csv'
 		]);
 	});
 
@@ -199,6 +200,17 @@ describe('buildExport', () => {
 		const files = buildExport(input);
 		expect(files['sleeps.csv'].split('\r\n')[0]).toContain('occurred_at,occurred_at_zone,recording_zone');
 		expect(files['sleeps.csv']).not.toContain('Aufgewacht');
+	});
+
+	it('gives tummy time its own file, with the duration its two ends are kept for', () => {
+		const stretch = entry({
+			type: 'tummy_time',
+			occurred_at: iso('2026-08-17T08:00:00Z'),
+			ended_at: iso('2026-08-17T08:12:00Z')
+		});
+		const csv = buildExport({ ...input, entries: [stretch] })['tummy_times.csv'];
+		expect(csv.split('\r\n')[0]).toContain('ended_at,duration_minutes');
+		expect(csv).toContain(',12');
 	});
 
 	it('reports a Sleep as night or nap, and its duration in minutes', () => {

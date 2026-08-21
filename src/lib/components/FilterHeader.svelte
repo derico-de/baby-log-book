@@ -25,6 +25,7 @@
 		sleep: 'sleep',
 		nappy: 'nappy',
 		meal: 'meal',
+		tummy: 'tummy',
 		measure: 'measure',
 		milestone: 'flag'
 	};
@@ -34,6 +35,7 @@
 		sleep: () => m.facet_sleep(),
 		nappy: () => m.facet_nappy(),
 		meal: () => m.facet_meal(),
+		tummy: () => m.facet_tummy(),
 		measure: () => m.facet_measure(),
 		milestone: () => m.facet_milestone()
 	};

@@ -14,7 +14,7 @@ The Members of one Household — the parents, grandparents and caregivers who lo
 
 ## Product Purpose
 
-A shared, local-first log of a baby's day — Feeds, Sleeps, Nappies, Meals, Measurements and Milestones — that every Member's Device carries and syncs. It answers "when did she last eat?", "how long has she been down?", and "is the bottle still good?" without ceremony. Success is a log kept faithfully because logging costs almost nothing, and a Household that trusts the timeline more than anyone's memory.
+A shared, local-first log of a baby's day — Feeds, Sleeps, Nappies, Meals, Measurements, Milestones and Tummy Time — that every Member's Device carries and syncs. It answers "when did she last eat?", "how long has she been down?", and "is the bottle still good?" without ceremony. Success is a log kept faithfully because logging costs almost nothing, and a Household that trusts the timeline more than anyone's memory.
 
 ## Positioning
 

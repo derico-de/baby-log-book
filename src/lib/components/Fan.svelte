@@ -2,14 +2,16 @@
 	/* The FAB fan. Spec §8.5.
 
 	   One FAB, bottom-right in thumb reach. Tapping it expands it in place into a
-	   stack of six direct actions, expanding upward — so the first item is the one
+	   stack of seven direct actions, expanding upward — so the first item is the one
 	   nearest the thumb.
 
 	   Nappies log straight from the fan: no sheet, no confirm. A nappy is two taps
 	   and the second is a large target, and no sheet chrome ever renders for the
 	   app's most frequent, least informative action. Everything else opens a
 	   sheet — Feeds, Measurements and Milestones because they carry real data,
-	   Sleep and *She's awake* only a one-field time sheet prefilled with now.
+	   Sleep, *She's awake* and starting tummy time only a one-field time sheet
+	   prefilled with now. *Off her tummy* writes straight through, because the
+	   stretch ends as the thumb presses it.
 
 	   While a Sleep runs the fan reflows and there is no ambiguous "Feed" item:
 	   *She's awake* ends the Sleep and the fan reflows **in place** to the awake
@@ -31,6 +33,9 @@
 
 	interface Props {
 		asleep: boolean;
+		/** A stretch of tummy time is running, so its row ends it instead of
+		    starting a second one. */
+		tummyRunning: boolean;
 		onPee: () => void;
 		onPoop: () => void;
 		onSleep: () => void;
@@ -39,6 +44,8 @@
 		onMilestone: () => void;
 		onAwake: () => void;
 		onFeedAsleep: () => void;
+		onTummyStart: () => void;
+		onTummyEnd: () => void;
 	}
 	let props: Props = $props();
 
@@ -52,6 +59,20 @@
 			{ key: 'poop', icon: 'nappy', t: 'nappy', label: m.fan_poop(), run: props.onPoop }
 		];
 		const tail: Action[] = [
+			/* Tummy time reflows the way Sleep does: while a stretch is running
+			   there is no second *Tummy time* to start, only the statement that
+			   ends the one that is. Its end is the whole point of the entry, and
+			   the fan is where a thumb already is (spec §3.7). */
+			props.tummyRunning
+				? {
+						key: 'tummy-end',
+						icon: 'tummy',
+						t: 'tummy',
+						label: m.fan_tummy_end(),
+						sub: m.fan_tummy_end_sub(),
+						run: props.onTummyEnd
+					}
+				: { key: 'tummy', icon: 'tummy', t: 'tummy', label: m.fan_tummy(), run: props.onTummyStart },
 			{ key: 'measurement', icon: 'measure', t: 'measure', label: m.fan_measurement(), run: props.onMeasurement },
 			/* Measurement holds the second-to-last slot and is just as rare as
 			   Milestone, which is why frequency is not the fan's admission test. */

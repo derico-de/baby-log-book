@@ -295,13 +295,16 @@ const ENTRY_COLUMNS =
 	'logged_by, logged_at, edited_by, edited_at, deleted_at, merged_into';
 
 /** Every Live Session in the Household. This is the Session Merge's only input,
-    and the partial index makes it a lookup rather than a scan. */
+    and the partial index makes it a lookup rather than a scan. Every session
+    type is listed, and each planner filters down to the ones it rules on —
+    Sleeps merge, bottles expire, and a running stretch of tummy time is subject
+    to neither (ADR-0014, ADR-0027). */
 export function liveSessions(db: Db, householdId: string): Entry[] {
 	const rows = db
 		.prepare(
 			`SELECT ${ENTRY_COLUMNS} FROM entries
 			 WHERE household_id = ? AND ended_at IS NULL AND deleted_at IS NULL AND merged_into IS NULL
-			   AND type IN ('sleep', 'breast_feed', 'bottle_feed')`
+			   AND type IN ('sleep', 'breast_feed', 'bottle_feed', 'tummy_time')`
 		)
 		.all(householdId) as EntryRow[];
 	return rows.map(rowToEntry).filter((e): e is Entry => e != null);

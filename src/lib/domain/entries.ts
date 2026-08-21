@@ -23,7 +23,7 @@ import type {
 	RevisionKind,
 	Side
 } from './types';
-import { ENTRY_TYPES } from './types';
+import { ENTRY_TYPES, SESSION_TYPES } from './types';
 
 const SIDES: Side[] = ['left', 'right', 'both'];
 const CONTENTS: BottleContents[] = ['breast_milk', 'formula', 'other'];
@@ -81,7 +81,7 @@ const isMealFoods: Check = (v) => {
 	);
 };
 
-/** Payload keys are unique across the seven types, which is what lets an
+/** Payload keys are unique across the eight types, which is what lets an
     ordinary edit — a revision that names `volume_ml` and nothing else — be
     validated without knowing the Entry's type. */
 const ENTRY_FIELD_CHECKS: Record<string, Check> = {
@@ -289,7 +289,14 @@ export const FORMULA_PRESETS: ReadonlyArray<{ water: number; final: number }> = 
 	{ water: 270, final: 305 }
 ];
 
-/** True for the types that are a Live Session while they have no end. */
+/** True for the two Feed types. */
 export function isFeed(type: EntryType): boolean {
 	return type === 'breast_feed' || type === 'bottle_feed';
+}
+
+/** True for the types that are a Live Session while they have no end — the one
+    place the UI asks the question, so a new session type reaches every screen
+    that draws a running timer by being in `SESSION_TYPES` and nowhere else. */
+export function isSession(type: EntryType): boolean {
+	return (SESSION_TYPES as readonly string[]).includes(type);
 }

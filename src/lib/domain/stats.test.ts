@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { statsFor, type FeedsSecondary, type SleepSecondary, type SolidsSecondary } from './stats';
+import {
+	statsFor,
+	type FeedsSecondary,
+	type SleepSecondary,
+	type SolidsSecondary,
+	type TummySecondary
+} from './stats';
 import type { Entry } from './types';
 
 const BERLIN = 'Europe/Berlin';
@@ -43,6 +49,8 @@ const meal = (at: string, foods: string[] = ['f1']) =>
 	});
 const sleep = (from: string, to: string | null) =>
 	entry({ type: 'sleep', occurred_at: iso(from), ended_at: to == null ? null : iso(to) });
+const tummy = (from: string, to: string | null) =>
+	entry({ type: 'tummy_time', occurred_at: iso(from), ended_at: to == null ? null : iso(to) });
 
 describe('the window', () => {
 	it('is eight bars, the last of which is today', () => {
@@ -182,6 +190,50 @@ describe('the Sleep card', () => {
 		expect(s.nightMs).toBe(10 * 3600_000);
 		expect(s.napMs).toBe(90 * 60_000);
 		expect(s.longestMs).toBe(10 * 3600_000);
+	});
+});
+
+describe('the Tummy time card', () => {
+	it('appears only once there is tummy time in the window', () => {
+		expect(statsFor({ ...LENS, entries: [nappy('2026-08-16T08:00:00Z')] }).map((c) => c.kind)).toEqual(['nappies']);
+		const cards = statsFor({
+			...LENS,
+			entries: [nappy('2026-08-16T08:00:00Z'), tummy('2026-08-16T09:00:00Z', '2026-08-16T09:10:00Z')]
+		});
+		expect(cards.map((c) => c.kind)).toEqual(['nappies', 'tummy']);
+	});
+
+	it('totals the day in milliseconds, attributing a stretch to the day it began', () => {
+		const [card] = statsFor({
+			...LENS,
+			entries: [
+				tummy('2026-08-16T09:00:00Z', '2026-08-16T09:10:00Z'),
+				tummy('2026-08-16T15:00:00Z', '2026-08-16T15:05:00Z'),
+				tummy('2026-08-17T08:00:00Z', '2026-08-17T08:20:00Z')
+			]
+		});
+		expect(card.bars.find((b) => b.key === '2026-08-16')?.value).toBe(15 * 60_000);
+		expect(card.today).toBe(20 * 60_000);
+	});
+
+	it('counts a running stretch up to now, the way a running Sleep counts', () => {
+		const [card] = statsFor({ ...LENS, entries: [tummy('2026-08-17T13:50:00Z', null)] });
+		expect(card.today).toBe(10 * 60_000);
+	});
+
+	it('states how many stretches today and the longest of them', () => {
+		const [card] = statsFor({
+			...LENS,
+			entries: [
+				tummy('2026-08-17T08:00:00Z', '2026-08-17T08:05:00Z'),
+				tummy('2026-08-17T11:00:00Z', '2026-08-17T11:12:00Z'),
+				/* Yesterday's longer stretch does not reach today's figures. */
+				tummy('2026-08-16T11:00:00Z', '2026-08-16T11:30:00Z')
+			]
+		});
+		const s = card.secondary as TummySecondary;
+		expect(s.sessionsToday).toBe(2);
+		expect(s.longestTodayMs).toBe(12 * 60_000);
 	});
 });
 

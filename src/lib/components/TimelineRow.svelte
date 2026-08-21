@@ -14,7 +14,7 @@
 	import { clockTime, duration, millilitres, length, weight } from '$lib/i18n/format';
 	import { FACET_OF, highlightParts } from '$domain/filter';
 	import { classifySleep, isSleepFeed } from '$domain/sleep';
-	import { intakeMl } from '$domain/entries';
+	import { intakeMl, isSession } from '$domain/entries';
 	import { bottleLife } from '$domain/targets';
 	import type {
 		BottleFeedPayload,
@@ -46,11 +46,12 @@
 		sleep: 'sleep',
 		nappy: 'nappy',
 		measurement: 'measure',
-		milestone: 'flag'
+		milestone: 'flag',
+		tummy_time: 'tummy'
 	};
 
 	const zone = $derived(app.zone);
-	const live = $derived(entry.ended_at == null && (entry.type === 'sleep' || entry.type === 'breast_feed' || entry.type === 'bottle_feed'));
+	const live = $derived(entry.ended_at == null && isSession(entry.type));
 	const query = $derived(app.filter.text.trim());
 
 	/* The countdown on a started bottle. Per row, not per Baby: a Combined Feed
@@ -109,6 +110,8 @@
 			}
 			case 'milestone':
 				return (entry.payload as MilestonePayload).name || m.type_milestone();
+			case 'tummy_time':
+				return m.type_tummy_time();
 		}
 	});
 
@@ -129,9 +132,7 @@
 
 	const durationText = $derived.by(() => {
 		if (entry.ended_at == null) return null;
-		if (entry.type === 'sleep' || entry.type === 'breast_feed' || entry.type === 'bottle_feed') {
-			return duration(entry.ended_at - entry.occurred_at);
-		}
+		if (isSession(entry.type)) return duration(entry.ended_at - entry.occurred_at);
 		return null;
 	});
 
@@ -187,10 +188,12 @@
 				     what makes a row with no visible time legible among timed ones. -->
 				{#if entry.type === 'milestone'}
 					{m.row_no_time()}
-				{:else if entry.type === 'sleep' && entry.ended_at != null}
+				{:else if (entry.type === 'sleep' || entry.type === 'tummy_time') && entry.ended_at != null}
 					<!-- A finished Sleep states both ends — `13:45 – 14:05` — because
 					     when it ended matters as much as when it began: the Wake Window
-					     counts from the end. The duration stays underneath. -->
+					     counts from the end. The duration stays underneath. A finished
+					     stretch of tummy time reads the same way, for the shorter
+					     version of the same reason: both ends are the entry. -->
 					{m.row_time_range({
 						start: clockTime(entry.occurred_at, zone),
 						end: clockTime(entry.ended_at, zone)

@@ -71,12 +71,18 @@ const tooth = entry({
 	occurred_at: iso('2026-07-01T03:00:00Z'),
 	payload: { name: 'First tooth' }
 });
-const ALL = [broccoliMeal, yoghurtMeal, feed, nappy, tooth];
+const tummyTime = entry({ type: 'tummy_time', occurred_at: iso('2026-08-17T10:00:00Z'), payload: {} });
+const ALL = [broccoliMeal, yoghurtMeal, feed, nappy, tooth, tummyTime];
 
 describe('the facets', () => {
 	it('collapse breast and bottle into one Feeds chip', () => {
 		expect(FACET_OF.breast_feed).toBe('feed');
 		expect(FACET_OF.bottle_feed).toBe('feed');
+	});
+
+	it('give Tummy time a chip of its own', () => {
+		expect(FACET_OF.tummy_time).toBe('tummy');
+		expect(filterEntries(ALL, { ...EMPTY_FILTER, types: ['tummy'] }, ctx)).toEqual([tummyTime]);
 	});
 
 	it('treat Milestone as an ordinary facet', () => {

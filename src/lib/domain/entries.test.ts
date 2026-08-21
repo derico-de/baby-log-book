@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coercePayload, emptyPayload, intakeMl, subtractLeftover, validateFields } from './entries';
+import { coercePayload, emptyPayload, intakeMl, isSession, subtractLeftover, validateFields } from './entries';
 
 describe('validateFields', () => {
 	it('accepts a bottle feed creation', () => {
@@ -11,6 +11,17 @@ describe('validateFields', () => {
 			recording_zone: 'Europe/Berlin',
 			volume_ml: 120,
 			contents: 'formula'
+		});
+		expect(r.ok).toBe(true);
+	});
+
+	it('accepts a tummy time creation, which carries no payload at all', () => {
+		const r = validateFields('entry', {
+			baby_id: 'b1',
+			type: 'tummy_time',
+			occurred_at: 1_700_000_000_000,
+			ended_at: null,
+			recording_zone: 'Europe/Berlin'
 		});
 		expect(r.ok).toBe(true);
 	});
@@ -86,6 +97,17 @@ describe('validateFields', () => {
 			true
 		);
 		expect(validateFields('target', { anchor: 'whenever' }).ok).toBe(false);
+	});
+});
+
+describe('isSession', () => {
+	it('names the four types that run as a Live Session, and nothing else', () => {
+		expect(isSession('sleep')).toBe(true);
+		expect(isSession('breast_feed')).toBe(true);
+		expect(isSession('bottle_feed')).toBe(true);
+		expect(isSession('tummy_time')).toBe(true);
+		expect(isSession('nappy')).toBe(false);
+		expect(isSession('milestone')).toBe(false);
 	});
 });
 

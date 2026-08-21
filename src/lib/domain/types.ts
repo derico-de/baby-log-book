@@ -6,7 +6,7 @@
    instant, and local wall time is a display-time projection that never
    enters a comparison. There is no `Date` in a stored field anywhere. */
 
-/** The seven Entry types (spec §3.2). */
+/** The eight Entry types (spec §3.2). */
 export const ENTRY_TYPES = [
 	'breast_feed',
 	'bottle_feed',
@@ -14,12 +14,13 @@ export const ENTRY_TYPES = [
 	'sleep',
 	'nappy',
 	'measurement',
-	'milestone'
+	'milestone',
+	'tummy_time'
 ] as const;
 export type EntryType = (typeof ENTRY_TYPES)[number];
 
 /** The types that are a Live Session while they have no end (spec §3.4). */
-export const SESSION_TYPES = ['breast_feed', 'bottle_feed', 'sleep'] as const;
+export const SESSION_TYPES = ['breast_feed', 'bottle_feed', 'sleep', 'tummy_time'] as const;
 export type SessionType = (typeof SESSION_TYPES)[number];
 
 /** One log for everything (spec §5.1). Device Settings are the carve-out and
@@ -65,6 +66,9 @@ export interface MealPayload {
 	foods: MealFood[];
 }
 export type SleepPayload = Record<string, never>;
+/** Tummy Time records its two ends and nothing else — the same empty payload a
+    Sleep has, for the same reason: the duration is the whole fact (spec §3.7). */
+export type TummyTimePayload = Record<string, never>;
 export interface NappyPayload {
 	pee: boolean;
 	poop: boolean;
@@ -89,7 +93,8 @@ export type Payload =
 	| SleepPayload
 	| NappyPayload
 	| MeasurementPayload
-	| MilestonePayload;
+	| MilestonePayload
+	| TummyTimePayload;
 
 export interface PayloadOf {
 	breast_feed: BreastFeedPayload;
@@ -99,6 +104,7 @@ export interface PayloadOf {
 	nappy: NappyPayload;
 	measurement: MeasurementPayload;
 	milestone: MilestonePayload;
+	tummy_time: TummyTimePayload;
 }
 
 /** An Entry as the app reads it: the fold over its revisions, materialised.
