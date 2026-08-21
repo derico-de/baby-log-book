@@ -40,7 +40,7 @@
 
 import { addDays, dayStartInstant, MS, wallPartsOf } from './time';
 import { FACET_OF, type FacetKey } from './filter';
-import { isFeed, isSession } from './entries';
+import { feedContentKey, isFeed, isSession } from './entries';
 import { FEED_ROUND_GAP_MS } from './stats';
 import type { Entry } from './types';
 
@@ -50,6 +50,11 @@ export interface BlockMember {
 	entry: Entry;
 	from: number;
 	to: number;
+	/** Which run of same-content Feeds this member belongs to. Consecutive
+	    members sharing a run are one bigger feeding rather than a handover:
+	    two bottles of the same formula are 140 ml, not 60 and 80. Everything
+	    that is not a Feed is a run of one. */
+	run: number;
 }
 
 /** A positioned Entry with a duration. Fractions are of the column's span. */
@@ -268,13 +273,24 @@ export function buildGrid(input: GridInput): GridColumn[] {
 				const touches = opens < end && (stop > start || (stop === start && opens >= start));
 				if (!touches) continue;
 				const width = Math.max(1, stop - opens);
+				let run = 0;
+				let runKey = '';
 				blocks.push({
 					entry: first,
-					members: group.map((e) => ({
-						entry: e,
-						from: (e.occurred_at - opens) / width,
-						to: (endOf(e, now) - opens) / width
-					})),
+					members: group.map((e, index) => {
+						/* Consecutive, not global: the sitting is a sequence, and
+						   breast → formula → breast is three things in the order they
+						   happened rather than two things reordered. */
+						const key = feedContentKey(e);
+						if (index > 0 && key !== runKey) run += 1;
+						runKey = key;
+						return {
+							entry: e,
+							from: (e.occurred_at - opens) / width,
+							to: (endOf(e, now) - opens) / width,
+							run
+						};
+					}),
 					facet,
 					from: clamp01((opens - start) / span),
 					to: clamp01((stop - start) / span),

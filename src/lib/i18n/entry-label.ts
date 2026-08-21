@@ -10,7 +10,7 @@
    The glyph belongs here for the same reason. */
 
 import { millilitres, length, weight } from './format';
-import { intakeMl } from '$domain/entries';
+import { intakeMl, isFeed } from '$domain/entries';
 import type {
 	BottleFeedPayload,
 	BreastFeedPayload,
@@ -92,6 +92,45 @@ export function entryTitle(entry: Entry, foodName: FoodName): string {
 		case 'tummy_time':
 			return m.type_tummy_time();
 	}
+}
+
+/** A run of Feeds that were the same milk twice, named once.
+
+    Two bottles of the same formula back to back are one bigger feeding that
+    happened to need a second bottle, so they read `Bottle · Formula · 140 ml`
+    rather than making anyone add 60 and 80 in their head. The same holds for a
+    breast: a left side twice in one sitting is one left side. Two *different*
+    sources stay two things — that is a handover, and it reads as one.
+
+    Whether two Feeds *are* the same thing is `feedContentKey()`; this only
+    states the answer. A run of one is just its title, so every caller can go
+    through here. */
+export function feedRunTitle(entries: Entry[], foodName: FoodName): string {
+	const first = entries[0];
+	if (entries.length === 1 || !isFeed(first.type)) return entryTitle(first, foodName);
+	if (first.type === 'breast_feed') return entryTitle(first, foodName);
+
+	/* Bottles: the contents are shared by construction, so only the figure has
+	   to be recomputed — and it is the Intake, on legacy and new rows alike
+	   (ADR-0018). Null when not one bottle in the run said how much went in;
+	   a run where only some did states the part it knows, which is the same
+	   thing a single bottle does with a null volume. */
+	const p = first.payload as BottleFeedPayload;
+	const amounts = entries
+		.map((e) => intakeMl(e.payload as BottleFeedPayload))
+		.filter((ml): ml is number => ml != null);
+	const parts: string[] = [m.type_bottle_feed()];
+	if (p.contents) {
+		parts.push(
+			p.contents === 'breast_milk'
+				? m.contents_breast_milk()
+				: p.contents === 'formula'
+					? m.contents_formula()
+					: m.contents_other()
+		);
+	}
+	if (amounts.length > 0) parts.push(millilitres(amounts.reduce((a, b) => a + b, 0)));
+	return parts.join(' · ');
 }
 
 /** The short name a grid block wears when there is room for a word but not for

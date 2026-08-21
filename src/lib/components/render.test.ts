@@ -9,12 +9,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import { app } from '$client/state.svelte';
 import { ReplicaDb } from '$client/db';
-import type { Baby, Entry, Household, MemberRecord, Target } from '$domain/types';
+import type { Baby, BottleContents, Entry, Household, MemberRecord, Target } from '$domain/types';
 import FilterHeader from './FilterHeader.svelte';
 import LiveHeader from './LiveHeader.svelte';
 import TimelineRow from './TimelineRow.svelte';
 import TimeSheet from './TimeSheet.svelte';
 import StatCard from './StatCard.svelte';
+import DayGrid from './DayGrid.svelte';
 import Fan from './Fan.svelte';
 import StaleBanner from './StaleBanner.svelte';
 import { statsFor } from '$domain/stats';
@@ -565,6 +566,82 @@ describe('a stats card', () => {
 		draw(StatCard, { card });
 		flushSync(() => host.querySelectorAll<HTMLButtonElement>('.bar-hit')[7]?.click()); /* today */
 		expect(host.querySelector('.bar-detail')?.textContent).toBe('Today: 2 · 210 ml');
+	});
+});
+
+describe('the day grid', () => {
+	const noop = () => {};
+	const today = '2026-08-17';
+	const gridProps = (keys = [today]) => ({
+		keys,
+		view: 'day' as const,
+		facets: [] as never[],
+		onpick: noop,
+		onopen: noop
+	});
+	const bottle = (from: number, to: number, ml: number, contents: BottleContents = 'formula') =>
+		entry({
+			type: 'bottle_feed',
+			occurred_at: from,
+			ended_at: to,
+			payload: { volume_ml: ml, leftover_ml: null, contents }
+		});
+
+	const M = 60_000;
+	/* 13:00 Berlin, inside the 2026-08-17 bucket. */
+	const noon = Date.parse('2026-08-17T11:00:00Z');
+
+	it('draws a lone bottle as itself', () => {
+		app.entries = [bottle(noon, noon + 15 * M, 120)];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('Bottle · Formula · 120 ml');
+	});
+
+	it('sums two bottles of the same milk into one bigger feeding', () => {
+		app.entries = [bottle(noon, noon + 10 * M, 60), bottle(noon + 15 * M, noon + 25 * M, 80)];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('Bottle · Formula · 140 ml');
+		/* One figure, not two joined by a plus. */
+		expect(text).not.toContain('60 ml');
+		expect(text).not.toContain('+');
+		expect(host.querySelectorAll('.daygrid-over .block')).toHaveLength(1);
+		/* Still two Entries to correct, so still two tap targets. */
+		expect(host.querySelectorAll('.daygrid-over .block-part')).toHaveLength(2);
+	});
+
+	it('states a genuine Combined Feed as the handover it was', () => {
+		app.entries = [
+			entry({ type: 'breast_feed', occurred_at: noon, ended_at: noon + 10 * M, payload: { side: 'left' } }),
+			bottle(noon + 15 * M, noon + 25 * M, 90)
+		];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('Breast · Left + Bottle · Formula · 90 ml');
+	});
+
+	it('leaves feeds beyond the round gap as separate feedings', () => {
+		app.entries = [bottle(noon, noon + 10 * M, 60), bottle(noon + 60 * M, noon + 70 * M, 80)];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('Bottle · Formula · 60 ml');
+		expect(text).toContain('Bottle · Formula · 80 ml');
+		expect(host.querySelectorAll('.daygrid-over .block')).toHaveLength(2);
+	});
+
+	it('names a Sleep by how long it ran, and draws the hour axis', () => {
+		app.entries = [entry({ type: 'sleep', occurred_at: noon, ended_at: noon + 95 * M })];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('1h35');
+		expect(host.querySelectorAll('.daygrid-hour')).toHaveLength(24);
+	});
+
+	it('gives a week column a hidden list of everything in it', () => {
+		app.entries = [
+			bottle(noon, noon + 10 * M, 60),
+			entry({ type: 'nappy', occurred_at: noon + 30 * M, payload: { pee: true, poop: false, consistency: null, where: null } })
+		];
+		draw(DayGrid, { ...gridProps(), view: 'week' as const });
+		const list = host.querySelector('.daygrid-col ul.sr-only');
+		expect(list?.querySelectorAll('li')).toHaveLength(2);
+		expect(list?.textContent).toContain('13:00');
 	});
 });
 

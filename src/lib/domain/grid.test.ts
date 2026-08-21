@@ -285,6 +285,53 @@ describe('a Combined Feed is drawn as the one sitting it was', () => {
 		expect(col.ordered).toHaveLength(2);
 	});
 
+	it('runs two bottles of the same milk together as one bigger feeding', () => {
+		const [col] = grid(
+			[bottle('2026-08-17T12:00:00Z', '2026-08-17T12:10:00Z'), bottle('2026-08-17T12:15:00Z', '2026-08-17T12:25:00Z')],
+			['2026-08-17']
+		);
+		/* One block, two Entries, one run — the label states one figure. */
+		expect(col.blocks[0].members.map((mk) => mk.run)).toEqual([0, 0]);
+	});
+
+	it('keeps two sources apart as the handover they were', () => {
+		const [col] = grid(
+			[
+				entry({ type: 'breast_feed', occurred_at: iso('2026-08-17T12:00:00Z'), ended_at: iso('2026-08-17T12:10:00Z'), payload: { side: 'left' } }),
+				bottle('2026-08-17T12:15:00Z', '2026-08-17T12:25:00Z')
+			],
+			['2026-08-17']
+		);
+		expect(col.blocks[0].members.map((mk) => mk.run)).toEqual([0, 1]);
+	});
+
+	it('reads runs in the order they happened, never reordered', () => {
+		/* Formula, then breast milk, then formula again is three things in the
+		   order they happened — not two things with the formula collected. */
+		const formula = (from: string, to: string) => bottle(from, to);
+		const breastMilk = (from: string, to: string) =>
+			entry({
+				type: 'bottle_feed',
+				occurred_at: iso(from),
+				ended_at: iso(to),
+				payload: { volume_ml: 60, leftover_ml: null, contents: 'breast_milk' }
+			});
+		const [col] = grid(
+			[
+				formula('2026-08-17T12:00:00Z', '2026-08-17T12:05:00Z'),
+				breastMilk('2026-08-17T12:10:00Z', '2026-08-17T12:15:00Z'),
+				formula('2026-08-17T12:20:00Z', '2026-08-17T12:25:00Z')
+			],
+			['2026-08-17']
+		);
+		expect(col.blocks[0].members.map((mk) => mk.run)).toEqual([0, 1, 2]);
+	});
+
+	it('gives a lone session a run of its own', () => {
+		const [col] = grid([sleep('2026-08-17T12:00:00Z', '2026-08-17T13:00:00Z')], ['2026-08-17']);
+		expect(col.blocks[0].members[0].run).toBe(0);
+	});
+
 	it('never joins a feed to a sleep or a tummy stretch', () => {
 		const [col] = grid(
 			[bottle('2026-08-17T12:00:00Z', '2026-08-17T12:10:00Z'), tummy('2026-08-17T12:12:00Z', '2026-08-17T12:20:00Z')],

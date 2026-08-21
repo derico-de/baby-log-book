@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { coercePayload, emptyPayload, intakeMl, isSession, subtractLeftover, validateFields } from './entries';
+import {
+	coercePayload,
+	emptyPayload,
+	feedContentKey,
+	intakeMl,
+	isSession,
+	subtractLeftover,
+	validateFields
+} from './entries';
+import type { Entry } from './types';
 
 describe('validateFields', () => {
 	it('accepts a bottle feed creation', () => {
@@ -192,5 +201,45 @@ describe('the leftover affordance (ADR-0018)', () => {
 
 	it('has nothing to subtract from when the Intake field is empty', () => {
 		expect(subtractLeftover(null, 30)).toBeNull();
+	});
+});
+
+describe('feedContentKey — when two Feeds are the same feed happening twice', () => {
+	let n = 0;
+	const feed = (type: Entry['type'], payload: unknown): Entry =>
+		({ id: `f${n++}`, type, payload } as Entry);
+
+	it('makes two bottles of the same milk the same thing', () => {
+		const a = feed('bottle_feed', { volume_ml: 60, leftover_ml: null, contents: 'formula' });
+		const b = feed('bottle_feed', { volume_ml: 80, leftover_ml: null, contents: 'formula' });
+		expect(feedContentKey(a)).toBe(feedContentKey(b));
+	});
+
+	it('keeps formula and breast milk apart — that is a Combined Feed, not one bigger one', () => {
+		const a = feed('bottle_feed', { volume_ml: 60, leftover_ml: null, contents: 'formula' });
+		const b = feed('bottle_feed', { volume_ml: 60, leftover_ml: null, contents: 'breast_milk' });
+		expect(feedContentKey(a)).not.toBe(feedContentKey(b));
+	});
+
+	it('never guesses that two bottles nobody named were the same milk', () => {
+		const a = feed('bottle_feed', { volume_ml: 60, leftover_ml: null, contents: null });
+		const b = feed('bottle_feed', { volume_ml: 80, leftover_ml: null, contents: null });
+		expect(feedContentKey(a)).not.toBe(feedContentKey(b));
+	});
+
+	it('matches a breast by side, and only by side', () => {
+		expect(feedContentKey(feed('breast_feed', { side: 'left' }))).toBe(
+			feedContentKey(feed('breast_feed', { side: 'left' }))
+		);
+		expect(feedContentKey(feed('breast_feed', { side: 'left' }))).not.toBe(
+			feedContentKey(feed('breast_feed', { side: 'right' }))
+		);
+	});
+
+	it('never matches a breast to a bottle, or anything that is not a Feed to itself', () => {
+		expect(feedContentKey(feed('breast_feed', { side: 'left' }))).not.toBe(
+			feedContentKey(feed('bottle_feed', { volume_ml: 60, leftover_ml: null, contents: 'breast_milk' }))
+		);
+		expect(feedContentKey(feed('sleep', {}))).not.toBe(feedContentKey(feed('sleep', {})));
 	});
 });

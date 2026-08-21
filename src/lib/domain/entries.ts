@@ -15,7 +15,9 @@
 import type {
 	BottleContents,
 	BottleFeedPayload,
+	BreastFeedPayload,
 	Consistency,
+	Entry,
 	EntryType,
 	MealAmount,
 	MealFood,
@@ -296,6 +298,34 @@ export const FORMULA_PRESETS: ReadonlyArray<{ water: number; final: number }> = 
 /** True for the two Feed types. */
 export function isFeed(type: EntryType): boolean {
 	return type === 'breast_feed' || type === 'bottle_feed';
+}
+
+/** Whether two Feeds in one sitting were *different milk* or *the same milk
+    twice*: the same contents from the same place.
+
+    A Combined Feed is the several Feeds one sitting was, and one bottle is one
+    Feed, so a sitting that runs through two of them is a Combined Feed however
+    they were filled (CONTEXT.md, ADR-0019). What the log stores is right; what
+    a reader wants is not always the same shape. Pumped breast milk and then
+    formula is a handover and reads as two things. Two bottles of the *same*
+    formula is one bigger feeding that happened to need a second bottle, and
+    stating it as "60 ml + 80 ml" makes a reader do arithmetic the app can do.
+    A left breast twice in one sitting is the same case with no figure: one
+    left breast, said once.
+
+    Nothing is stored or merged either way — this is a reading rule, and the
+    linear read still lists every Feed the sitting was.
+
+    A bottle with no contents recorded is its own key rather than a wildcard —
+    the app does not know it was the same milk, and guessing is inventing data.
+    Only Feeds have this; anything else is only ever itself. */
+export function feedContentKey(entry: Entry): string {
+	if (entry.type === 'bottle_feed') {
+		const p = entry.payload as BottleFeedPayload;
+		return p.contents == null ? `bottle:unsaid:${entry.id}` : `bottle:${p.contents}`;
+	}
+	if (entry.type === 'breast_feed') return `breast:${(entry.payload as BreastFeedPayload).side}`;
+	return `${entry.type}:${entry.id}`;
 }
 
 /** True for the types that are a Live Session while they have no end — the one

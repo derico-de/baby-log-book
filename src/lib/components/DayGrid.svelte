@@ -22,10 +22,10 @@
 	       ground colour keeps the upper layers reading as objects on top of a
 	       Sleep rather than as slices cut out of it. */
 	import { app } from '$client/state.svelte';
-	import { buildGrid, type GridBlock, type GridColumn, type GridMark } from '$domain/grid';
+	import { buildGrid, type BlockMember, type GridBlock, type GridColumn, type GridMark } from '$domain/grid';
 	import type { FacetKey } from '$domain/filter';
 	import { clockTime, dateWithWeekday, duration, hourLabel, weekdayShort } from '$lib/i18n/format';
-	import { entryTitle, GLYPH_OF } from '$lib/i18n/entry-label';
+	import { entryTitle, feedRunTitle, GLYPH_OF } from '$lib/i18n/entry-label';
 	import { wallPartsOf } from '$domain/time';
 	import type { Entry } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
@@ -100,10 +100,28 @@
 		return parts.join(' · ');
 	}
 
+	/** The members of a block, split into the runs of same-content Feeds
+	    `grid.ts` found. Two bottles of the same formula are one run and read as
+	    one bigger feeding; breast then formula are two and read as the handover
+	    they were. */
+	function runs(b: GridBlock): BlockMember[][] {
+		const out: BlockMember[][] = [];
+		for (const part of b.members) {
+			if (out.length > 0 && out[out.length - 1][0].run === part.run) out[out.length - 1].push(part);
+			else out.push([part]);
+		}
+		return out;
+	}
+
 	/* A Combined Feed states every source it was: "Breast · Left + Bottle ·
 	   Formula · 120 ml". The plus is doing real work — it says *and then*,
-	   which is what a sitting from two sources is (ADR-0019). */
-	const combinedTitle = (b: GridBlock) => b.members.map((part) => title(part.entry)).join(' + ');
+	   which is what a sitting from more than one source is (ADR-0019). Two
+	   bottles of the same milk are not a handover and get no plus: they are one
+	   figure. */
+	const combinedTitle = (b: GridBlock) =>
+		runs(b)
+			.map((run) => feedRunTitle(run.map((part) => part.entry), (id) => app.foodName(id)))
+			.join(' + ');
 
 	/* Percentages, computed once per block rather than in the template — the
 	   week view can hold a couple of hundred of them. */
@@ -270,7 +288,7 @@
 								     there is to say the sitting had two sources; in the day
 								     view the label says it in words, and a line drawn at the
 								     handover would cut straight through them. -->
-								{#each b.members.slice(1) as part (part.entry.id)}
+								{#each b.members.slice(1).filter((part, i) => part.run !== b.members[i].run) as part (part.entry.id)}
 									<span class="block-seam" style={`top:${top(part.from)}`}></span>
 								{/each}
 							{/if}
