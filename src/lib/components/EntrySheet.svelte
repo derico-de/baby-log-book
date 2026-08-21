@@ -31,6 +31,7 @@
 		BottleContents,
 		BottleFeedPayload,
 		BreastFeedPayload,
+		Consistency,
 		Entry,
 		MealPayload,
 		MeasurementPayload,
@@ -68,6 +69,12 @@
 	let contents = $state((opened.payload as BottleFeedPayload).contents ?? null);
 	let side = $state((opened.payload as BreastFeedPayload).side ?? 'both');
 	let milestoneName = $state((opened.payload as MilestonePayload).name ?? '');
+	/* A nappy is correctable in the fields the nappy form writes: what was in it
+	   is a mis-tap away from wrong, and a field the app can write but never fix
+	   would be the one exception to corrections being first-class (ADR-0002). */
+	let pee = $state((opened.payload as NappyPayload).pee ?? false);
+	let poop = $state((opened.payload as NappyPayload).poop ?? false);
+	let consistency = $state((opened.payload as NappyPayload).consistency ?? null);
 	let busy = $state(false);
 	let history = $state<Revision[]>([]);
 	/* Collapsed by default: the history is evidence for the rare dispute, not
@@ -136,10 +143,6 @@
 						return f.reaction ? `${name} — ${f.reaction}` : name;
 					})
 					.join(' · ');
-			case 'nappy': {
-				const p = entry.payload as NappyPayload;
-				return p.pee && p.poop ? m.nappy_both() : p.poop ? m.nappy_poop() : m.nappy_pee();
-			}
 			case 'measurement': {
 				const p = entry.payload as MeasurementPayload;
 				return [
@@ -154,6 +157,13 @@
 				return '';
 		}
 	});
+
+	const CONSISTENCIES: Array<[Consistency, () => string]> = [
+		['soft', () => m.consistency_soft()],
+		['firm', () => m.consistency_firm()],
+		['runny', () => m.consistency_runny()],
+		['hard', () => m.consistency_hard()]
+	];
 
 	const contentsLabel = (value: BottleContents) =>
 		value === 'breast_milk' ? m.contents_breast_milk() : value === 'formula' ? m.contents_formula() : m.contents_other();
@@ -267,6 +277,15 @@
 		if (entry.type === 'breast_feed' && side !== (entry.payload as BreastFeedPayload).side) {
 			fields.side = side;
 		}
+		if (entry.type === 'nappy') {
+			const p = entry.payload as NappyPayload;
+			if (pee !== p.pee) fields.pee = pee;
+			if (poop !== p.poop) fields.poop = poop;
+			/* Unticking the poop takes its consistency with it, the same rule the
+			   nappy form saves under. */
+			const stated = poop ? consistency : null;
+			if (stated !== (p.consistency ?? null)) fields.consistency = stated;
+		}
 		if (entry.type === 'milestone') {
 			const written = milestoneName.trim();
 			if (written.length > 0 && written !== (entry.payload as MilestonePayload).name) fields.name = written;
@@ -375,6 +394,25 @@
 				</button>
 			{/each}
 		</div>
+	{:else if entry.type === 'nappy'}
+		<div class="seg toggles">
+			<button type="button" aria-pressed={pee} onclick={() => (pee = !pee)}>{m.fan_pee()}</button>
+			<button type="button" aria-pressed={poop} onclick={() => (poop = !poop)}>{m.fan_poop()}</button>
+		</div>
+		{#if poop}
+			<div class="field-label">{m.consistency()}</div>
+			<div class="seg" role="group" aria-label={m.consistency()}>
+				{#each CONSISTENCIES as [value, label] (value)}
+					<button
+						type="button"
+						aria-pressed={consistency === value}
+						onclick={() => (consistency = consistency === value ? null : value)}
+					>
+						{label()}
+					</button>
+				{/each}
+			</div>
+		{/if}
 	{:else if entry.type === 'milestone'}
 		<label class="field">
 			{m.sheet_milestone_name()}
@@ -428,6 +466,27 @@
 </Sheet>
 
 <style>
+	/* The segmented control's own state attribute is aria-selected, which is for
+	   one-of-many; independent toggles say aria-pressed and borrow the look. */
+	.seg button[aria-pressed='true'] {
+		background: var(--surface-raised);
+		color: var(--ink);
+		box-shadow: var(--shadow);
+	}
+	.toggles button[aria-pressed='true'] {
+		background: var(--t-nappy);
+		color: var(--t-nappy-ink);
+	}
+	.toggles button {
+		min-height: 54px;
+		font-size: var(--fs-3);
+	}
+	.field-label {
+		padding: 0 var(--sp-4);
+		margin-bottom: var(--sp-2);
+		font-size: var(--fs-1);
+		color: var(--ink-2);
+	}
 	.field {
 		margin-bottom: var(--sp-3);
 		padding: 0 var(--sp-4);

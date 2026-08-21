@@ -8,7 +8,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { app } from '$client/state.svelte';
 import { ReplicaDb } from '$client/db';
 import type { Writer } from '$client/mutate';
-import type { Baby, Entry, Household, MemberRecord } from '$domain/types';
+import type { Baby, Entry, Household, MemberRecord, Payload } from '$domain/types';
 import EntrySheet from './EntrySheet.svelte';
 import { landed } from './test-wait';
 
@@ -26,12 +26,12 @@ const mum: MemberRecord = {
 	locale: 'en'
 };
 
-function bottleEntry(payload: Entry['payload']): Entry {
+function entryOf(type: Entry['type'], payload: Payload): Entry {
 	return {
 		id: 'e1',
 		household_id: 'h1',
 		baby_id: 'b1',
-		type: 'bottle_feed',
+		type,
 		occurred_at: NOW - 3600_000,
 		ended_at: null,
 		recording_zone: BERLIN,
@@ -45,6 +45,9 @@ function bottleEntry(payload: Entry['payload']): Entry {
 		merged_into: null
 	} as Entry;
 }
+
+const bottleEntry = (payload: Payload) => entryOf('bottle_feed', payload);
+const nappyEntry = (payload: Payload) => entryOf('nappy', payload);
 
 let host: HTMLElement;
 let mounted: Record<string, unknown> | null = null;
@@ -155,5 +158,48 @@ describe('a bottle row in the edit sheet', () => {
 		expect(select).not.toBeNull();
 		const labels = [...(select?.querySelectorAll('option') ?? [])].map((o) => o.textContent?.trim());
 		expect(labels).toEqual(['Not said', 'Breast milk', 'Formula', 'Other']);
+	});
+});
+
+/* A nappy is enterable as one form (ADR-0028), so it has to be correctable in
+   the same fields — a value the app can write but never fix would be the one
+   exception to corrections being first-class. */
+describe('a nappy row in the edit sheet', () => {
+	function toggle(label: string): HTMLButtonElement {
+		const found = [...host.querySelectorAll<HTMLButtonElement>('button')].find(
+			(b) => b.textContent?.trim() === label
+		);
+		if (!found) throw new Error(`no button labelled ${label}`);
+		return found;
+	}
+
+	it('opens on what the nappy held', () => {
+		open(nappyEntry({ pee: true, poop: false, consistency: null }));
+		expect(toggle('Pee').getAttribute('aria-pressed')).toBe('true');
+		expect(toggle('Poop').getAttribute('aria-pressed')).toBe('false');
+		expect(host.textContent).not.toContain('Runny');
+	});
+
+	it('records a correction to what was in it, and to the consistency', async () => {
+		open(nappyEntry({ pee: true, poop: false, consistency: null }));
+		toggle('Poop').click();
+		flushSync();
+		toggle('Runny').click();
+		flushSync();
+		await save(async () => (await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).count()) > 0);
+		const revisions = await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray();
+		expect(revisions).toHaveLength(1);
+		expect(revisions[0].fields).toEqual({ poop: true, consistency: 'runny' });
+	});
+
+	it('takes the consistency with the poop when the poop is unticked', async () => {
+		open(nappyEntry({ pee: false, poop: true, consistency: 'hard' }));
+		toggle('Poop').click();
+		flushSync();
+		toggle('Pee').click();
+		flushSync();
+		await save(async () => (await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).count()) > 0);
+		const revisions = await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray();
+		expect(revisions[0].fields).toEqual({ pee: true, poop: false, consistency: null });
 	});
 });

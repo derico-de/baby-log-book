@@ -386,8 +386,7 @@ describe('a tummy time row', () => {
 
 describe('the fan', () => {
 	const handlers = {
-		onPee: () => {},
-		onPoop: () => {},
+		onNappy: () => {},
 		onSleep: () => {},
 		onFeed: () => {},
 		onMeasurement: () => {},
@@ -407,45 +406,22 @@ describe('the fan', () => {
 		expect(items.join(' ')).toContain('Sleep');
 		expect(items.join(' ')).toContain('Feed');
 		expect(items.join(' ')).toContain('Tummy time');
-		/* Pee and Poop live one level down now (ADR-0028). */
+		/* Pee and Poop are fields on the nappy form now, not rows (ADR-0028). */
 		const labels = [...host.querySelectorAll('.fan .fan-main')].map((el) => el.textContent?.trim() ?? '');
 		expect(labels).not.toContain('Pee');
 		expect(labels).not.toContain('Poop');
 	});
 
-	it('reflows to Pee and Poop when the nappy row is picked, and back again', () => {
-		let peed = false;
-		draw(Fan, { asleep: false, tummyRunning: false, ...handlers, onPee: () => (peed = true) });
+	it('hands the nappy row to the form and closes, like every other writing row', () => {
+		let opened = false;
+		draw(Fan, { asleep: false, tummyRunning: false, ...handlers, onNappy: () => (opened = true) });
 		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
-		const nappyRow = [...host.querySelectorAll<HTMLButtonElement>('.fan button')].find(
-			(b) => b.textContent?.includes('Nappy')
-		);
-		flushSync(() => nappyRow?.click());
-
-		let labels = [...host.querySelectorAll('.fan .fan-main')].map((el) => el.textContent?.trim() ?? '');
-		expect(labels).toEqual(['Back', 'Poop', 'Pee']);
-
-		/* Back is navigation: it returns to the top level rather than closing. */
-		flushSync(() =>
-			[...host.querySelectorAll<HTMLButtonElement>('.fan button')]
-				.find((b) => b.textContent?.includes('Back'))
-				?.click()
-		);
-		labels = [...host.querySelectorAll('.fan .fan-main')].map((el) => el.textContent?.trim() ?? '');
-		expect(labels).toContain('Nappy');
-
-		/* And logging one closes the fan, the way every writing row does. */
 		flushSync(() =>
 			[...host.querySelectorAll<HTMLButtonElement>('.fan button')]
 				.find((b) => b.textContent?.includes('Nappy'))
 				?.click()
 		);
-		flushSync(() =>
-			[...host.querySelectorAll<HTMLButtonElement>('.fan button')]
-				.find((b) => b.textContent?.trim() === 'Pee')
-				?.click()
-		);
-		expect(peed).toBe(true);
+		expect(opened).toBe(true);
 		expect(host.querySelector('.fan')).toBeNull();
 	});
 

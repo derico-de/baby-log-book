@@ -2,15 +2,7 @@
 	/* The timeline — the primary screen, not a dashboard of tiles with the log
 	   demoted below the fold (spec §8.4). */
 	import { app } from '$client/state.svelte';
-	import {
-		addBaby,
-		deleteEntry,
-		endSleep,
-		logNappy,
-		startSleep,
-		startTummyTime,
-		stopSession
-	} from '$client/mutate';
+	import { addBaby, deleteEntry, endSleep, startSleep, startTummyTime, stopSession } from '$client/mutate';
 	import { dayBucketOf, dayStartInstant, wallTimeAtOrAfter, wallTimeAtOrBefore } from '$domain/time';
 	import { dayLabel } from '$lib/i18n/format';
 	import type { Entry } from '$domain/types';
@@ -23,6 +15,7 @@
 	import LiveHeader from '$lib/components/LiveHeader.svelte';
 	import MeasurementSheet from '$lib/components/MeasurementSheet.svelte';
 	import MilestoneSheet from '$lib/components/MilestoneSheet.svelte';
+	import NappySheet from '$lib/components/NappySheet.svelte';
 	import Notices from '$lib/components/Notices.svelte';
 	import StaleBanner from '$lib/components/StaleBanner.svelte';
 	import TimelineRow from '$lib/components/TimelineRow.svelte';
@@ -33,6 +26,7 @@
 		| 'feed-asleep'
 		| 'measurement'
 		| 'milestone'
+		| 'nappy'
 		| 'filter'
 		| 'sleep-start'
 		| 'awake'
@@ -62,16 +56,6 @@
 		}
 		return out;
 	});
-
-	async function nappy(pee: boolean, poop: boolean) {
-		if (!baby) return;
-		const id = await app.log((w) => logNappy(w, { babyId: baby.id, pee, poop }), {
-			text: m.toast_logged({ what: poop && !pee ? m.nappy_poop() : pee && poop ? m.nappy_both() : m.nappy_pee() }),
-			undo: async () => {
-				if (id) await app.edit((w) => deleteEntry(w, id), { text: m.toast_undone() });
-			}
-		});
-	}
 
 	/** Starting a Sleep asks for its time first — prefilled with now, so the
 	    common path is one confirming tap. Backwards from now, like a feed's
@@ -239,8 +223,7 @@
 	<Fan
 		asleep={app.runningSleep != null}
 		tummyRunning={app.runningTummy != null}
-		onPee={() => void nappy(true, false)}
-		onPoop={() => void nappy(false, true)}
+		onNappy={() => (sheet = 'nappy')}
 		onSleep={() => (sheet = 'sleep-start')}
 		onFeed={() => (sheet = 'feed')}
 		onMeasurement={() => (sheet = 'measurement')}
@@ -257,6 +240,8 @@
 
 {#if sheet === 'feed' || sheet === 'feed-asleep'}
 	<FeedSheet asleep={sheet === 'feed-asleep'} onclose={() => (sheet = null)} />
+{:else if sheet === 'nappy'}
+	<NappySheet onclose={() => (sheet = null)} />
 {:else if sheet === 'measurement'}
 	<MeasurementSheet onclose={() => (sheet = null)} />
 {:else if sheet === 'milestone'}

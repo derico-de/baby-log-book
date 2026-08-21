@@ -5,11 +5,9 @@
 	   stack of six direct actions, expanding upward — so the first item is the one
 	   nearest the thumb.
 
-	   Nappies still log straight from the fan — no sheet, no confirm — but Pee and
-	   Poop live one level down, behind the Nappy row, which reflows the fan in
-	   place to the two of them (ADR-0028). A nappy is three taps rather than two;
-	   what it buys is one row per entry type at the top level and a stack that
-	   still fits a small phone. Everything else opens a
+	   One row per entry type, and the Nappy row opens a form like the rest of
+	   them (ADR-0028): Pee and Poop are two facts about one nappy rather than
+	   two rows that write two Entries. Everything else opens a
 	   sheet — Feeds, Measurements and Milestones because they carry real data,
 	   Sleep, *She's awake* and starting tummy time only a one-field time sheet
 	   prefilled with now. *Off her tummy* writes straight through, because the
@@ -26,9 +24,8 @@
 	interface Action {
 		key: string;
 		icon: IconName;
-		/** Which entry type's colour the pill wears (issue 24). Absent on the one
-		    row that is navigation rather than an entry type: *Back*. */
-		t?: FacetKey;
+		/** Which entry type's colour the pill wears (issue 24). */
+		t: FacetKey;
 		label: string;
 		sub?: string;
 		run: () => void;
@@ -39,8 +36,7 @@
 		/** A stretch of tummy time is running, so its row ends it instead of
 		    starting a second one. */
 		tummyRunning: boolean;
-		onPee: () => void;
-		onPoop: () => void;
+		onNappy: () => void;
 		onSleep: () => void;
 		onFeed: () => void;
 		onMeasurement: () => void;
@@ -53,42 +49,12 @@
 	let props: Props = $props();
 
 	let open = $state(false);
-	/** The nappy set stands in the fan's place; a level, not a second surface. */
-	let nappyOpen = $state(false);
-
-	function close() {
-		open = false;
-		nappyOpen = false;
-	}
-
-	/* The rows that are navigation: they move within the fan and never close it.
-	   *She's awake* is here for a different reason — it writes, and the fan
-	   reflows in place around the Sleep it just ended. */
-	const KEEPS_OPEN = new Set(['awake', 'nappy', 'nappy-back']);
 
 	/* Rendered top-to-bottom, so the array is reversed on screen: the first
 	   action in the list ends up closest to the FAB. */
 	const actions = $derived.by((): Action[] => {
-		/* One level down: the two large targets a nappy has always been, and the
-		   way back. Nothing else, because the whole point of the level is that
-		   the top of it holds one row per entry type. */
-		if (nappyOpen) {
-			return [
-				{ key: 'pee', icon: 'nappy', t: 'nappy', label: m.fan_pee(), run: props.onPee },
-				{ key: 'poop', icon: 'nappy', t: 'nappy', label: m.fan_poop(), run: props.onPoop },
-				{ key: 'nappy-back', icon: 'back', label: m.fan_back(), run: () => (nappyOpen = false) }
-			];
-		}
-
 		const common: Action[] = [
-			{
-				key: 'nappy',
-				icon: 'nappy',
-				t: 'nappy',
-				label: m.fan_nappy(),
-				sub: m.fan_nappy_sub(),
-				run: () => (nappyOpen = true)
-			}
+			{ key: 'nappy', icon: 'nappy', t: 'nappy', label: m.fan_nappy(), run: props.onNappy }
 		];
 		const tail: Action[] = [
 			/* Tummy time reflows the way Sleep does: while a stretch is running
@@ -132,15 +98,15 @@
 	});
 
 	function pick(action: Action) {
-		/* A row that moves within the fan leaves it open; every other action is
-		   finished with it. */
-		if (!KEEPS_OPEN.has(action.key)) close();
+		/* *She's awake* keeps the fan open so it can reflow in place; every other
+		   action is finished with it. */
+		if (action.key !== 'awake') open = false;
 		action.run();
 	}
 </script>
 
 {#if open}
-	<button class="scrim" type="button" aria-label={m.fan_close()} onclick={close}></button>
+	<button class="scrim" type="button" aria-label={m.fan_close()} onclick={() => (open = false)}></button>
 	<div class="fan" role="menu">
 		{#each [...actions].reverse() as action, index (action.key)}
 			<button
@@ -166,7 +132,7 @@
 	data-open={open ? '1' : '0'}
 	aria-expanded={open}
 	aria-label={open ? m.fan_close() : m.fan_open()}
-	onclick={() => (open ? close() : (open = true))}
+	onclick={() => (open = !open)}
 >
 	<Icon name="plus" />
 </button>
