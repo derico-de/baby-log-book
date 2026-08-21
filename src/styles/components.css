@@ -746,6 +746,19 @@
 	}
 	.seg button {
 		flex: 1;
+		/* A flex item will not shrink below its own text, so without this the
+		   four-button rows — Consistency, and Where on a 320px screen — run off
+		   the sheet instead of dividing it. Pico's 1rem of form-element padding
+		   is measured for a button standing alone, not for four sharing a
+		   phone's width, so the label gets the room back. */
+		min-width: 0;
+		padding-inline: var(--sp-2);
+		/* What is left over when even that is not enough: the label wraps and
+		   hyphenates rather than truncating — Romanian's "Consistentă" has to
+		   stay readable to be pickable, and the row grows a line instead of
+		   escaping the screen. */
+		hyphens: auto;
+		overflow-wrap: break-word;
 		min-height: 42px;
 		border: 0;
 		border-radius: calc(var(--r-1) - 2px);
