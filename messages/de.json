@@ -99,6 +99,9 @@
 
 	"fan_pee": "Pipi",
 	"fan_poop": "Kaka",
+	"fan_nappy": "Windel",
+	"fan_nappy_sub": "Pipi oder Kaka",
+	"fan_back": "Zurück",
 	"fan_sleep": "Schlaf",
 	"fan_feed": "Mahlzeit",
 	"fan_measurement": "Messung",

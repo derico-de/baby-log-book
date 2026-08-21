@@ -545,9 +545,9 @@ The tab bar does put a second control in the thumb zone, which is the trade the 
 
 [Logging interactions](issues/16-logging-interactions.md).
 
-**One FAB, bottom-right in thumb reach.** Tapping it **expands it in place into a stack of seven direct actions**, expanding upward: **Pee · Poop · Sleep · Feed · Tummy time · Measurement · Milestone**.
+**One FAB, bottom-right in thumb reach.** Tapping it **expands it in place into a stack of six direct actions**, expanding upward — one row per entry type: **Nappy · Sleep · Feed · Tummy time · Measurement · Milestone**.
 
-- **Nappies log straight from the fan — no sheet, no confirm.** A nappy is two taps and the second is a large target; no sheet chrome ever renders for the app's most frequent, least informative action.
+- **Nappies log straight from the fan — no sheet, no confirm.** The Nappy row reflows the fan in place to **Pee · Poop · Back**, so a nappy is three taps and the last is a large target; no sheet chrome ever renders for the app's most frequent, least informative action. The third tap buys one row per entry type at the top level and a stack that still fits a small phone ([ADR-0028](../../docs/adr/0028-pee-and-poop-live-under-the-nappy-row.md)) — the two-tap nappy of [Logging interactions](issues/16-logging-interactions.md) is history, and reflowing in place is the fan's own idiom rather than a second surface.
 - **Only Feeds, Measurements and Milestones open the sheet**, because only they carry real data. Sleep, *She's awake* and starting tummy time open the one-field time sheet; *Off her tummy* writes straight through (§3.7).
 - **Undo, not confirm — decided explicitly.** Corrections are already first-class: any Member may fix any Member's Entry and the history stays visible. A confirm step taxes every nappy every night to prevent a mistake that is cheap to correct.
 - **Rejected**: a dedicated nappy button (a permanent second control beside a scrolling timeline, with poop behind a 400ms long-press nobody finds at 3am), and putting nappies inside the sheet.

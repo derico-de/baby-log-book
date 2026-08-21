@@ -99,6 +99,9 @@
 
 	"fan_pee": "Pee",
 	"fan_poop": "Poop",
+	"fan_nappy": "Nappy",
+	"fan_nappy_sub": "pee or poop",
+	"fan_back": "Back",
 	"fan_sleep": "Sleep",
 	"fan_feed": "Feed",
 	"fan_measurement": "Measurement",
