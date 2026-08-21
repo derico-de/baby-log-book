@@ -38,7 +38,8 @@
 		MilestonePayload,
 		NappyPayload,
 		Revision,
-		Side
+		Side,
+		Where
 	} from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 	import Icon, { type IconName } from './Icon.svelte';
@@ -75,6 +76,9 @@
 	let pee = $state((opened.payload as NappyPayload).pee ?? false);
 	let poop = $state((opened.payload as NappyPayload).poop ?? false);
 	let consistency = $state((opened.payload as NappyPayload).consistency ?? null);
+	/* Null on every row logged before the field existed — and it stays null
+	   unless someone says otherwise here, rather than being read as a nappy. */
+	let where = $state((opened.payload as NappyPayload).where ?? null);
 	let busy = $state(false);
 	let history = $state<Revision[]>([]);
 	/* Collapsed by default: the history is evidence for the rare dispute, not
@@ -158,6 +162,12 @@
 		}
 	});
 
+	const WHERES: Array<[Where, () => string]> = [
+		['nappy', () => m.where_nappy()],
+		['potty', () => m.where_potty()],
+		['toilet', () => m.where_toilet()]
+	];
+
 	const CONSISTENCIES: Array<[Consistency, () => string]> = [
 		['soft', () => m.consistency_soft()],
 		['firm', () => m.consistency_firm()],
@@ -179,6 +189,7 @@
 		pee: m.field_pee,
 		poop: m.field_poop,
 		consistency: m.field_consistency,
+		where: m.field_where,
 		weight_g: m.field_weight_g,
 		height_mm: m.field_height_mm,
 		head_mm: m.field_head_mm,
@@ -285,6 +296,7 @@
 			   nappy form saves under. */
 			const stated = poop ? consistency : null;
 			if (stated !== (p.consistency ?? null)) fields.consistency = stated;
+			if (where !== (p.where ?? null)) fields.where = where;
 		}
 		if (entry.type === 'milestone') {
 			const written = milestoneName.trim();
@@ -398,6 +410,18 @@
 		<div class="seg toggles">
 			<button type="button" aria-pressed={pee} onclick={() => (pee = !pee)}>{m.fan_pee()}</button>
 			<button type="button" aria-pressed={poop} onclick={() => (poop = !poop)}>{m.fan_poop()}</button>
+		</div>
+		<div class="field-label">{m.sheet_where()}</div>
+		<div class="seg" role="group" aria-label={m.sheet_where()}>
+			{#each WHERES as [value, label] (value)}
+				<button
+					type="button"
+					aria-pressed={where === value}
+					onclick={() => (where = where === value ? null : value)}
+				>
+					{label()}
+				</button>
+			{/each}
 		</div>
 		{#if poop}
 			<div class="field-label">{m.consistency()}</div>

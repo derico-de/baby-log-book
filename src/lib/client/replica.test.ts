@@ -49,7 +49,7 @@ describe('a local write', () => {
 		const id = await logNappy(writer(), { babyId: 'b1', pee: true, poop: false });
 		const entry = await db.entries.get(id);
 		expect(entry).toMatchObject({ type: 'nappy', baby_id: 'b1', logged_by: 'oma' });
-		expect(entry?.payload).toEqual({ pee: true, poop: false, consistency: null });
+		expect(entry?.payload).toEqual({ pee: true, poop: false, consistency: null, where: null });
 		expect(await db.outbox.count()).toBe(1);
 	});
 

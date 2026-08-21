@@ -341,18 +341,18 @@ describe('headerState', () => {
 				entry({
 					type: 'nappy',
 					occurred_at: iso('2026-08-17T06:00:00Z'),
-					payload: { pee: true, poop: false, consistency: null }
+					payload: { pee: true, poop: false, consistency: null, where: null }
 				}),
 				entry({
 					type: 'nappy',
 					occurred_at: iso('2026-08-17T09:00:00Z'),
-					payload: { pee: true, poop: true, consistency: 'soft' }
+					payload: { pee: true, poop: true, consistency: 'soft', where: null }
 				}),
 				/* yesterday, before the 05:00 boundary */
 				entry({
 					type: 'nappy',
 					occurred_at: iso('2026-08-17T02:00:00Z'),
-					payload: { pee: true, poop: false, consistency: null }
+					payload: { pee: true, poop: false, consistency: null, where: null }
 				})
 			]
 		});
@@ -369,12 +369,12 @@ describe('headerState', () => {
 				entry({
 					type: 'nappy',
 					occurred_at: iso('2026-08-16T15:00:00Z'),
-					payload: { pee: false, poop: true, consistency: null }
+					payload: { pee: false, poop: true, consistency: null, where: null }
 				}),
 				entry({
 					type: 'nappy',
 					occurred_at: iso('2026-08-17T09:00:00Z'),
-					payload: { pee: true, poop: false, consistency: null }
+					payload: { pee: true, poop: false, consistency: null, where: null }
 				})
 			]
 		});
@@ -390,7 +390,7 @@ describe('headerState', () => {
 				entry({
 					type: 'nappy',
 					occurred_at: iso('2026-08-17T09:00:00Z'),
-					payload: { pee: true, poop: false, consistency: null }
+					payload: { pee: true, poop: false, consistency: null, where: null }
 				})
 			]
 		});

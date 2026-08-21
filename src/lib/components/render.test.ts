@@ -137,8 +137,8 @@ describe('the sticky header', () => {
 
 	it('counts today s nappies and states the last poop', () => {
 		app.entries = [
-			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: false, consistency: null } }),
-			entry({ type: 'nappy', occurred_at: NOW - 7200_000, payload: { pee: true, poop: true, consistency: null } })
+			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: false, consistency: null, where: null } }),
+			entry({ type: 'nappy', occurred_at: NOW - 7200_000, payload: { pee: true, poop: true, consistency: null, where: null } })
 		];
 		const text = draw(LiveHeader, { onFilter: () => {} });
 		expect(text).toContain('2 nappies');
@@ -147,7 +147,7 @@ describe('the sticky header', () => {
 
 	it('points the last poop at yesterday when today has none', () => {
 		app.entries = [
-			entry({ type: 'nappy', occurred_at: NOW - 26 * 3600_000, payload: { pee: false, poop: true, consistency: null } })
+			entry({ type: 'nappy', occurred_at: NOW - 26 * 3600_000, payload: { pee: false, poop: true, consistency: null, where: null } })
 		];
 		expect(draw(LiveHeader, { onFilter: () => {} })).toContain('last poop yesterday');
 	});
@@ -188,7 +188,7 @@ describe('the filter header', () => {
 
 	it('counts hits against the whole log once armed', () => {
 		app.entries = [
-			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: false, consistency: null } }),
+			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: false, consistency: null, where: null } }),
 			entry({ type: 'sleep', occurred_at: NOW - 7200_000, ended_at: NOW - 5400_000 })
 		];
 		app.openFilter({ types: ['nappy'], foodId: null, memberId: null, text: '', period: 'anytime' });
@@ -332,7 +332,7 @@ describe('a timeline row', () => {
 			type: 'nappy',
 			occurred_at: NOW - 3600_000,
 			note: 'a little red',
-			payload: { pee: true, poop: false, consistency: null }
+			payload: { pee: true, poop: false, consistency: null, where: null }
 		});
 		app.entries = [row];
 		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).not.toContain('a little red');
@@ -348,12 +348,40 @@ describe('a timeline row', () => {
 			type: 'nappy',
 			occurred_at: NOW - 3600_000,
 			note: 'blotches on her cheek',
-			payload: { pee: true, poop: false, consistency: null }
+			payload: { pee: true, poop: false, consistency: null, where: null }
 		});
 		app.entries = [row];
 		app.filter = { ...app.filter, text: 'blotches' };
 		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
 		expect(host.querySelector('mark')?.textContent).toBe('blotches');
+	});
+});
+
+describe('a pee & poop row', () => {
+	it('says the potty on the meta line, and stays silent about a nappy', () => {
+		const potty = entry({
+			type: 'nappy',
+			occurred_at: NOW - 3600_000,
+			payload: { pee: true, poop: false, consistency: null, where: 'potty' }
+		});
+		app.entries = [potty];
+		let text = draw(TimelineRow, { entry: potty, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		expect(text).toContain('Potty');
+
+		if (mounted) unmount(mounted as never, { outro: false });
+		mounted = null;
+		host.innerHTML = '';
+
+		/* The receptacle is the detail: a nappy on every row of a Household that
+		   has never seen a potty is a word doing no work. */
+		const nappy = entry({
+			type: 'nappy',
+			occurred_at: NOW - 3600_000,
+			payload: { pee: true, poop: false, consistency: null, where: 'nappy' }
+		});
+		app.entries = [nappy];
+		text = draw(TimelineRow, { entry: nappy, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		expect(text).not.toContain('Nappy');
 	});
 });
 
@@ -478,8 +506,8 @@ describe('the stale-Sleep banner', () => {
 describe('a stats card', () => {
 	it('states its numbers as text, with the bars as the secondary read', () => {
 		const entries = [
-			entry({ type: 'nappy', occurred_at: NOW - 86_400_000, payload: { pee: true, poop: false, consistency: null } }),
-			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: true, consistency: null } })
+			entry({ type: 'nappy', occurred_at: NOW - 86_400_000, payload: { pee: true, poop: false, consistency: null, where: null } }),
+			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: true, consistency: null, where: null } })
 		];
 		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
 		const text = draw(StatCard, { card });
@@ -491,9 +519,9 @@ describe('a stats card', () => {
 
 	it('labels the axis with an even ceiling and its half', () => {
 		const entries = [
-			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: false, consistency: null } }),
-			entry({ type: 'nappy', occurred_at: NOW - 7200_000, payload: { pee: true, poop: false, consistency: null } }),
-			entry({ type: 'nappy', occurred_at: NOW - 10_800_000, payload: { pee: true, poop: false, consistency: null } })
+			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: false, consistency: null, where: null } }),
+			entry({ type: 'nappy', occurred_at: NOW - 7200_000, payload: { pee: true, poop: false, consistency: null, where: null } }),
+			entry({ type: 'nappy', occurred_at: NOW - 10_800_000, payload: { pee: true, poop: false, consistency: null, where: null } })
 		];
 		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
 		draw(StatCard, { card });
@@ -505,8 +533,8 @@ describe('a stats card', () => {
 
 	it('reads a tapped day back as a sentence, and lets go on the second tap', () => {
 		const entries = [
-			entry({ type: 'nappy', occurred_at: NOW - 86_400_000, payload: { pee: true, poop: false, consistency: null } }),
-			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: true, consistency: null } })
+			entry({ type: 'nappy', occurred_at: NOW - 86_400_000, payload: { pee: true, poop: false, consistency: null, where: null } }),
+			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: true, consistency: null, where: null } })
 		];
 		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
 		draw(StatCard, { card });

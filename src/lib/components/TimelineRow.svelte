@@ -126,6 +126,14 @@
 		if ((entry.type === 'breast_feed' || entry.type === 'bottle_feed') && isSleepFeed(entry, app.babyEntries)) {
 			parts.push(m.row_sleep_feed());
 		}
+		/* Only when it is not the nappy: the receptacle is the detail, and a
+		   *nappy* on every row of a Household that has never seen a potty is a
+		   word doing no work. */
+		if (entry.type === 'nappy') {
+			const where = (entry.payload as NappyPayload).where;
+			if (where === 'potty') parts.push(m.where_potty());
+			if (where === 'toilet') parts.push(m.where_toilet());
+		}
 		if (entry.edited_by) parts.push(m.row_edited_by({ who: app.memberName(entry.edited_by) ?? m.the_app() }));
 		return parts.join(' · ');
 	});

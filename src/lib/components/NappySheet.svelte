@@ -8,14 +8,21 @@
 	   been in the payload and the three locales since v1 with nowhere to type
 	   it.
 
-	   Nothing is prefilled: the app never writes data nobody entered, and a
+	   Neither fact is prefilled: the app never writes data nobody entered, and a
 	   ticked-by-default Pee would be a fact the form invented. Save stays
-	   disabled until the nappy says what was in it. */
+	   disabled until the nappy says what was in it.
+
+	   *Where* is the exception, and a deliberate one: it opens on this Device's
+	   stated default — the nappy, or the potty during training — because a
+	   receptacle is a fact about a phase rather than about this event, and the
+	   form shows it rather than hiding it (ticket 26, the Feeding default's
+	   shape). */
 	import { app } from '$client/state.svelte';
 	import { logNappy } from '$client/mutate';
+	import { whereDefault } from '$client/device';
 	import { timeInputValue } from '$lib/i18n/format';
 	import { wallTimeAtOrBefore } from '$domain/time';
-	import type { Consistency } from '$domain/types';
+	import type { Consistency, Where } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
@@ -28,6 +35,10 @@
 	let pee = $state(false);
 	let poop = $state(false);
 	let consistency = $state<Consistency | null>(null);
+	/* Where it landed opens on what this Device says is normal for this phase —
+	   the nappy until someone states otherwise in Settings, the potty during
+	   training. Stated, never learned from what has been logged (ticket 26). */
+	let where = $state<Where>(whereDefault());
 	let note = $state('');
 	let showNote = $state(false);
 	/* Backwards from now, like a feed's time: 23:45 typed at 00:20 is
@@ -38,6 +49,12 @@
 	const baby = $derived(app.baby);
 	const occurredAt = $derived(wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now);
 	const nothingSaid = $derived(!pee && !poop);
+
+	const WHERES: Array<[Where, () => string]> = [
+		['nappy', () => m.where_nappy()],
+		['potty', () => m.where_potty()],
+		['toilet', () => m.where_toilet()]
+	];
 
 	const CONSISTENCIES: Array<[Consistency, () => string]> = [
 		['soft', () => m.consistency_soft()],
@@ -66,7 +83,8 @@
 					poop,
 					/* A consistency belongs to a poop; ticking it off takes the
 					   answer with it rather than leaving it on a pee. */
-					consistency: poop ? consistency : null
+					consistency: poop ? consistency : null,
+					where
 				}),
 			{ text: m.toast_logged({ what: pee && poop ? m.nappy_both() : poop ? m.nappy_poop() : m.nappy_pee() }) }
 		);
@@ -85,6 +103,15 @@
 		<button type="button" aria-pressed={poop} onclick={() => (poop = !poop)}>
 			{m.fan_poop()}
 		</button>
+	</div>
+
+	<div class="field-label">{m.sheet_where()}</div>
+	<div class="seg" role="group" aria-label={m.sheet_where()}>
+		{#each WHERES as [value, label] (value)}
+			<button type="button" aria-pressed={where === value} onclick={() => (where = value)}>
+				{label()}
+			</button>
+		{/each}
 	</div>
 
 	{#if poop}

@@ -64,7 +64,7 @@ const feed = entry({ type: 'bottle_feed', occurred_at: iso('2026-08-17T09:00:00Z
 const nappy = entry({
 	type: 'nappy',
 	occurred_at: iso('2026-08-17T08:00:00Z'),
-	payload: { pee: true, poop: false, consistency: null }
+	payload: { pee: true, poop: false, consistency: null, where: null }
 });
 const tooth = entry({
 	type: 'milestone',

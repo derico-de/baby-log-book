@@ -103,8 +103,12 @@ What is still in the bottle when a Feed is over. Not a stored fact: entering one
 _Avoid_: Waste, remainder, unfinished
 
 **Pee & Poop**:
-What came out of a Baby — either fact, or both in one entry, with an optional consistency on the poop. Named after what it holds rather than what caught it, so it survives the day a Baby stops wearing nappies: a potty pee is still a pee, and nothing about the past has to be renamed ([ticket 26](.scratch/baby-log-book/issues/26-one-type-for-nappy-potty-toilet.md)). Where it landed is not yet recorded.
+What came out of a Baby — either fact, or both in one entry, with an optional consistency on the poop and, since ticket 26, where it landed. Named after what it holds rather than what caught it, so it survives the day a Baby stops wearing nappies: a potty pee is still a pee, and nothing about the past has to be renamed.
 _Avoid_: Nappy and Diaper (both name the receptacle, and both go wrong at potty training), change, elimination
+
+**Where**:
+The receptacle a pee or a poop landed in — the nappy, the potty or the toilet. The detail rather than the entry: the two facts are what happened, and this is where it happened to go. Optional and often unsaid, which is why it is absent from a row rather than assumed: an Entry logged before the field existed says nothing, and the app never reads that silence as a nappy.
+_Avoid_: Location, place, method, potty-trained
 
 **Measurement**:
 A Baby's weight, height or head circumference at a point in time.

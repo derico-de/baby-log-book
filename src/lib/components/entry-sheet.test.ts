@@ -174,14 +174,14 @@ describe('a nappy row in the edit sheet', () => {
 	}
 
 	it('opens on what the nappy held', () => {
-		open(nappyEntry({ pee: true, poop: false, consistency: null }));
+		open(nappyEntry({ pee: true, poop: false, consistency: null, where: null }));
 		expect(toggle('Pee').getAttribute('aria-pressed')).toBe('true');
 		expect(toggle('Poop').getAttribute('aria-pressed')).toBe('false');
 		expect(host.textContent).not.toContain('Runny');
 	});
 
 	it('records a correction to what was in it, and to the consistency', async () => {
-		open(nappyEntry({ pee: true, poop: false, consistency: null }));
+		open(nappyEntry({ pee: true, poop: false, consistency: null, where: null }));
 		toggle('Poop').click();
 		flushSync();
 		toggle('Runny').click();
@@ -192,8 +192,27 @@ describe('a nappy row in the edit sheet', () => {
 		expect(revisions[0].fields).toEqual({ poop: true, consistency: 'runny' });
 	});
 
+	it('leaves an old row s where unsaid rather than reading it as a nappy', async () => {
+		/* Every row logged before the field existed carries null, and opening the
+		   sheet must not quietly assert one (ticket 26). */
+		open(nappyEntry({ pee: true, poop: false, consistency: null, where: null }));
+		expect(toggle('Nappy').getAttribute('aria-pressed')).toBe('false');
+		expect(toggle('Potty').getAttribute('aria-pressed')).toBe('false');
+		await save();
+		expect(await db.revisions.count()).toBe(0);
+	});
+
+	it('records where it landed as an ordinary correction', async () => {
+		open(nappyEntry({ pee: true, poop: false, consistency: null, where: 'nappy' }));
+		toggle('Potty').click();
+		flushSync();
+		await save(async () => (await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).count()) > 0);
+		const revisions = await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray();
+		expect(revisions[0].fields).toEqual({ where: 'potty' });
+	});
+
 	it('takes the consistency with the poop when the poop is unticked', async () => {
-		open(nappyEntry({ pee: false, poop: true, consistency: 'hard' }));
+		open(nappyEntry({ pee: false, poop: true, consistency: 'hard', where: null }));
 		toggle('Poop').click();
 		flushSync();
 		toggle('Pee').click();

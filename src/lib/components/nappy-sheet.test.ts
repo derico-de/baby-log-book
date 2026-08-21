@@ -51,6 +51,7 @@ const saveButton = () => host.querySelector<HTMLButtonElement>('[data-primary="1
 beforeEach(() => {
 	host = document.createElement('div');
 	document.body.append(host);
+	localStorage.clear();
 	app.household = household;
 	app.babies = [baby];
 	app.members = [mum];
@@ -98,6 +99,23 @@ describe('the form', () => {
 		expect(button('Runny').getAttribute('aria-pressed')).toBe('false');
 	});
 
+	it('opens on the nappy, and takes the potty instead', () => {
+		open();
+		expect(button('Nappy').getAttribute('aria-pressed')).toBe('true');
+		expect(button('Potty').getAttribute('aria-pressed')).toBe('false');
+		tap('Potty');
+		expect(button('Potty').getAttribute('aria-pressed')).toBe('true');
+		expect(button('Nappy').getAttribute('aria-pressed')).toBe('false');
+	});
+
+	it('opens on the potty once this Device says that is where it goes', () => {
+		/* Stated in Settings, never learned from what has been logged: during
+		   training the household flips it once instead of re-tapping every time. */
+		localStorage.setItem('blb.whereDefault', 'potty');
+		open();
+		expect(button('Potty').getAttribute('aria-pressed')).toBe('true');
+	});
+
 	it('opens prefilled with the current wall time in the Household Zone', () => {
 		open();
 		expect(host.querySelector<HTMLInputElement>('input[type="time"]')?.value).toBe('16:00');
@@ -137,7 +155,7 @@ describe('what a save writes', () => {
 		const rows = await db.entries.toArray();
 		expect(rows).toHaveLength(1);
 		expect(rows[0].type).toBe('nappy');
-		expect(rows[0].payload as NappyPayload).toEqual({ pee: true, poop: true, consistency: 'soft' });
+		expect(rows[0].payload as NappyPayload).toEqual({ pee: true, poop: true, consistency: 'soft', where: 'nappy' });
 	});
 
 	it('drops a consistency the poop took with it when it was unticked', async () => {
@@ -149,7 +167,22 @@ describe('what a save writes', () => {
 		saveButton()?.click();
 		await landed(async () => (await db.entries.count()) === 1);
 		const rows = await db.entries.toArray();
-		expect(rows[0].payload as NappyPayload).toEqual({ pee: true, poop: false, consistency: null });
+		expect(rows[0].payload as NappyPayload).toEqual({ pee: true, poop: false, consistency: null, where: 'nappy' });
+	});
+
+	it('records the potty when that is where it went', async () => {
+		open();
+		tap('Pee');
+		tap('Potty');
+		saveButton()?.click();
+		await landed(async () => (await db.entries.count()) === 1);
+		const rows = await db.entries.toArray();
+		expect(rows[0].payload as NappyPayload).toEqual({
+			pee: true,
+			poop: false,
+			consistency: null,
+			where: 'potty'
+		});
 	});
 
 	it('reads the time field backwards from now, like a feed does', async () => {

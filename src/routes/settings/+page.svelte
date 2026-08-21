@@ -27,6 +27,8 @@
 		feedingDefault,
 		setAppearanceOverride,
 		setFeedingDefault,
+		setWhereDefault,
+		whereDefault,
 		type AppearanceOverride,
 		type FeedingDefault
 	} from '$client/device';
@@ -36,7 +38,7 @@
 	import { EMPTY_FILTER } from '$domain/filter';
 	import { LOCALE_NAMES, LOCALES, switchLocale } from '$lib/i18n/locale.svelte';
 	import { dateAndTime, plural, targetDuration } from '$lib/i18n/format';
-	import type { Activity } from '$domain/types';
+	import type { Activity, Where } from '$domain/types';
 	import type { Locale } from '$lib/paraglide/runtime';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from '$lib/components/Icon.svelte';
@@ -53,6 +55,7 @@
 
 	let appearance = $state<AppearanceOverride>('auto');
 	let feeding = $state<FeedingDefault>('breast');
+	let where = $state<Where>('nappy');
 	let invites = $state<PendingInvite[]>([]);
 	let inviteName = $state('');
 	let inviteRole = $state<'parent' | 'caregiver'>('caregiver');
@@ -78,6 +81,7 @@
 	$effect(() => {
 		appearance = appearanceOverride();
 		feeding = feedingDefault();
+		where = whereDefault();
 		installed = isStandalone();
 		if (isParent) void loadInvites();
 	});
@@ -379,6 +383,28 @@
 					{/each}
 				</fieldset>
 				<small class="hint">{m.settings_feeding_default_hint()}</small>
+
+				<!-- The same shape as the feeding default, and for the same reason: a
+				     fact about this phase of this child's life, stated once rather
+				     than re-tapped forty times a week (ticket 26). -->
+				<h3>{m.settings_where_default()}</h3>
+				<fieldset>
+					{#each [['nappy', m.where_nappy()], ['potty', m.where_potty()], ['toilet', m.where_toilet()]] as [value, label] (value)}
+						<label>
+							<input
+								type="radio"
+								name="where-default"
+								checked={where === value}
+								onchange={() => {
+									where = value as Where;
+									setWhereDefault(where);
+								}}
+							/>
+							{label}
+						</label>
+					{/each}
+				</fieldset>
+				<small class="hint">{m.settings_where_default_hint()}</small>
 
 				<label>
 					{m.settings_language()}

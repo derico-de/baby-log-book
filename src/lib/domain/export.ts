@@ -205,10 +205,16 @@ export function buildExport(input: ExportInput): ExportFiles {
 		)
 	);
 
-	files['nappies.csv'] = toCsv([...SHARED_HEADERS, 'pee', 'poop', 'consistency'], ofType('nappy').map((e) => {
-		const p = e.payload as NappyPayload;
-		return [...shared(e), p.pee, p.poop, p.consistency];
-	}));
+	/* `where` is empty on every row logged before the field existed, and on any
+	   row nobody stated one. Empty means unsaid, not "a nappy" — the export does
+	   not assert what the app was never told (ticket 26). */
+	files['nappies.csv'] = toCsv(
+		[...SHARED_HEADERS, 'pee', 'poop', 'consistency', 'where'],
+		ofType('nappy').map((e) => {
+			const p = e.payload as NappyPayload;
+			return [...shared(e), p.pee, p.poop, p.consistency, p.where];
+		})
+	);
 
 	files['measurements.csv'] = toCsv([...SHARED_HEADERS, 'weight_g', 'height_mm', 'head_mm'], ofType('measurement').map((e) => {
 		const p = e.payload as MeasurementPayload;

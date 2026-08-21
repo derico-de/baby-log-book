@@ -25,7 +25,8 @@ import type {
 	Revision,
 	RevisionKind,
 	Role,
-	Side
+	Side,
+	Where
 } from '$domain/types';
 import { milestoneInstant } from '$domain/milestones';
 
@@ -84,18 +85,26 @@ export interface EntryTarget {
 
 /* --- the fan ---------------------------------------------------------- */
 
-/** Nappies log straight from the fan — no sheet, no confirm. Two taps, and the
-    second is a large target (spec §8.5). */
+/** Pee, poop or both, as one Entry — they are two facts about one event, and
+    two rows used to write two of them (ADR-0028). `where` is the receptacle and
+    is allowed to be null: a row nobody said anything about is honest, and the
+    past is never backfilled as a nappy (ticket 26). */
 export async function logNappy(
 	w: Writer,
-	target: EntryTarget & { pee: boolean; poop: boolean; consistency?: Consistency | null }
+	target: EntryTarget & {
+		pee: boolean;
+		poop: boolean;
+		consistency?: Consistency | null;
+		where?: Where | null;
+	}
 ): Promise<string> {
 	const id = randomId();
 	await write(w, 'entry', id, {
 		...creation(target.babyId, 'nappy', target.occurredAt ?? w.now(), target.note),
 		pee: target.pee,
 		poop: target.poop,
-		consistency: target.consistency ?? null
+		consistency: target.consistency ?? null,
+		where: target.where ?? null
 	});
 	return id;
 }

@@ -11,6 +11,8 @@
    paint, and because mum dismissing the install banner must not hide it on
    Oma's phone. */
 
+import type { Where } from '$domain/types';
+
 const DEVICE_KEY = 'blb.device';
 /** Read by the paint-blocking resolver in app.html. */
 const APPEARANCE_KEY = 'blb.appearance';
@@ -18,6 +20,7 @@ const DAY_START_MIRROR_KEY = 'blb.dayStart';
 const INSTALL_DISMISSED_KEY = 'blb.installDismissed';
 const LOCALE_KEY = 'blb.locale';
 const FEEDING_DEFAULT_KEY = 'blb.feedingDefault';
+const WHERE_DEFAULT_KEY = 'blb.whereDefault';
 
 export type AppearanceOverride = 'auto' | 'day' | 'night';
 export type FeedingDefault = 'breast' | 'bottle_breast_milk' | 'bottle_formula';
@@ -75,6 +78,20 @@ export function feedingDefault(): FeedingDefault {
 
 export function setFeedingDefault(value: FeedingDefault): void {
 	write(FEEDING_DEFAULT_KEY, value);
+}
+
+/** Where the pee & poop form opens — nappy, potty or toilet. The same shape as
+    the feeding default and for the same reason: it is a fact about this phase
+    of this child's life, stated once rather than re-tapped forty times a week,
+    and never learned from what was logged. A Device that has never set it opens
+    on the nappy, which is where a Baby starts. */
+export function whereDefault(): Where {
+	const value = read(WHERE_DEFAULT_KEY);
+	return value === 'potty' || value === 'toilet' ? value : 'nappy';
+}
+
+export function setWhereDefault(value: Where): void {
+	write(WHERE_DEFAULT_KEY, value);
 }
 
 /** The Household's Day Start, mirrored where the resolver can read it

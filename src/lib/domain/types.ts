@@ -33,6 +33,10 @@ export type BottleContents = 'breast_milk' | 'formula' | 'other';
 /** Coarse amounts, never grams (spec §3.2). */
 export type MealAmount = 'tasted' | 'some' | 'lots';
 export type Consistency = 'soft' | 'firm' | 'runny' | 'hard';
+/** Where a pee or a poop landed. Null on every row logged before the field
+    existed, and on any row nobody said — which is honest rather than
+    backfilled as a nappy the app was never told about (ticket 26). */
+export type Where = 'nappy' | 'potty' | 'toilet';
 export type Role = 'parent' | 'caregiver';
 export type Activity = 'feed' | 'sleep' | 'bottle';
 /** The Feed Interval runs from the previous Feed's start; the Wake Window
@@ -73,6 +77,9 @@ export interface NappyPayload {
 	pee: boolean;
 	poop: boolean;
 	consistency: Consistency | null;
+	/** The receptacle, which is the detail — the two facts above are the
+	    entry. Additive and nullable, so no migration and no protocol bump. */
+	where: Where | null;
 }
 /** Canonical units — grams and millimetres, integers, formatted at display
     (spec §3.4). */

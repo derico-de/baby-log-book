@@ -15,6 +15,12 @@ describe('validateFields', () => {
 		expect(r.ok).toBe(true);
 	});
 
+	it('accepts where a pee or poop landed, and only the three places there are', () => {
+		expect(validateFields('entry', { where: 'potty' })).toEqual({ ok: true, fields: { where: 'potty' } });
+		expect(validateFields('entry', { where: null })).toEqual({ ok: true, fields: { where: null } });
+		expect(validateFields('entry', { where: 'floor' }).ok).toBe(false);
+	});
+
 	it('accepts a tummy time creation, which carries no payload at all', () => {
 		const r = validateFields('entry', {
 			baby_id: 'b1',
@@ -114,7 +120,7 @@ describe('isSession', () => {
 describe('coercePayload', () => {
 	it('fills the shape a renderer expects', () => {
 		expect(coercePayload('bottle_feed', {})).toEqual({ volume_ml: null, leftover_ml: null, contents: null });
-		expect(coercePayload('nappy', { pee: true })).toEqual({ pee: true, poop: false, consistency: null });
+		expect(coercePayload('nappy', { pee: true })).toEqual({ pee: true, poop: false, consistency: null, where: null });
 	});
 
 	it('never throws on a field it has never heard of', () => {

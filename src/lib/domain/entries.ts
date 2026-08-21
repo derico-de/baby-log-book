@@ -21,7 +21,8 @@ import type {
 	MealFood,
 	PayloadOf,
 	RevisionKind,
-	Side
+	Side,
+	Where
 } from './types';
 import { ENTRY_TYPES, SESSION_TYPES } from './types';
 
@@ -29,6 +30,7 @@ const SIDES: Side[] = ['left', 'right', 'both'];
 const CONTENTS: BottleContents[] = ['breast_milk', 'formula', 'other'];
 const AMOUNTS: MealAmount[] = ['tasted', 'some', 'lots'];
 const CONSISTENCIES: Consistency[] = ['soft', 'firm', 'runny', 'hard'];
+const WHERES: Where[] = ['nappy', 'potty', 'toilet'];
 
 export const MAX_NOTE = 2000;
 export const MAX_NAME = 200;
@@ -106,6 +108,7 @@ const ENTRY_FIELD_CHECKS: Record<string, Check> = {
 	pee: isBool,
 	poop: isBool,
 	consistency: isNullableOneOf(CONSISTENCIES),
+	where: isNullableOneOf(WHERES),
 	/* measurement */
 	weight_g: isIntIn(MAX_WEIGHT_G),
 	height_mm: isIntIn(MAX_LENGTH_MM),
@@ -196,7 +199,7 @@ export function emptyPayload<T extends EntryType>(type: T): PayloadOf[T] {
 		case 'meal':
 			return as({ foods: [] });
 		case 'nappy':
-			return as({ pee: false, poop: false, consistency: null });
+			return as({ pee: false, poop: false, consistency: null, where: null });
 		case 'measurement':
 			return as({ weight_g: null, height_mm: null, head_mm: null });
 		case 'milestone':
@@ -232,6 +235,7 @@ export function coercePayload<T extends EntryType>(type: T, raw: Record<string, 
 			if (isBool(raw.pee)) base.pee = raw.pee;
 			if (isBool(raw.poop)) base.poop = raw.poop;
 			if (isNullableOneOf(CONSISTENCIES)(raw.consistency)) base.consistency = raw.consistency ?? null;
+			if (isNullableOneOf(WHERES)(raw.where)) base.where = raw.where ?? null;
 			break;
 		case 'measurement':
 			if (isIntIn(MAX_WEIGHT_G)(raw.weight_g)) base.weight_g = raw.weight_g ?? null;

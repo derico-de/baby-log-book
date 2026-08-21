@@ -1,7 +1,7 @@
 # 26 — One entry type for the nappy, the potty and the toilet
 
 Type: grilling
-Status: **name resolved 2026-08-21** — *Pee & poop* shipped in all three locales, glossary and spec. The `where` field is still open; see below.
+Status: **resolved 2026-08-21** — *Pee & poop* and the `where` field both shipped: three locales, the form, the entry sheet, the timeline meta line, the export column, a Device Setting, glossary and spec.
 
 ## Question
 
@@ -70,6 +70,21 @@ Rejected as recorded above: *Business* (a euphemism in a UI that has none, and *
 
 **What did not change, deliberately:** the stored discriminator is still `nappy`, `nappies.csv` is still `nappies.csv`, and the timeline row still reads *Pee · Oma · 14:05*. The rename cost four strings per language, a glossary entry and two lines of spec — which is the whole argument for having treated it as a labelling decision.
 
-## Still open — the `where`
+## Answer — the `where`
 
-Everything under *The `where`, whichever name wins* stands unchanged and unbuilt: the nullable `nappy` / `potty` / `toilet` field, the Device Setting that opens the form where this Device usually goes, the meta line, the export column, and the decision not to backfill the past. **The name buys time on this rather than settling it** — a potty entry today is honest about the two facts and silent about the receptacle, which is a better wrong than a nappy that was not one.
+Built as designed, with one thing worth stating plainly because it looks like a contradiction:
+
+**It is the one prefilled field on a form whose whole rule is that nothing is prefilled.** The two facts stay untouched — a ticked-by-default Pee would be the app inventing what happened — but `where` opens on this **Device's stated default**, nappy or potty or toilet, exactly the shape of the [Feeding default](21-feeding-defaults.md). The distinction that makes it consistent rather than an exception: *pee and poop are facts about this event, and the receptacle is a fact about this phase of this child's life.* A household in training states it once in Settings instead of tapping it forty times a week, and the form shows the answer rather than hiding it.
+
+Everything else landed as written:
+
+- **Nullable, additive, no migration and no protocol bump.** A row from before the field says nothing.
+- **Never backfilled, and the silence is never read as a nappy** — not in the sheet, which opens with no receptacle selected on an old row, and not in `nappies.csv`, where the new `where` column is simply empty. Asserted by test in both places.
+- **The meta line shows it only when it is not the nappy.** *Pee · Oma · Potty*; a nappy on every row of a household that has never seen a potty is a word doing no work.
+- **Correctable like any other field**, under the same rules the form saves by.
+
+Nappy / Potty / Toilet · Windel / Töpfchen / Toilette · Scutec / Oliță / Toaletă.
+
+## What this ticket did not do
+
+**Nothing about the fan.** Pee & poop is still one row of six, and the receptacle lives inside the form rather than earning rows of its own — which is [ticket 27](27-the-fan-is-out-of-room.md)'s constraint doing its job for the first time.

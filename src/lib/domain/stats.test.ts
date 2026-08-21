@@ -34,7 +34,7 @@ function entry(p: Partial<Entry> & { type: Entry['type']; occurred_at: number })
 }
 
 const nappy = (at: string, pee = true, poop = false) =>
-	entry({ type: 'nappy', occurred_at: iso(at), payload: { pee, poop, consistency: null } });
+	entry({ type: 'nappy', occurred_at: iso(at), payload: { pee, poop, consistency: null, where: null } });
 const bottle = (at: string, ml: number | null = 120, leftover: number | null = null) =>
 	entry({
 		type: 'bottle_feed',

@@ -148,7 +148,7 @@ describe('the stale-Sleep ceiling', () => {
 		const nappy = entry({
 			type: 'nappy',
 			occurred_at: iso('2026-08-17T23:00:00Z'),
-			payload: { pee: true, poop: false, consistency: null }
+			payload: { pee: true, poop: false, consistency: null, where: null }
 		});
 		const state = staleSleepState({
 			sleep,

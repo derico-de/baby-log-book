@@ -175,7 +175,7 @@ describe('buildExport', () => {
 		const deleted = entry({
 			type: 'nappy',
 			occurred_at: iso('2026-08-16T08:00:00Z'),
-			payload: { pee: true, poop: false, consistency: null },
+			payload: { pee: true, poop: false, consistency: null, where: null },
 			deleted_at: iso('2026-08-16T08:05:00Z')
 		});
 		const csv = buildExport({ ...input, entries: [deleted] })['nappies.csv'];
@@ -200,6 +200,26 @@ describe('buildExport', () => {
 		const files = buildExport(input);
 		expect(files['sleeps.csv'].split('\r\n')[0]).toContain('occurred_at,occurred_at_zone,recording_zone');
 		expect(files['sleeps.csv']).not.toContain('Aufgewacht');
+	});
+
+	it('carries where it landed, and leaves it empty when nobody said', () => {
+		const potty = entry({
+			type: 'nappy',
+			occurred_at: iso('2026-08-17T08:00:00Z'),
+			payload: { pee: true, poop: false, consistency: null, where: 'potty' }
+		});
+		const unsaid = entry({
+			type: 'nappy',
+			occurred_at: iso('2026-08-17T09:00:00Z'),
+			payload: { pee: true, poop: false, consistency: null, where: null }
+		});
+		const csv = buildExport({ ...input, entries: [potty, unsaid] })['nappies.csv'];
+		const [header, first, second] = csv.split('\r\n');
+		expect(header.endsWith('pee,poop,consistency,where')).toBe(true);
+		expect(first.endsWith('true,false,,potty')).toBe(true);
+		/* Empty means unsaid, never "a nappy": the file does not assert what the
+		   app was never told (ticket 26). */
+		expect(second.endsWith('true,false,,')).toBe(true);
 	});
 
 	it('gives tummy time its own file, with the duration its two ends are kept for', () => {
