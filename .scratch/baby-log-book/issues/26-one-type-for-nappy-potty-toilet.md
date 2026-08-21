@@ -1,7 +1,7 @@
 # 26 — One entry type for the nappy, the potty and the toilet
 
 Type: grilling
-Status: open
+Status: **name resolved 2026-08-21** — *Pee & poop* shipped in all three locales, glossary and spec. The `where` field is still open; see below.
 
 ## Question
 
@@ -53,3 +53,23 @@ Smallest change: the term stands, and a field says nappy / potty / toilet.
 1. **The name.** A, B, or C — and whether the glossary term and the UI label are allowed to differ (they are not, anywhere else in this app).
 2. **Whether `where` ships with the rename or after it.** The rename alone is an afternoon; the field is a form row, a Device Setting, a meta line and an export column.
 3. **What happens to the accumulated past.** Nothing, is the proposal: old rows keep a null `where` rather than being backfilled as nappies. A backfill would be the app asserting a fact about a year it was not asked about.
+
+## Answer — the name
+
+**Candidate A. The type is *Pee & poop*** — named after the two facts it holds, never after what caught them.
+
+| | |
+|---|---|
+| English | **Pee & poop** |
+| German | **Pipi & Kaka** |
+| Romanian | **Pipi & caca** |
+
+Each half is the word the form's own toggle already says in that language, so the category and its fields cannot drift into two vocabularies — and a test now asserts exactly that, along with the property that made the name worth having: **no translation names a receptacle**, in any of the three. It is also not the widest chip in the rail in any language; *Measurements*, *Meilensteine* and *Timp pe burtică* all run longer.
+
+Rejected as recorded above: *Business* (a euphemism in a UI that has none, and *Geschäft* alone reads as *shop*), and keeping *Nappy* with a field bolted on (buys a year, reopens this ticket).
+
+**What did not change, deliberately:** the stored discriminator is still `nappy`, `nappies.csv` is still `nappies.csv`, and the timeline row still reads *Pee · Oma · 14:05*. The rename cost four strings per language, a glossary entry and two lines of spec — which is the whole argument for having treated it as a labelling decision.
+
+## Still open — the `where`
+
+Everything under *The `where`, whichever name wins* stands unchanged and unbuilt: the nullable `nappy` / `potty` / `toilet` field, the Device Setting that opens the form where this Device usually goes, the meta line, the export column, and the decision not to backfill the past. **The name buys time on this rather than settling it** — a potty entry today is honest about the two facts and silent about the receptacle, which is a better wrong than a nappy that was not one.

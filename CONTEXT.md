@@ -63,7 +63,7 @@ _Avoid_: Bootstrap link, setup link, admin invite
 ### What gets logged
 
 **Entry**:
-Anything recorded about a Baby at a point in time. The umbrella term for Feeds, Meals, Sleeps, Nappies, Measurements, Milestones and Tummy Time.
+Anything recorded about a Baby at a point in time. The umbrella term for Feeds, Meals, Sleeps, Pee & Poop, Measurements, Milestones and Tummy Time.
 _Avoid_: Event, record, log line, activity
 
 **Feed**:
@@ -102,9 +102,9 @@ _Avoid_: Volume offered, amount taken
 What is still in the bottle when a Feed is over. Not a stored fact: entering one subtracts it from the Intake in place and vanishes (ADR-0018, superseding ADR-0015). Entries from before the change carry a stored leftover and read as intake = volume − leftover.
 _Avoid_: Waste, remainder, unfinished
 
-**Nappy**:
-A nappy change, recording what was in it.
-_Avoid_: Diaper, change
+**Pee & Poop**:
+What came out of a Baby — either fact, or both in one entry, with an optional consistency on the poop. Named after what it holds rather than what caught it, so it survives the day a Baby stops wearing nappies: a potty pee is still a pee, and nothing about the past has to be renamed ([ticket 26](.scratch/baby-log-book/issues/26-one-type-for-nappy-potty-toilet.md)). Where it landed is not yet recorded.
+_Avoid_: Nappy and Diaper (both name the receptacle, and both go wrong at potty training), change, elimination
 
 **Measurement**:
 A Baby's weight, height or head circumference at a point in time.

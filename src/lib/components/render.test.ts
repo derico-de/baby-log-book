@@ -194,7 +194,7 @@ describe('the filter header', () => {
 		app.openFilter({ types: ['nappy'], foodId: null, memberId: null, text: '', period: 'anytime' });
 		const text = draw(FilterHeader, { onMore: () => {} });
 		expect(text).toContain('Filtered');
-		expect(text).toContain('Nappies');
+		expect(text).toContain('Pee & poop');
 		expect(text).toContain('1 of 2 entries');
 	});
 
@@ -402,7 +402,7 @@ describe('the fan', () => {
 		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
 		const items = [...host.querySelectorAll('.fan button')].map((b) => b.textContent?.trim() ?? '');
 		expect(items).toHaveLength(6);
-		expect(items.join(' ')).toContain('Nappy');
+		expect(items.join(' ')).toContain('Pee & poop');
 		expect(items.join(' ')).toContain('Sleep');
 		expect(items.join(' ')).toContain('Feed');
 		expect(items.join(' ')).toContain('Tummy time');
@@ -418,7 +418,7 @@ describe('the fan', () => {
 		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
 		flushSync(() =>
 			[...host.querySelectorAll<HTMLButtonElement>('.fan button')]
-				.find((b) => b.textContent?.includes('Nappy'))
+				.find((b) => b.textContent?.includes('Pee & poop'))
 				?.click()
 		);
 		expect(opened).toBe(true);
@@ -483,7 +483,7 @@ describe('a stats card', () => {
 		];
 		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
 		const text = draw(StatCard, { card });
-		expect(text).toContain('Nappies');
+		expect(text).toContain('Pee & poop');
 		expect(text).toContain('1 pee · 1 poop');
 		expect(host.querySelectorAll('.bar')).toHaveLength(8);
 		expect(host.querySelector('.bar[data-today="1"]')).not.toBeNull();

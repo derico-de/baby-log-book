@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { pluralCategory } from './format';
+import * as m from '$lib/paraglide/messages';
 
 describe('Romanian', () => {
 	it('gives the three categories the spec names', () => {
@@ -47,6 +48,48 @@ describe('English and German', () => {
 		for (const locale of ['en', 'de']) {
 			const messages = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8')) as Record<string, string>;
 			expect(Object.keys(messages).filter((key) => key.endsWith('_few'))).toEqual([]);
+		}
+	});
+});
+
+/* The category renamed from Nappy to what it actually holds (ticket 26): a
+   receptacle-neutral name has to survive translation, or it is only a decision
+   in English. All three read as the household words for the two facts, and none
+   of them names a nappy, a potty or a toilet. */
+describe('the pee & poop category, in three languages', () => {
+	const SURFACES = [m.type_nappy, m.facet_nappy, m.fan_nappy, m.stats_card_nappies];
+
+	it('says the two facts, and the same words the rest of the UI uses for them', () => {
+		for (const surface of SURFACES) {
+			expect(surface({}, { locale: 'en' })).toBe('Pee & poop');
+			expect(surface({}, { locale: 'de' })).toBe('Pipi & Kaka');
+			expect(surface({}, { locale: 'ro' })).toBe('Pipi & caca');
+		}
+		/* The halves are the labels already on the form's two toggles, so the
+		   category and its fields cannot drift into different vocabularies. */
+		for (const locale of ['en', 'de', 'ro'] as const) {
+			const label = m.type_nappy({}, { locale });
+			expect(label).toContain(m.fan_pee({}, { locale }));
+			expect(label.toLocaleLowerCase()).toContain(m.fan_poop({}, { locale }).toLocaleLowerCase());
+		}
+	});
+
+	it('names no receptacle in any language, which is the whole point', () => {
+		const forbidden = /nappy|nappies|diaper|potty|toilet|windel|töpfchen|scutec|oli(ț|t)ă/i;
+		for (const locale of ['en', 'de', 'ro'] as const) {
+			for (const surface of SURFACES) expect(surface({}, { locale })).not.toMatch(forbidden);
+		}
+	});
+
+	it('is never the longest chip in the rail, in any language', () => {
+		/* The chip rail scrolls, so this is a smell test rather than a limit: a
+		   phrase where every sibling is a noun should still not be the widest
+		   thing in the header. It is not, in any of the three — Measurements,
+		   Meilensteine and Timp pe burtică all run longer. */
+		const others = [m.facet_feed, m.facet_sleep, m.facet_meal, m.facet_tummy, m.facet_measure, m.facet_milestone];
+		for (const locale of ['en', 'de', 'ro'] as const) {
+			const longest = Math.max(...others.map((label) => label({}, { locale }).length));
+			expect(m.facet_nappy({}, { locale }).length).toBeLessThanOrEqual(longest);
 		}
 	});
 });

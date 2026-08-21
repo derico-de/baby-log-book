@@ -118,7 +118,7 @@ Everything recorded about a Baby at a point in time is an **Entry**. Eight discr
 | **Bottle feed** | Intake (ml), contents | Yes — same |
 | **Meal** | Several Foods, each with an optional reaction note; coarse amounts (tasted / some / lots), never grams | No |
 | **Sleep** | Start and end, nothing else | Yes — **the end is the whole point** |
-| **Nappy** | Pee / poop / both, optional consistency | No |
+| **Pee & Poop** | Pee / poop / both, optional consistency | No |
 | **Measurement** | Weight, height, head circumference — all optional, entered together | No |
 | **Milestone** | A free-text Milestone Name | No |
 | **Tummy Time** | Start and end, nothing else | Yes — **the end is the whole point**, and nothing rescues a forgotten one (§3.7) |
@@ -545,9 +545,9 @@ The tab bar does put a second control in the thumb zone, which is the trade the 
 
 [Logging interactions](issues/16-logging-interactions.md).
 
-**One FAB, bottom-right in thumb reach.** Tapping it **expands it in place into a stack of six direct actions**, expanding upward — one row per entry type: **Nappy · Sleep · Feed · Tummy time · Measurement · Milestone**. Six rows is also a ceiling the fan has now hit twice; a seventh entry type needs a different shape, not a seventh row.
+**One FAB, bottom-right in thumb reach.** Tapping it **expands it in place into a stack of six direct actions**, expanding upward — one row per entry type: **Pee & poop · Sleep · Feed · Tummy time · Measurement · Milestone**. Six rows is also a ceiling the fan has now hit twice; a seventh entry type needs a different shape, not a seventh row.
 
-- **A nappy is one form** ([ADR-0028](../../docs/adr/0028-a-nappy-is-one-form.md)), reversing the straight-from-the-fan nappy of [Logging interactions](issues/16-logging-interactions.md). Pee and Poop are two toggles on it rather than two rows, because they are two facts about one nappy and two rows wrote two Entries — a change that held both was logged twice, inflating the day's count. The form is also the only place the **consistency** can be typed; it had been in the payload and all three locales since v1 with no input anywhere. Nothing is prefilled and Save stays disabled until the nappy says what it held. Cost, paid deliberately: the app's most frequent action no longer has its shortest path.
+- **A nappy is one form** ([ADR-0028](../../docs/adr/0028-a-nappy-is-one-form.md)) — and the type is named **Pee & Poop**, after what it holds rather than what caught it ([ticket 26](issues/26-one-type-for-nappy-potty-toilet.md)); the stored discriminator stays `nappy` and so does `nappies.csv`, because a UI name is not a column. The form reverses the straight-from-the-fan nappy of [Logging interactions](issues/16-logging-interactions.md). Pee and Poop are two toggles on it rather than two rows, because they are two facts about one nappy and two rows wrote two Entries — a change that held both was logged twice, inflating the day's count. The form is also the only place the **consistency** can be typed; it had been in the payload and all three locales since v1 with no input anywhere. Nothing is prefilled and Save stays disabled until the nappy says what it held. Cost, paid deliberately: the app's most frequent action no longer has its shortest path.
 - **Feeds, Nappies, Measurements and Milestones open a sheet**, because they carry real data. Sleep, *She's awake* and starting tummy time open the one-field time sheet; *Off her tummy* writes straight through (§3.7).
 - **Undo, not confirm — decided explicitly.** Corrections are already first-class: any Member may fix any Member's Entry and the history stays visible. A confirm step taxes every nappy every night to prevent a mistake that is cheap to correct.
 - **Rejected**: a dedicated nappy button (a permanent second control beside a scrolling timeline, with poop behind a 400ms long-press nobody finds at 3am), and putting nappies inside the sheet.
