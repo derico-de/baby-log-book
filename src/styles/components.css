@@ -738,6 +738,15 @@
      control the CSS research costed at ~50 lines. It came in at 34. */
 	.seg {
 		display: flex;
+		/* It does ship `[role=group]` though, and the Where and Consistency
+		   rows carry that role because it is the right semantics for a
+		   labelled set of related controls. Pico reads the role as its *button
+		   group* component and hands the looks over with it. The one that
+		   hurt: `width: 100%`, which on top of the margins below made those two
+		   rows 32px wider than the sheet, put the sheet into horizontal scroll
+		   and cut every label off at the left edge. The role stays; the
+		   component is declined here and below. */
+		width: auto;
 		background: var(--surface-2);
 		border-radius: var(--r-1);
 		padding: 3px;
@@ -746,17 +755,19 @@
 	}
 	.seg button {
 		flex: 1;
-		/* A flex item will not shrink below its own text, so without this the
-		   four-button rows — Consistency, and Where on a 320px screen — run off
-		   the sheet instead of dividing it. Pico's 1rem of form-element padding
-		   is measured for a button standing alone, not for four sharing a
-		   phone's width, so the label gets the room back. */
-		min-width: 0;
+		/* The rest of the button group, declined: 2rem of form-element padding
+		   — Pico doubles its usual 1rem inside a group, which is measured for
+		   buttons that sit alone, not for four sharing a phone's width — and a
+		   -1px pull between neighbours that collapses shared borders these
+		   buttons do not have. */
 		padding-inline: var(--sp-2);
-		/* What is left over when even that is not enough: the label wraps and
-		   hyphenates rather than truncating — Romanian's "Consistentă" has to
-		   stay readable to be pickable, and the row grows a line instead of
-		   escaping the screen. */
+		margin-left: 0;
+		/* A flex item does not shrink below its own text, so a row whose labels
+		   do not fit would push out of the sheet rather than divide it. */
+		min-width: 0;
+		/* And where the text still does not fit — Romanian's "Consistentă" is
+		   eleven characters in a four-up row — it wraps and hyphenates rather
+		   than truncating: a choice has to stay readable to be pickable. */
 		hyphens: auto;
 		overflow-wrap: break-word;
 		min-height: 42px;
