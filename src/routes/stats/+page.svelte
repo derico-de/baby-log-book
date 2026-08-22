@@ -51,10 +51,12 @@
 
 	type Tab = 'week' | 'day' | 'trends';
 
-	let tab = $state<Tab>('week');
+	/* Today, on the first tab: the screen opens on the day it is, and stepping
+	   out to the week is a deliberate second tap. */
+	let tab = $state<Tab>('day');
 	/* The grid view the Trends tab suspends, so coming back lands on the one you
-	   left rather than resetting to the week. */
-	let view = $state<'week' | 'day'>('week');
+	   left rather than resetting. */
+	let view = $state<'week' | 'day'>('day');
 	/* Two anchors rather than one offset: stepping a week and stepping a day are
 	   different journeys, and tapping a column in the week view must not throw
 	   the week away. */
