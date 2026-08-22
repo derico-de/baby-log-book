@@ -123,18 +123,102 @@ changes for a single family: first boot still prints the link that sets up
 household #1, and a deployment that never runs `babylog household` behaves
 exactly as it always did.
 
-`babylog household "<name>"` mints a 7-day link that **sets up a new household**:
-whoever opens it becomes its first parent, and their device's time zone becomes
-the household's. It creates nothing until then, so an unclaimed link expires
-leaving no leftovers, and running it again never breaks a link you already sent.
+#### 1. Mint the link
 
-Two things to know before you host somebody else's log:
+```sh
+docker exec -e ORIGIN=https://log.example.com \
+  baby-log-book babylog household "Anna & Tom"
+```
 
-- The command prints one plain sentence to send along with the link — that you
-  can technically read everything they log, because it is your server. Send it.
-- With more than one household in the file, `babylog rescue` needs to know which:
-  `babylog rescue "Anna & Tom" "Mama"`. It says so, and lists the names, if you
-  leave it out.
+With Compose, the service name replaces the container name:
+
+```sh
+docker compose exec -e ORIGIN=https://log.example.com \
+  app babylog household "Anna & Tom"
+```
+
+`ORIGIN` has to be the value **the container itself runs with**, because the
+claim link is an absolute URL built from it; point it somewhere else and you
+hand out a link that will never be accepted. A container started with
+`-e ORIGIN=…`, or a Compose `environment:` block, already carries that value
+into `docker exec`, so spelling it out again is belt and braces — and the habit
+that saves you on the day you run the command in a shell that has none, where it
+refuses to print a link at all rather than printing a dead one.
+
+The name is required (up to 200 characters) and is how the household shows up in
+`babylog households`. No screen in the app displays it, but it does land in the
+`household.csv` of their own export — so name it something you would not mind
+them reading.
+
+It prints the link, when it expires, and the sentence to send with it:
+
+```
+This link sets up a new household called “Anna & Tom”.
+Whoever opens it becomes its first parent, and the link stops
+working once it has been used.
+
+    https://log.example.com/claim?t=N3pErRmob6Ty4Xpay_qdlA
+
+It expires on 2026-08-29 15:00 UTC. Run this command again for a fresh one;
+links already sent keep working.
+
+Send this sentence along with the link:
+
+    It runs on my server, so technically I can see everything you log — same trust as sending it to me directly.
+```
+
+#### 2. Send it, disclosure and all
+
+Send both parts. The sentence is not boilerplate: hosting somebody else's log
+means you can read it, and they should hear that from you before they start
+typing rather than work it out later.
+
+The command **creates nothing but the link**. The household appears when
+somebody claims it, so an unclaimed link expires leaving no empty household
+behind — and running the command again mints a fresh, independent link rather
+than burning one you have already sent. There is nothing to clean up if a family
+never gets round to it.
+
+#### 3. Check it landed
+
+```sh
+docker exec baby-log-book babylog households
+```
+
+```
+  Anna & Tom
+      1 member(s) · last activity 2026-08-21 18:05 UTC
+      id 6f3a1c2e-...
+```
+
+Whoever opened the link is that household's first parent, and **their** phone's
+time zone became the household's — you configure nothing about a family's
+rhythm, they do. They invite the rest of their household themselves, from
+Settings. `babylog members` lists everyone grouped by household.
+
+#### 4. Rescuing a phone, once there is more than one household
+
+```sh
+docker exec -e ORIGIN=https://log.example.com \
+  baby-log-book babylog rescue "Anna & Tom" "Mama"
+```
+
+With two or more households the household name comes first, as its own
+argument — two people called "Mama" in two families are not ambiguous, because
+the search never leaves the household you named. Leave it out and the command
+says so and lists the names. With exactly one household, plain
+`babylog rescue "Mama"` keeps working.
+
+#### What hosting for other people costs you
+
+- **You can read everything.** Shell access is full access to every household on
+  the box, which is why step 2 exists. The pilot answers this with disclosure,
+  not encryption.
+- **Backups are whole-file.** Restoring rolls *every* household back to that
+  night; there is no per-household restore.
+- **One domain, one link.** Every household lives on the same `ORIGIN`, and
+  households cannot see each other: every query names the household it means,
+  and a push that names another one is refused.
 
 ## Developing
 

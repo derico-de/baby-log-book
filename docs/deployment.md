@@ -209,6 +209,31 @@ Migrations are cumulative from any older version and a backup is taken
 automatically before any migration runs, so unattended updaters (Watchtower and
 friends) are fine within a major. Rolling back across a major is not supported.
 
+## A second household
+
+The same deployment can host another family. One command, run against the
+running service:
+
+```sh
+docker compose exec -e ORIGIN=https://log.example.com \
+  app babylog household "Anna & Tom"
+```
+
+It prints a 7-day link plus one sentence disclosing that you, holding the shell,
+can read everything they log — send both. Whoever opens the link founds that
+household and becomes its first parent, and their phone's time zone becomes the
+household's; nothing is created until they do. Then:
+
+```sh
+docker compose exec app babylog households   # who is here, and last active when
+docker compose exec app babylog members      # everyone, grouped by household
+```
+
+The proxy changes nothing here: all households share the one `ORIGIN`, so there
+is no second server block, no second certificate and no second container. The
+full walkthrough, including how `babylog rescue` scopes to a named household
+once there is more than one, is in the [README](../README.md#hosting-more-than-one-household).
+
 ## Day two
 
 Backups land nightly in the volume under `/data/backups/` and restoring is a
@@ -216,3 +241,7 @@ file copy; the operator CLI runs via `docker exec` whether or not the app is
 up. All three are covered in the [README](../README.md) — this page only adds
 what the proxy changes, which is nothing: back up the `data` volume, and leave
 the proxy out of it.
+
+One consequence worth knowing before you host somebody else's log: the nightly
+backup is the whole file, so a restore rolls **every** household back to that
+night.
