@@ -13,6 +13,7 @@
 		removeMember,
 		renameFood,
 		setDayStart,
+		setHouseholdName,
 		setHouseholdZone,
 		setMemberLocale,
 		setMemberRole,
@@ -246,6 +247,18 @@
 		<div class="settings">
 			{#if household}
 				<section>
+					<h3>{m.settings_household()}</h3>
+					<label>
+						{m.settings_household_name()}
+						<input
+							type="text"
+							value={household.name}
+							placeholder={m.settings_household_unnamed()}
+							disabled={!isParent}
+							onchange={(event) => void app.edit((w) => setHouseholdName(w, event.currentTarget.value.trim()))}
+						/>
+					</label>
+
 					<h3>{m.settings_day()}</h3>
 					<label>
 						{m.settings_day_start()}

@@ -289,6 +289,8 @@
 	"settings_where_default_hint": "Womit sich die Pipi-&-Kaka-Eingabe öffnet. Gilt nur für dieses Gerät.",
 	"settings_language": "Sprache",
 	"settings_household": "Haushalt",
+	"settings_household_name": "Name",
+	"settings_household_unnamed": "Haushalt ohne Namen",
 	"settings_babies": "Babys",
 	"settings_baby_name": "Name",
 	"settings_baby_birth": "Geburtsdatum",

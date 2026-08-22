@@ -289,6 +289,8 @@
 	"settings_where_default_hint": "Where the pee & poop form opens. This device only.",
 	"settings_language": "Language",
 	"settings_household": "Household",
+	"settings_household_name": "Name",
+	"settings_household_unnamed": "Unnamed household",
 	"settings_babies": "Babies",
 	"settings_baby_name": "Name",
 	"settings_baby_birth": "Date of birth",

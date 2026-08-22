@@ -277,6 +277,8 @@
 	"settings_where_default_hint": "Unde se deschide fila Pipi & caca. Doar pe acest dispozitiv.",
 	"settings_language": "Limbă",
 	"settings_household": "Casa",
+	"settings_household_name": "Nume",
+	"settings_household_unnamed": "Casă fără nume",
 	"settings_babies": "Bebeluși",
 	"settings_baby_name": "Nume",
 	"settings_baby_birth": "Data nașterii",

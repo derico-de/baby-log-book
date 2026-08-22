@@ -331,6 +331,12 @@ export function deleteBaby(w: Writer, babyId: string): Promise<string> {
 
 /* --- Household settings and Members ----------------------------------- */
 
+/** The Household's own name — what the operator's `babylog households` listing
+    calls it, and the only label a Member ever sees for the log they share. */
+export function setHouseholdName(w: Writer, name: string): Promise<string> {
+	return write(w, 'household', w.householdId, { name });
+}
+
 /** Changing the Day Start re-buckets the past, and the settings screen says so
     before saving (spec §7.1). */
 export function setDayStart(w: Writer, dayStart: string): Promise<string> {
