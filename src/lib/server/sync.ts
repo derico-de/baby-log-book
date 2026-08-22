@@ -26,6 +26,8 @@ import {
 	mergedIntoMap,
 	liveSessions,
 	pullRevisions,
+	entityBelongsElsewhere,
+	revisionBelongsElsewhere,
 	revisionExists
 } from './store';
 
@@ -36,6 +38,24 @@ export const PULL_PAGE = 500;
     the future after correction is clamped and flagged — never rejected, because
     refusing to record a night feed is worse than recording it slightly late. */
 export const SKEW_TOLERANCE_MS = 5 * 60_000;
+
+/** The two id shapes the server mints for itself, deterministically, so that
+    replay is a no-op. A client that pushes one is claiming a name that is not
+    its to claim: it would suppress the bookkeeping the id stands for, and —
+    since ids are globally unique — pre-empting another Household's would make
+    their next push fail outright on the UNIQUE constraint. Nothing legitimate
+    ever mints these: an outbox holds only ids the client itself minted.
+
+    This refusal may say what it is, unlike the ownership ones below: it is
+    decided by the shape of the id the client sent and reads nothing, so there
+    is no existence to leak. */
+const RESERVED_ID_PREFIXES = ['merge:', 'bottle-past:'];
+const isReservedId = (id: string) => RESERVED_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
+
+/** One uninformative reason for every ownership refusal. Saying more would turn
+    the rejection into an oracle; this way the only thing it can reveal is that
+    some 128-bit id exists somewhere, which is what ADR-0020 accepts. */
+const NOT_ACCEPTED = 'not accepted';
 
 export class SyncError extends Error {
 	constructor(
@@ -156,7 +176,7 @@ function refuseLastParent(
 	const removing = revision.fields.removed_at != null;
 	if (!demoting && !removing) return null;
 
-	const subject = getMember(db, revision.entity_id);
+	const subject = getMember(db, householdId, revision.entity_id);
 	if (!subject || subject.role !== 'parent' || subject.removed_at != null) return null;
 	if (countActiveParents(db, householdId, subject.id) > 0) return null;
 	return removing
@@ -194,10 +214,32 @@ export function push(db: Db, input: PushInput): PushResult {
 				continue;
 			}
 
+			if (isReservedId(incoming.id)) {
+				rejected.push({ id: incoming.id, reason: 'only the app may mint that revision id' });
+				continue;
+			}
+
+			/* A household-kind revision can only ever mean the session's Household, so
+			   the client's entity_id is replaced rather than checked: "a Parent of A
+			   renames B" becomes unwritable rather than merely rejected (hosted
+			   spec §5.2). Everything below reads this, never the client's. */
+			const entityId = incoming.kind === 'household' ? householdId : incoming.entity_id;
+
 			/* Replay is a no-op — the id is client-minted, so a retry after a lost
 			   response lands here rather than duplicating anything. */
-			if (revisionExists(db, incoming.id)) {
+			if (revisionExists(db, householdId, incoming.id)) {
 				accepted.push(incoming.id);
+				continue;
+			}
+
+			/* The ownership guard. An id that already lives in another Household is
+			   adversarial by construction: accepting it as a replay would lose the
+			   pusher's revision, and writing it would cross the boundary. */
+			if (
+				revisionBelongsElsewhere(db, householdId, incoming.id) ||
+				entityBelongsElsewhere(db, householdId, entityId)
+			) {
+				rejected.push({ id: incoming.id, reason: NOT_ACCEPTED });
 				continue;
 			}
 
@@ -217,6 +259,7 @@ export function push(db: Db, input: PushInput): PushResult {
 			   possession of a device_id is never a proof of identity. */
 			const revision: PendingRevision = {
 				...incoming,
+				entity_id: entityId,
 				fields: validation.fields,
 				household_id: householdId,
 				author_id: memberId
@@ -253,7 +296,7 @@ export function push(db: Db, input: PushInput): PushResult {
 		   momentarily look like two open sessions. */
 		for (const plan of planSessionMerges(liveSessions(db, householdId))) {
 			const id = `merge:${plan.loser_id}:${plan.survivor_id}`;
-			if (revisionExists(db, id)) continue;
+			if (revisionExists(db, householdId, id)) continue;
 			const revision = mergeRevision(plan, {
 				household_id: householdId,
 				at: now,
@@ -296,7 +339,7 @@ function closePastBottles(db: Db, householdId: string, now: number): void {
 	const plans = planPastBottles(liveSessions(db, householdId), listTargets(db, householdId), now);
 	for (const plan of plans) {
 		const id = `bottle-past:${plan.entry_id}`;
-		if (revisionExists(db, id)) continue;
+		if (revisionExists(db, householdId, id)) continue;
 		const revision = pastBottleRevision(plan, {
 			household_id: householdId,
 			at: now,

@@ -4,7 +4,7 @@ import { boot } from '$server/boot';
 import { claim, previewLink } from '$server/claims';
 import { cookieOptions, SESSION_COOKIE } from '$server/auth';
 import { claimLimiter, clientIp } from '$server/rate-limit';
-import { theHousehold } from '$server/store';
+import { getHousehold } from '$server/store';
 
 export const prerender = false;
 
@@ -25,8 +25,11 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	const token = event.url.searchParams.get('t') ?? '';
+	/* Nothing about what else exists on this deployment: a Founding Link founds a
+	   Household whatever is already in the file, so there is no question here for
+	   an answer to leak (hosted spec §5.3). */
 	const preview = previewLink(db, secret, token, now);
-	return json({ ...preview, household_exists: theHousehold(db) != null });
+	return json(preview);
 };
 
 /** Claiming. A POST behind a button, which is the whole difference between
@@ -61,7 +64,8 @@ export const POST: RequestHandler = async (event) => {
 	   rides along with no client-side handling at all (spec §6.2). */
 	event.cookies.set(SESSION_COOKIE, result.token, cookieOptions(config.secure));
 
-	const household = theHousehold(db);
+	/* The Household this claim founded or joined — never "the one in the file". */
+	const household = getHousehold(db, result.householdId);
 	return json({
 		ok: true,
 		kind: result.kind,

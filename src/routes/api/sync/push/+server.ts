@@ -3,7 +3,7 @@ import { isResponse, readJson, requireMember, versionBlock } from '$server/api';
 import { push, SyncError } from '$server/sync';
 import { revokeMember } from '$server/auth';
 import { seedTargetsFor } from '$server/claims';
-import { currentCursor, listTargets, theHousehold } from '$server/store';
+import { currentCursor, getHousehold, listTargets } from '$server/store';
 import { wake } from '$server/live';
 
 export const prerender = false;
@@ -49,7 +49,7 @@ export const POST: RequestHandler = async (event) => {
 		if (!result.accepted.includes(String(raw?.id))) continue;
 		const fields = (raw.fields ?? {}) as Record<string, unknown>;
 		if (raw.kind === 'member' && fields.removed_at != null) {
-			revokeMember(authed.db, String(raw.entity_id), now);
+			revokeMember(authed.db, authed.householdId, String(raw.entity_id), now);
 		}
 		if (raw.kind === 'baby' && typeof fields.birth_date === 'string') {
 			const babyId = String(raw.entity_id);
@@ -59,7 +59,7 @@ export const POST: RequestHandler = async (event) => {
 					householdId: authed.householdId,
 					babyId,
 					birthDate: fields.birth_date,
-					zone: theHousehold(authed.db)?.zone ?? 'UTC',
+					zone: getHousehold(authed.db, authed.householdId)?.zone ?? 'UTC',
 					authorId: authed.member.id,
 					deviceId,
 					now
@@ -68,8 +68,8 @@ export const POST: RequestHandler = async (event) => {
 		}
 	}
 
-	/* A bare wake-up signal, never data. */
-	wake();
+	/* A bare wake-up signal, never data — and only to this Household's Devices. */
+	wake(authed.householdId);
 
 	return json({
 		/* Recomputed, because seeding a Baby's Targets above appends revisions of

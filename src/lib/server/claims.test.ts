@@ -14,7 +14,7 @@ import {
 	revokeInvite
 } from './claims';
 import { createSession, listDevices, resolveSession, revokeMember, revokeSession, tokenHash } from './auth';
-import { listMembers, revisionsOf, theHousehold } from './store';
+import { getHousehold, listMembers, revisionsOf } from './store';
 import { RateLimiter } from './rate-limit';
 
 const BERLIN = 'Europe/Berlin';
@@ -199,23 +199,40 @@ describe('bootstrap', () => {
 			now: NOW
 		});
 		expect(result.ok).toBe(true);
-		expect(theHousehold(fresh)).toMatchObject({ zone: BERLIN, day_start: '05:00' });
-		expect(listMembers(fresh, (result as { householdId: string }).householdId)).toMatchObject([
-			{ display_name: 'Mama', role: 'parent' }
-		]);
+		if (!result.ok) return;
+		expect(getHousehold(fresh, result.householdId)).toMatchObject({
+			name: '',
+			zone: BERLIN,
+			day_start: '05:00'
+		});
+		expect(listMembers(fresh, result.householdId)).toMatchObject([{ display_name: 'Mama', role: 'parent' }]);
 	});
 
 	it('takes the Household Zone from the claiming Device', () => {
 		const fresh = empty();
 		const link = mintBootstrap(fresh, SECRET, { origin: ORIGIN, now: NOW });
-		claim(fresh, SECRET, {
+		const result = claim(fresh, SECRET, {
 			token: link.token,
 			deviceId: 'd1',
 			zone: 'Europe/Bucharest',
 			displayName: 'Bunica',
 			now: NOW
 		});
-		expect(theHousehold(fresh)?.zone).toBe('Europe/Bucharest');
+		if (!result.ok) throw new Error('claim failed');
+		expect(getHousehold(fresh, result.householdId)?.zone).toBe('Europe/Bucharest');
+	});
+
+	it('applies the label the operator typed as the new Household s name', () => {
+		const link = mintBootstrap(db, SECRET, { origin: ORIGIN, now: NOW, label: 'Anna & Tom' });
+		const result = claim(db, SECRET, {
+			token: link.token,
+			deviceId: 'd1',
+			zone: BERLIN,
+			displayName: 'Anna',
+			now: NOW
+		});
+		if (!result.ok) throw new Error('claim failed');
+		expect(getHousehold(db, result.householdId)?.name).toBe('Anna & Tom');
 	});
 
 	it('needs a name, because a Parent with no name has no timeline attribution', () => {
@@ -225,6 +242,23 @@ describe('bootstrap', () => {
 			ok: false,
 			reason: 'invalid'
 		});
+	});
+
+	it('founds a further Household rather than joining the one that exists', () => {
+		/* The old fallback — "a bootstrap claim joins the existing Household" — is
+		   gone: on a hosted deployment there is no "the" Household (ADR-0020). */
+		const link = mintBootstrap(db, SECRET, { origin: ORIGIN, now: NOW, label: 'Anna & Tom' });
+		const result = claim(db, SECRET, {
+			token: link.token,
+			deviceId: 'd1',
+			zone: BERLIN,
+			displayName: 'Anna',
+			now: NOW
+		});
+		if (!result.ok) throw new Error('claim failed');
+		expect(result.householdId).not.toBe('h1');
+		expect(listMembers(db, 'h1').map((m) => m.display_name)).toEqual(['Mama']);
+		expect(listMembers(db, result.householdId).map((m) => m.display_name)).toEqual(['Anna']);
 	});
 
 	it('supersedes the previous boot line, so exactly one link is live', () => {
@@ -275,7 +309,7 @@ describe('a session', () => {
 	it('dies immediately on every Device when the Member is removed', () => {
 		createSession(db, SECRET, { memberId: 'mum', deviceId: 'd1', now: NOW });
 		createSession(db, SECRET, { memberId: 'mum', deviceId: 'd2', now: NOW });
-		expect(revokeMember(db, 'mum', NOW)).toBe(2);
+		expect(revokeMember(db, 'h1', 'mum', NOW)).toBe(2);
 	});
 
 	it('rejects a token nobody was issued', () => {

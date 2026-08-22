@@ -82,8 +82,50 @@ export function revisionsOf(db: Db, householdId: string, kind: RevisionKind, ent
 	return rows.map(toRevision).sort(compareRevisions);
 }
 
-export function revisionExists(db: Db, id: string): boolean {
-	return db.prepare('SELECT 1 FROM revisions WHERE id = ?').get(id) != null;
+/** Whether this Household has already seen this revision id — the replay check.
+    Scoped, because the deterministic server-minted ids (`merge:…`,
+    `bottle-past:…`) share one namespace across Households: unscoped, one
+    Household's merge bookkeeping would suppress another's (ADR-0020). */
+export function revisionExists(db: Db, householdId: string, id: string): boolean {
+	return (
+		db.prepare('SELECT 1 FROM revisions WHERE household_id = ? AND id = ?').get(householdId, id) != null
+	);
+}
+
+/** The ownership guard: a client-supplied id is never a capability (ADR-0020).
+    An id that already lives in *another* Household is adversarial by
+    construction — ids are 128-bit and client-minted — so push refuses it rather
+    than accepting it as a replay, which would be data loss for the pusher. */
+export function revisionBelongsElsewhere(db: Db, householdId: string, id: string): boolean {
+	return (
+		db.prepare('SELECT 1 FROM revisions WHERE id = ? AND household_id <> ?').get(id, householdId) != null
+	);
+}
+
+/** Every table an entity id can have a row in — the same set `materialise`
+    writes, which is where a new entity kind would have to be added too. */
+const ENTITY_TABLES = ['entries', 'babies', 'members', 'foods', 'targets'] as const;
+
+/* The revisions arm catches an entity whose creating revision has not arrived:
+   it materialises no row, so only the log knows it exists. The households arm
+   compares against the id itself, a Household row being its own owner. */
+const ENTITY_ELSEWHERE_SQL = [
+	'SELECT 1 FROM revisions WHERE entity_id = @entity_id AND household_id <> @household_id',
+	...ENTITY_TABLES.map(
+		(table) => `SELECT 1 FROM ${table} WHERE id = @entity_id AND household_id <> @household_id`
+	),
+	'SELECT 1 FROM households WHERE id = @entity_id AND id <> @household_id'
+].join(' UNION ALL ');
+
+/** The ownership guard for the entity a revision names: does this id already
+    live in another Household, as an entity of any kind or as the entity_id of
+    any revision there. */
+export function entityBelongsElsewhere(db: Db, householdId: string, entityId: string): boolean {
+	return (
+		db
+			.prepare(`${ENTITY_ELSEWHERE_SQL} LIMIT 1`)
+			.get({ entity_id: entityId, household_id: householdId }) != null
+	);
 }
 
 export interface InsertableRevision {
@@ -125,7 +167,12 @@ export function insertRevision(db: Db, revision: InsertableRevision, receivedAt:
 const isEntryType = (v: unknown): v is EntryType => ENTRY_TYPES.includes(v as EntryType);
 
 /** Re-folds one entity and writes the result to its table. Called for every
-    entity a push touched, inside the same transaction. */
+    entity a push touched, inside the same transaction.
+
+    Every upsert carries a household predicate besides the guard in push: even a
+    future bug upstream cannot then update a row that belongs to somebody else
+    (hosted spec §5.4). Defence in depth — with the guard in place these
+    predicates should never fire. */
 export function materialise(db: Db, householdId: string, kind: RevisionKind, entityId: string): void {
 	const revisions = revisionsOf(db, householdId, kind, entityId);
 	if (revisions.length === 0) return;
@@ -154,7 +201,8 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 			   edited_by = excluded.edited_by,
 			   edited_at = excluded.edited_at,
 			   deleted_at = excluded.deleted_at,
-			   merged_into = excluded.merged_into`
+			   merged_into = excluded.merged_into
+			 WHERE entries.household_id = excluded.household_id`
 		).run({
 			id: entry.id,
 			household_id: householdId,
@@ -185,7 +233,8 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 				`INSERT INTO babies (id, household_id, name, birth_date, deleted_at)
 				 VALUES (?, ?, ?, ?, ?)
 				 ON CONFLICT(id) DO UPDATE SET name = excluded.name,
-				   birth_date = excluded.birth_date, deleted_at = excluded.deleted_at`
+				   birth_date = excluded.birth_date, deleted_at = excluded.deleted_at
+				 WHERE babies.household_id = excluded.household_id`
 			).run(entityId, householdId, str(state.name), str(state.birth_date), num(state.deleted_at));
 			return;
 		case 'member':
@@ -193,7 +242,8 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 				`INSERT INTO members (id, household_id, display_name, role, removed_at, locale)
 				 VALUES (?, ?, ?, ?, ?, ?)
 				 ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name,
-				   role = excluded.role, removed_at = excluded.removed_at, locale = excluded.locale`
+				   role = excluded.role, removed_at = excluded.removed_at, locale = excluded.locale
+				 WHERE members.household_id = excluded.household_id`
 			).run(
 				entityId,
 				householdId,
@@ -206,7 +256,8 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 		case 'food':
 			db.prepare(
 				`INSERT INTO foods (id, household_id, name, deleted_at) VALUES (?, ?, ?, ?)
-				 ON CONFLICT(id) DO UPDATE SET name = excluded.name, deleted_at = excluded.deleted_at`
+				 ON CONFLICT(id) DO UPDATE SET name = excluded.name, deleted_at = excluded.deleted_at
+				 WHERE foods.household_id = excluded.household_id`
 			).run(entityId, householdId, str(state.name), num(state.deleted_at));
 			return;
 		case 'target':
@@ -214,7 +265,8 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 				`INSERT INTO targets (id, household_id, baby_id, activity, duration_s, anchor, deleted_at)
 				 VALUES (?, ?, ?, ?, ?, ?, ?)
 				 ON CONFLICT(id) DO UPDATE SET baby_id = excluded.baby_id, activity = excluded.activity,
-				   duration_s = excluded.duration_s, anchor = excluded.anchor, deleted_at = excluded.deleted_at`
+				   duration_s = excluded.duration_s, anchor = excluded.anchor, deleted_at = excluded.deleted_at
+				 WHERE targets.household_id = excluded.household_id`
 			).run(
 				entityId,
 				householdId,
@@ -226,6 +278,10 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 			);
 			return;
 		case 'household':
+			/* The session's Household, never the id the client sent: push overwrites
+			   a household-kind entity_id with it before this is ever reached, so
+			   "a Parent of A renames B" is unwritable rather than merely rejected
+			   (hosted spec §5.2). */
 			db.prepare(
 				`UPDATE households SET
 				   name = COALESCE(?, name),
@@ -236,7 +292,7 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 				state.name == null ? null : String(state.name),
 				state.day_start == null ? null : String(state.day_start),
 				state.zone == null ? null : String(state.zone),
-				entityId
+				householdId
 			);
 			return;
 	}
@@ -325,8 +381,11 @@ export function getEntry(db: Db, householdId: string, id: string): Entry | null 
 	return row ? rowToEntry(row) : null;
 }
 
-export function theHousehold(db: Db): Household | null {
-	const row = db.prepare('SELECT id, name, day_start, zone FROM households LIMIT 1').get() as
+/** The Household a request already named. There is no LIMIT-1 counterpart: the
+    Household comes from the session or the Claim Link, never from "the one
+    household in the file" (ADR-0020). */
+export function getHousehold(db: Db, householdId: string): Household | null {
+	const row = db.prepare('SELECT id, name, day_start, zone FROM households WHERE id = ?').get(householdId) as
 		| Household
 		| undefined;
 	return row ?? null;
@@ -341,11 +400,26 @@ export function listMembers(db: Db, householdId: string): MemberRecord[] {
 		.all(householdId) as MemberRecord[];
 }
 
-export function getMember(db: Db, id: string): MemberRecord | null {
+export function getMember(db: Db, householdId: string, id: string): MemberRecord | null {
+	return (
+		(db
+			.prepare(
+				`SELECT id, household_id, display_name, role, removed_at, locale
+				 FROM members WHERE household_id = ? AND id = ?`
+			)
+			.get(householdId, id) as MemberRecord | undefined) ?? null
+	);
+}
+
+/** The one member lookup that cannot name a Household, because it is the lookup
+    that *establishes* one: a session names a Member, and the Member names the
+    Household every later query is scoped by (ADR-0020). Only `resolveSession`
+    may call it. */
+export function memberOfSession(db: Db, memberId: string): MemberRecord | null {
 	return (
 		(db
 			.prepare('SELECT id, household_id, display_name, role, removed_at, locale FROM members WHERE id = ?')
-			.get(id) as MemberRecord | undefined) ?? null
+			.get(memberId) as MemberRecord | undefined) ?? null
 	);
 }
 

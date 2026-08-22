@@ -5,6 +5,12 @@
 
        docker exec <container> babylog members
        docker exec <container> babylog rescue "Mama"
+       docker exec -e ORIGIN=... <container> babylog household "Anna & Tom"
+
+   One deployment may host several Households (ADR-0020), so everything here
+   either names one or says which it means: `households` lists them, `members`
+   groups by them, `rescue` searches inside one, and `household` mints the
+   Founding Link that creates the next.
 
    It opens the SQLite file directly rather than talking to the running server,
    which is what makes "works without the app running" free — WAL mode makes
@@ -28,6 +34,16 @@ const DB_PATH = `${DATA_DIR}/app.db`;
 const SECRET_PATH = `${DATA_DIR}/secret.key`;
 /** Fifteen minutes, because you are standing at the terminal. */
 export const RESCUE_TTL_MS = 15 * 60_000;
+/** Seven days: a Founding Link is sent over WhatsApp and opened whenever the
+    family gets round to it. */
+export const BOOTSTRAP_TTL_MS = 7 * 24 * 60 * 60_000;
+
+/** What the operator sends along with a Founding Link. The pilot answers the
+    trust boundary with disclosure, not encryption: whoever receives the link is
+    told plainly that the operator can read everything they log (ADR-0020). */
+export const DISCLOSURE =
+	'It runs on my server, so technically I can see everything you log — ' +
+	'same trust as sending it to me directly.';
 
 /**
  * @param {string} token
@@ -87,11 +103,97 @@ function origin() {
 	return value.replace(/\/$/, '');
 }
 
+/**
+ * @param {number | null} at
+ * @returns {string}
+ */
+function utcStamp(at) {
+	return at ? `${new Date(at).toISOString().slice(0, 16).replace('T', ' ')} UTC` : 'never';
+}
+
+/** The label to print for a Household that was never named. */
+const UNNAMED = '(unnamed)';
+
+/** @param {import('better-sqlite3').Database} db */
+function allHouseholds(db) {
+	return /** @type {Array<{id: string, name: string, members: number, last_activity: number | null}>} */ (db
+		.prepare(
+			`SELECT h.id, h.name,
+			        (SELECT COUNT(*) FROM members m
+			          WHERE m.household_id = h.id AND m.removed_at IS NULL) AS members,
+			        (SELECT MAX(r.received_at) FROM revisions r WHERE r.household_id = h.id) AS last_activity
+			 FROM households h ORDER BY h.name, h.id`
+		)
+		.all());
+}
+
+/** Is anyone actually using this — the pilot question, in one screen.
+ *
+ * @param {import('better-sqlite3').Database} db
+ */
+function households(db) {
+	const rows = allHouseholds(db);
+	if (rows.length === 0) {
+		console.log('No households yet. Start the container and read its log for the setup link.');
+		return;
+	}
+
+	console.log('');
+	for (const row of rows) {
+		console.log(`  ${row.name || UNNAMED}`);
+		console.log(`      ${row.members} member(s) · last activity ${utcStamp(row.last_activity)}`);
+		console.log(`      id ${row.id}`);
+	}
+	console.log('');
+}
+
+/**
+ * Mints a Founding Link for a new Household — the `babylog household` command.
+ * It creates no rows besides the link: the Household appears when somebody
+ * claims it, taking its Zone from the claiming Device, so the operator
+ * configures nothing about the family's rhythm. An unclaimed link expires
+ * leaving no orphan.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} label
+ */
+function mintFoundingLink(db, label) {
+	const name = label.trim();
+	if (name === '') fail('What is it called? Try: babylog household "Anna & Tom"');
+	if (name.length > 200) fail('That name is too long — 200 characters at most.');
+
+	const key = secret();
+	const token = randomBytes(16).toString('base64url');
+	const now = Date.now();
+	const expires = now + BOOTSTRAP_TTL_MS;
+	const url = `${origin()}/claim?t=${token}`;
+
+	db.prepare(
+		`INSERT INTO claim_links (token_hash, kind, household_label, created_at, expires_at)
+		 VALUES (?, 'bootstrap', ?, ?, ?)`
+	).run(hashToken(token, key), name, now, expires);
+
+	console.log('');
+	console.log(`This link sets up a new household called “${name}”.`);
+	console.log('Whoever opens it becomes its first parent, and the link stops');
+	console.log('working once it has been used.');
+	console.log('');
+	console.log(`    ${url}`);
+	console.log('');
+	console.log(`It expires on ${utcStamp(expires)}. Run this command again for a fresh one;`);
+	console.log('links already sent keep working.');
+	console.log('');
+	console.log('Send this sentence along with the link:');
+	console.log('');
+	console.log(`    ${DISCLOSURE}`);
+	console.log('');
+}
+
 /** @param {import('better-sqlite3').Database} db */
 function members(db) {
-	const rows = /** @type {Array<{id: string, display_name: string, role: string, removed_at: number | null, devices: number, last_seen: number | null}>} */ (db
+	const rows = /** @type {Array<{id: string, household_id: string, display_name: string, role: string, removed_at: number | null, devices: number, last_seen: number | null}>} */ (db
 		.prepare(
-			`SELECT m.id, m.display_name, m.role, m.removed_at,
+			`SELECT m.id, m.household_id, m.display_name, m.role, m.removed_at,
 			        (SELECT COUNT(*) FROM sessions s WHERE s.member_id = m.id AND s.revoked_at IS NULL) AS devices,
 			        (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.member_id = m.id) AS last_seen
 			 FROM members m ORDER BY m.display_name`
@@ -103,15 +205,66 @@ function members(db) {
 		return;
 	}
 
+	/* Grouped, because a flat list across households says nothing about who is
+	   whose (ADR-0020). */
 	console.log('');
-	for (const row of rows) {
-		const state = row.removed_at ? 'removed' : row.role;
-		const seen = row.last_seen ? new Date(row.last_seen).toISOString().slice(0, 16).replace('T', ' ') : 'never';
-		console.log(`  ${row.display_name}`);
-		console.log(`      ${state} · ${row.devices} device(s) · last seen ${seen} UTC`);
-		console.log(`      id ${row.id}`);
+	for (const group of allHouseholds(db)) {
+		const mine = rows.filter((row) => row.household_id === group.id);
+		if (mine.length === 0) continue;
+		console.log(`  ${group.name || group.id}`);
+		for (const row of mine) {
+			const state = row.removed_at ? 'removed' : row.role;
+			console.log(`      ${row.display_name}`);
+			console.log(`          ${state} · ${row.devices} device(s) · last seen ${utcStamp(row.last_seen)}`);
+			console.log(`          id ${row.id}`);
+		}
+		console.log('');
 	}
-	console.log('');
+}
+
+/**
+ * The Household a rescue runs inside. With one in the file it is that one, so
+ * `babylog rescue "Mama"` keeps working; with more, the operator names it and
+ * omitting it fails loudly rather than guessing.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string[]} argv
+ * @returns {{household: {id: string, name: string}, needle: string}}
+ */
+function scopeRescue(db, argv) {
+	const all = allHouseholds(db);
+	if (all.length === 0) fail('There are no households yet.');
+
+	if (all.length === 1) {
+		const needle = argv.join(' ').trim();
+		if (needle === '') fail('Who for? Try: babylog rescue "Mama"');
+		return { household: all[0], needle };
+	}
+
+	const names = all.map((h) => `  ${h.name || UNNAMED}`).join('\n');
+	if (argv.length < 2) {
+		fail(
+			`This deployment hosts ${all.length} households, so say which one:\n` +
+				'  babylog rescue "Anna & Tom" "Mama"\n' +
+				names
+		);
+	}
+
+	const wanted = argv[0].trim();
+	const matches = all.filter((h) => h.id === wanted || h.name.toLowerCase() === wanted.toLowerCase());
+	if (matches.length === 0) {
+		fail(`No household here is called “${wanted}”. The households are:\n` + names);
+	}
+	if (matches.length > 1) {
+		fail(
+			`More than one household is called “${wanted}”. Use the id instead:\n` +
+				matches.map((h) => `  ${h.id}  ${h.name || UNNAMED}`).join('\n')
+		);
+	}
+
+	const needle = argv.slice(1).join(' ').trim();
+	if (needle === '') fail(`Who for? Try: babylog rescue "${matches[0].name || matches[0].id}" "Mama"`);
+	return { household: matches[0], needle };
 }
 
 /**
@@ -119,16 +272,21 @@ function members(db) {
  * person: a new row would leave two "Mamas" and split three years of
  * attribution between them, since every Revision points at the old one.
  *
+ * The search space is one Household, so a name that two Households share is not
+ * ambiguous here — it cannot be, by construction.
+ *
  * @param {import('better-sqlite3').Database} db
+ * @param {{id: string, name: string}} inHousehold
  * @param {string} needle
  */
-function rescue(db, needle) {
+function rescue(db, inHousehold, needle) {
 	const rows = /** @type {Array<{id: string, household_id: string, display_name: string, role: string, removed_at: number | null}>} */ (db
 		.prepare(
 			`SELECT id, household_id, display_name, role, removed_at FROM members
-			 WHERE removed_at IS NULL AND (id = ? OR display_name = ? COLLATE NOCASE)`
+			 WHERE household_id = ? AND removed_at IS NULL
+			   AND (id = ? OR display_name = ? COLLATE NOCASE)`
 		)
-		.all(needle, needle));
+		.all(inHousehold.id, needle, needle));
 
 	if (rows.length === 0) {
 		fail(`No one here is called “${needle}”. Run "babylog members" to see the names.`);
@@ -170,8 +328,13 @@ function usage() {
 	console.log('');
 	console.log('babylog — the Baby Log Book operator tool');
 	console.log('');
-	console.log('  babylog members            who has access, and from how many devices');
-	console.log('  babylog rescue <name>      a 15-minute link to sign a device back in');
+	console.log('  babylog households                 every household, its size and its last activity');
+	console.log('  babylog household <name>           a 7-day link that sets up a new household');
+	console.log('  babylog members                    who has access, and from how many devices');
+	console.log('  babylog rescue [household] <name>  a 15-minute link to sign a device back in');
+	console.log('');
+	console.log('The two link commands need ORIGIN in the shell, the same one the');
+	console.log('container uses, because a claim link is an absolute URL.');
 	console.log('');
 	console.log(`It reads the database directly from ${DATA_DIR}, so it works whether or`);
 	console.log('not the app is running. Set DATA_DIR if the volume is mounted elsewhere.');
@@ -192,10 +355,17 @@ function main(argv) {
 			members(db);
 			return;
 		}
+		if (command === 'households') {
+			households(db);
+			return;
+		}
+		if (command === 'household') {
+			mintFoundingLink(db, rest.join(' '));
+			return;
+		}
 		if (command === 'rescue') {
-			const needle = rest.join(' ').trim();
-			if (needle === '') fail('Who for? Try: babylog rescue "Mama"');
-			rescue(db, needle);
+			const scope = scopeRescue(db, rest);
+			rescue(db, scope.household, scope.needle);
 			return;
 		}
 		usage();

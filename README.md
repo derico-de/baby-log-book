@@ -95,20 +95,46 @@ rm -f /data/app.db-wal /data/app.db-shm     # stale sidecars must go
 docker start baby-log-book
 ```
 
+The backup is the whole file, so if you host more than one household, restoring
+rolls **all** of them back to that night. There is no per-household restore.
+
 ### The operator tool
 
 ```sh
+docker exec baby-log-book babylog households
 docker exec baby-log-book babylog members
 docker exec -e ORIGIN=https://log.example.com baby-log-book babylog rescue "Mama"
+docker exec -e ORIGIN=https://log.example.com baby-log-book babylog household "Anna & Tom"
 ```
 
 `rescue` mints a 15-minute link that signs a device back in **as an existing
 person**, so everything they have already logged stays theirs. Use it when a
 phone is lost and no parent is left to send an invite.
 
-Both commands open the SQLite file directly, so they work whether or not the app
+Every command opens the SQLite file directly, so they work whether or not the app
 is running. There is no HTTP admin endpoint: an admin route on a public-internet
 app is a door that only ever needs to exist for five minutes a year.
+
+### Hosting more than one household
+
+One container can host several households — the same file, the same domain, one
+per family ([ADR-0020](docs/adr/0020-one-deployment-many-households.md)). Nothing
+changes for a single family: first boot still prints the link that sets up
+household #1, and a deployment that never runs `babylog household` behaves
+exactly as it always did.
+
+`babylog household "<name>"` mints a 7-day link that **sets up a new household**:
+whoever opens it becomes its first parent, and their device's time zone becomes
+the household's. It creates nothing until then, so an unclaimed link expires
+leaving no leftovers, and running it again never breaks a link you already sent.
+
+Two things to know before you host somebody else's log:
+
+- The command prints one plain sentence to send along with the link — that you
+  can technically read everything they log, because it is your server. Send it.
+- With more than one household in the file, `babylog rescue` needs to know which:
+  `babylog rescue "Anna & Tom" "Mama"`. It says so, and lists the names, if you
+  leave it out.
 
 ## Developing
 

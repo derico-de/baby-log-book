@@ -20,7 +20,7 @@ import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { MemberRecord, Role } from '$domain/types';
 import type { Db } from './db';
-import { getMember } from './store';
+import { memberOfSession } from './store';
 
 export const SESSION_COOKIE = 'blb_session';
 /** 128 bits, so rate limiting is a backstop rather than the defence. */
@@ -109,7 +109,7 @@ export function resolveSession(db: Db, secret: Buffer, token: string | undefined
 
 	if (!row || row.revoked_at != null) return { ok: false, code: 'unauthenticated' };
 
-	const member = getMember(db, row.member_id);
+	const member = memberOfSession(db, row.member_id);
 	if (!member) return { ok: false, code: 'unauthenticated' };
 	/* Their tokens die immediately on removal, but a Device that has been
 	   offline arrives with one that was live when it left. */
@@ -138,11 +138,16 @@ export function revokeSession(db: Db, secret: Buffer, token: string, now: number
 	);
 }
 
-/** Removal kills every Device that Member had, immediately. */
-export function revokeMember(db: Db, memberId: string, now: number): number {
+/** Removal kills every Device that Member had, immediately — and only inside the
+    Household doing the removing: a member id is a client-supplied id, and one of
+    those is never a capability (ADR-0020). */
+export function revokeMember(db: Db, householdId: string, memberId: string, now: number): number {
 	const info = db
-		.prepare('UPDATE sessions SET revoked_at = ? WHERE member_id = ? AND revoked_at IS NULL')
-		.run(now, memberId);
+		.prepare(
+			`UPDATE sessions SET revoked_at = ? WHERE member_id = ? AND revoked_at IS NULL
+			   AND EXISTS (SELECT 1 FROM members m WHERE m.id = sessions.member_id AND m.household_id = ?)`
+		)
+		.run(now, memberId, householdId);
 	return info.changes;
 }
 

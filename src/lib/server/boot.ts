@@ -11,9 +11,10 @@
         a trap, because every Device would keep queueing pushes that will never
         be accepted and the failure would stay silent for hours.
      5. Load or generate the session signing key in the volume.
-     6. If the Household has no Members, print a bootstrap Claim Link to stdout —
-        so first run needs no command at all. That line is the first thing a new
-        operator sees after `docker run`, and it has to stand alone.
+     6. If nobody has access yet, print a Founding Link to stdout — so first run
+        needs no command at all. That line is the first thing a new operator sees
+        after `docker run`, and it has to stand alone. Further Households are
+        founded from the CLI (`babylog household`), never from boot.
      7. Start the nightly backup timer. */
 
 import { mintBootstrap } from './claims';
@@ -22,7 +23,6 @@ import { openDb, type Db } from './db';
 import { BootError, readConfig, VERSION, type Config } from './env';
 import { pendingMigrations, runMigrations } from './migrations';
 import { preMigrationName, pruneBackups, startNightlyBackups, takeBackupSync } from './backup';
-import { theHousehold } from './store';
 
 export interface Boot {
 	db: Db;
@@ -36,8 +36,15 @@ function log(line: string) {
 	console.log(`[baby-log-book] ${line}`);
 }
 
+/** Global on purpose: zero Members anywhere is what makes a deployment brand
+    new, and it stays the trigger for the boot Founding Link (hosted spec §3.3). */
 function countMembers(db: Db): number {
 	const row = db.prepare('SELECT COUNT(*) AS n FROM members').get() as { n: number };
+	return row.n;
+}
+
+function countHouseholds(db: Db): number {
+	const row = db.prepare('SELECT COUNT(*) AS n FROM households').get() as { n: number };
 	return row.n;
 }
 
@@ -85,12 +92,14 @@ export function boot(): Boot {
 
 	const secret = loadSecret(config.secretPath, config.sessionSecretOverride);
 
-	if (countMembers(db) === 0) {
+	const members = countMembers(db);
+	if (members === 0) {
 		const link = mintBootstrap(db, secret, { origin: config.origin, now: Date.now() });
 		printBootstrapLink(link.url, link.expires_at);
 	} else {
-		const household = theHousehold(db);
-		log(`household ready — zone ${household?.zone ?? 'unset'}, day start ${household?.day_start ?? 'unset'}`);
+		/* A count rather than a Household: one deployment may serve several, and
+		   none of them is "the" one (ADR-0020). */
+		log(`${countHouseholds(db)} household(s), ${members} member(s)`);
 	}
 
 	startNightlyBackups(db, config.backupDir, log);

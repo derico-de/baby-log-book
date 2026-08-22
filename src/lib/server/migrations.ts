@@ -180,6 +180,25 @@ export const MIGRATIONS: Migration[] = [
 			);
 			CREATE INDEX claim_links_member ON claim_links(member_id);
 		`
+	},
+	{
+		name: '0002-founding-label',
+		sql: `
+			/* The label a Founding Link applies as the new Household's initial name
+			   (hosted spec §7.1). A separate column rather than a reuse of
+			   display_name, which means "the Member name an Invite carries" — the two
+			   semantics must not collide. It doubles as the discriminator between the
+			   two kinds of Founding Link: NULL on a bootstrap link means boot-minted,
+			   and only boot-minted links are superseded on restart. */
+			ALTER TABLE claim_links ADD COLUMN household_label TEXT;
+
+			/* The ownership guard asks "does this entity id already live in another
+			   Household" for every pushed revision, and the existing index is prefixed
+			   by household_id — which is precisely the column the question does not
+			   know (ADR-0020). Without this the guard scans the whole log per
+			   revision. */
+			CREATE INDEX revisions_entity_id ON revisions(entity_id);
+		`
 	}
 ];
 

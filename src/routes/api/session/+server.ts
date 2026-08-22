@@ -2,7 +2,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 import { isResponse, requireMember, versionBlock } from '$server/api';
 import { cookieOptions, listDevices, revokeSession, SESSION_COOKIE } from '$server/auth';
 import { boot } from '$server/boot';
-import { currentCursor, theHousehold } from '$server/store';
+import { currentCursor, getHousehold } from '$server/store';
 
 export const prerender = false;
 
@@ -12,7 +12,7 @@ export const GET: RequestHandler = async (event) => {
 	const authed = requireMember(event);
 	if (isResponse(authed)) return authed;
 
-	const household = theHousehold(authed.db);
+	const household = getHousehold(authed.db, authed.householdId);
 	return json({
 		member: {
 			id: authed.member.id,

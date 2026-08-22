@@ -14,15 +14,17 @@
                    pending Invite is never a half-real person in the Household.
      - Rescue    — re-binds a Device to a Member who already exists. 15 minutes,
                    because you are standing at the terminal.
-     - Bootstrap — the same mechanism with nothing to bind to: on an empty
-                   Household it creates the Household and the first Parent. */
+     - Bootstrap — the same mechanism with nothing to bind to: it **founds** a
+                   Household and its first Parent. This is the Founding Link,
+                   printed at first boot or minted by the operator for a further
+                   Household (ADR-0020); it never joins one that exists. */
 
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_DAY_START, type Role } from '$domain/types';
 import { seedTargets } from '$domain/targets';
 import type { Db } from './db';
 import { createSession, newToken, tokenHash } from './auth';
-import { insertRevision, materialise, theHousehold } from './store';
+import { insertRevision, materialise } from './store';
 
 export type ClaimKind = 'invite' | 'rescue' | 'bootstrap';
 
@@ -85,15 +87,32 @@ export function mintRescue(
 	return { token, url: claimUrl(input.origin, token), expires_at: expires };
 }
 
-/** Superseded on every boot, so exactly one bootstrap link is ever live. */
-export function mintBootstrap(db: Db, secret: Buffer, input: { origin: string; now: number }): MintedLink {
-	db.prepare("DELETE FROM claim_links WHERE kind = 'bootstrap' AND claimed_at IS NULL").run();
+/** Mints a Founding Link. Whoever claims it founds a new Household and becomes
+    its first Parent; the label, when there is one, becomes the Household's
+    initial name.
+
+    A boot-printed link supersedes the previous boot-printed one, so exactly one
+    boot line is ever live — and only that one: an operator-minted Founding Link
+    waiting for a friend must survive a container restart (hosted spec §3.3).
+    `household_label IS NULL` is the discriminator. */
+export function mintBootstrap(
+	db: Db,
+	secret: Buffer,
+	input: { origin: string; now: number; label?: string | null }
+): MintedLink {
+	const label = input.label == null || input.label === '' ? null : input.label;
+	if (label == null) {
+		db.prepare(
+			`DELETE FROM claim_links
+			 WHERE kind = 'bootstrap' AND claimed_at IS NULL AND household_label IS NULL`
+		).run();
+	}
 	const token = newToken();
 	const expires = input.now + BOOTSTRAP_TTL_MS;
 	db.prepare(
-		`INSERT INTO claim_links (token_hash, kind, created_at, expires_at)
-		 VALUES (?, 'bootstrap', ?, ?)`
-	).run(tokenHash(token, secret), input.now, expires);
+		`INSERT INTO claim_links (token_hash, kind, household_label, created_at, expires_at)
+		 VALUES (?, 'bootstrap', ?, ?, ?)`
+	).run(tokenHash(token, secret), label, input.now, expires);
 	return { token, url: claimUrl(input.origin, token), expires_at: expires };
 }
 
@@ -138,6 +157,7 @@ interface LinkRow {
 	token_hash: string;
 	kind: ClaimKind;
 	household_id: string | null;
+	household_label: string | null;
 	display_name: string | null;
 	role: string | null;
 	member_id: string | null;
@@ -151,8 +171,8 @@ interface LinkRow {
 function findLink(db: Db, secret: Buffer, token: string): LinkRow | undefined {
 	return db
 		.prepare(
-			`SELECT token_hash, kind, household_id, display_name, role, member_id, created_by,
-			        expires_at, claimed_at, attempts, burnt_at
+			`SELECT token_hash, kind, household_id, household_label, display_name, role, member_id,
+			        created_by, expires_at, claimed_at, attempts, burnt_at
 			 FROM claim_links WHERE token_hash = ?`
 		)
 		.get(tokenHash(token, secret)) as LinkRow | undefined;
@@ -211,35 +231,37 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 		let householdId: string;
 
 		if (row.kind === 'bootstrap') {
-			const existing = theHousehold(db);
 			const name = (input.displayName ?? '').trim();
 			if (name.length === 0 || name.length > 200) return { ok: false, reason: 'invalid' };
 
-			householdId = existing?.id ?? randomUUID();
+			/* A Founding Link always founds: there is no "join the one Household in
+			   the file" any more, because there may be several and none of them is
+			   the one this link means (ADR-0020). */
+			const label = (row.household_label ?? '').trim();
+			householdId = randomUUID();
 			memberId = randomUUID();
-			if (!existing) {
-				db.prepare(
-					'INSERT INTO households (id, name, day_start, zone, created_at) VALUES (?, ?, ?, ?, ?)'
-				).run(householdId, '', DEFAULT_DAY_START, input.zone, input.now);
-				/* Household settings travel as revisions like everything else — the
-				   Day Start above all — so a Device that pulls from cursor 0 learns
-				   the lens from the log rather than from a side channel. */
-				insertRevision(
-					db,
-					{
-						id: randomUUID(),
-						household_id: householdId,
-						kind: 'household',
-						entity_id: householdId,
-						fields: { day_start: DEFAULT_DAY_START, zone: input.zone },
-						merge_at: input.now,
-						device_id: input.deviceId,
-						author_id: memberId,
-						skewed: false
-					},
-					input.now
-				);
-			}
+			db.prepare(
+				'INSERT INTO households (id, name, day_start, zone, created_at) VALUES (?, ?, ?, ?, ?)'
+			).run(householdId, label, DEFAULT_DAY_START, input.zone, input.now);
+			/* Household settings travel as revisions like everything else — the
+			   Day Start above all — so a Device that pulls from cursor 0 learns
+			   the lens from the log rather than from a side channel. The label the
+			   operator typed rides along for the same reason. */
+			insertRevision(
+				db,
+				{
+					id: randomUUID(),
+					household_id: householdId,
+					kind: 'household',
+					entity_id: householdId,
+					fields: { day_start: DEFAULT_DAY_START, zone: input.zone, ...(label === '' ? {} : { name: label }) },
+					merge_at: input.now,
+					device_id: input.deviceId,
+					author_id: memberId,
+					skewed: false
+				},
+				input.now
+			);
 			appendMemberRevision(db, {
 				householdId,
 				memberId,
@@ -252,7 +274,9 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 				now: input.now
 			});
 		} else if (row.kind === 'invite') {
-			householdId = row.household_id ?? theHousehold(db)?.id ?? '';
+			/* Both other kinds carry their Household from minting, so a row without
+			   one is invalid — never "whatever Household is first in the file". */
+			householdId = row.household_id ?? '';
 			if (householdId === '') return { ok: false, reason: 'invalid' };
 			memberId = randomUUID();
 			appendMemberRevision(db, {
@@ -270,8 +294,9 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 			   leave two "Mamas" and split three years of attribution between them,
 			   since every Revision points at the old one. */
 			if (!row.member_id) return { ok: false, reason: 'invalid' };
+			if (!row.household_id) return { ok: false, reason: 'invalid' };
 			memberId = row.member_id;
-			householdId = row.household_id ?? theHousehold(db)?.id ?? '';
+			householdId = row.household_id;
 		}
 
 		db.prepare('UPDATE claim_links SET claimed_at = ? WHERE token_hash = ?').run(input.now, hash);

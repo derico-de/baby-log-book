@@ -31,7 +31,7 @@ export const GET: RequestHandler = async (event) => {
 			send('retry: 5000\n\n');
 			send('event: hello\ndata: 1\n\n');
 
-			unsubscribe = subscribe(() => send('event: wake\ndata: 1\n\n'));
+			unsubscribe = subscribe(authed.householdId, () => send('event: wake\ndata: 1\n\n'));
 			/* A comment line, so a proxy in the middle does not time the idle
 			   connection out. */
 			keepalive = setInterval(() => send(': keepalive\n\n'), KEEPALIVE_MS);

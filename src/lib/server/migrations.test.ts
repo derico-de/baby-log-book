@@ -32,6 +32,31 @@ describe('the boot-time migration runner', () => {
 		expect(pendingMigrations(db).map((m) => m.name)).toEqual([MIGRATIONS.at(-1)!.name]);
 	});
 
+	it('adds the founding label to a database that predates it, keeping its rows', () => {
+		/* The upgrade path an operator actually takes: a deployment already holding
+		   a household and a pending invite meets 0002 on the next boot. */
+		const db = fresh();
+		db.exec(MIGRATIONS[0].sql);
+		appliedMigrations(db);
+		db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)').run(MIGRATIONS[0].name, 1);
+		db.prepare('INSERT INTO households (id, name, zone, created_at) VALUES (?,?,?,?)').run(
+			'h1',
+			'Zuhause',
+			'Europe/Berlin',
+			1
+		);
+		db.prepare(
+			`INSERT INTO claim_links (token_hash, kind, household_id, display_name, created_at, expires_at)
+			 VALUES (?,?,?,?,?,?)`
+		).run('hash', 'invite', 'h1', 'Oma', 1, 2);
+
+		expect(runMigrations(db)).toEqual(['0002-founding-label']);
+		expect(
+			db.prepare('SELECT display_name, household_label FROM claim_links WHERE token_hash = ?').get('hash')
+		).toEqual({ display_name: 'Oma', household_label: null });
+		expect(integrityOk(db)).toBe(true);
+	});
+
 	it('leaves nothing half-applied when a migration fails', () => {
 		const db = fresh();
 		runMigrations(db);
