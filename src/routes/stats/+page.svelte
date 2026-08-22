@@ -21,11 +21,20 @@
 	       pattern screen. The cards keep the trend job; the grid takes the new
 	       one.
 
+	   Ticket 28 put those two down one scroll and ruled out a switcher between
+	   them. That is reversed here, on the evidence of the screen it shipped: the
+	   grid is a full 24 hours tall, so the cards began a screen and a half below
+	   the fold with nothing to say they were there, and they read as missing.
+	   Trends is a third tab beside Week and Day, and the cards live in it —
+	   moved, not copied. The two questions are still not alternatives; the
+	   *stepping* is what makes them separate tabs, since a rolling seven days
+	   ending today cannot be paged and the grid is nothing but paging.
+
 	   Rolling seven days rather than a calendar week, exactly as the cards do it
 	   — calendar weeks start Monday in DE and RO, and a stats screen that
 	   disagrees with itself across languages is an endless bug. */
 	import { app } from '$client/state.svelte';
-	import { statsFor } from '$domain/stats';
+	import { statsFor, WINDOW_DAYS } from '$domain/stats';
 	import { facetsPresent } from '$domain/grid';
 	import { FACET_KEYS, type FacetKey } from '$domain/filter';
 	import { addDays, dayStartInstant } from '$domain/time';
@@ -40,6 +49,11 @@
 
 	const WEEK = 7;
 
+	type Tab = 'week' | 'day' | 'trends';
+
+	let tab = $state<Tab>('week');
+	/* The grid view the Trends tab suspends, so coming back lands on the one you
+	   left rather than resetting to the week. */
 	let view = $state<'week' | 'day'>('week');
 	/* Two anchors rather than one offset: stepping a week and stepping a day are
 	   different journeys, and tapping a column in the week view must not throw
@@ -102,6 +116,12 @@
 	/* The heading *is* the period — a second static "Stats" over a tab bar that
 	   already says Stats is a word doing no work. */
 	const periodLabel = $derived.by(() => {
+		/* The cards are eight bars ending today and there is nothing to page, so
+		   the heading states that window instead of offering to step it. */
+		if (tab === 'trends') {
+			const from = dayStartInstant(addDays(todayKey, -WINDOW_DAYS), app.dayStart, app.zone);
+			return dayRange(from, dayStartInstant(todayKey, app.dayStart, app.zone), app.zone);
+		}
 		if (view === 'day') return dateWithWeekday(dayStartInstant(dayKey, app.dayStart, app.zone), app.zone);
 		const from = dayStartInstant(keys[0], app.dayStart, app.zone);
 		const to = dayStartInstant(keys.at(-1)!, app.dayStart, app.zone);
@@ -125,6 +145,16 @@
 		focusSoon();
 	}
 
+	function setTab(next: Tab) {
+		if (next === tab) return;
+		if (next === 'trends') {
+			tab = 'trends';
+			return;
+		}
+		tab = next;
+		setView(next);
+	}
+
 	function setView(next: 'week' | 'day') {
 		if (next === view) return;
 		/* Coming back to the week, land on the week that holds the day you were
@@ -139,6 +169,7 @@
 	function pickDay(key: string) {
 		dayKey = key;
 		view = 'day';
+		tab = 'day';
 		focusSoon();
 	}
 
@@ -181,7 +212,8 @@
 	   is already scrolling. */
 	let parkedFor = '';
 	$effect(() => {
-		const token = `${focusPending}:${view}:${keys[0]}:${app.baby?.id ?? ''}:${app.babyEntries.length > 0}`;
+		const token = `${focusPending}:${tab}:${view}:${keys[0]}:${app.baby?.id ?? ''}:${app.babyEntries.length > 0}`;
+		if (tab === 'trends') return;
 		if (token === parkedFor) return;
 		parkedFor = token;
 		requestAnimationFrame(focusGrid);
@@ -204,11 +236,14 @@
 	<header class="head">
 		<div class="head-top">
 			<div class="seg seg-view" role="tablist" aria-label={m.stats_view_label()}>
-				<button type="button" role="tab" aria-selected={view === 'week'} onclick={() => setView('week')}>
+				<button type="button" role="tab" aria-selected={tab === 'day'} onclick={() => setTab('day')}>
+					{m.stats_view_day()}
+				</button>
+				<button type="button" role="tab" aria-selected={tab === 'week'} onclick={() => setTab('week')}>
 					{m.stats_view_week()}
 				</button>
-				<button type="button" role="tab" aria-selected={view === 'day'} onclick={() => setView('day')}>
-					{m.stats_view_day()}
+				<button type="button" role="tab" aria-selected={tab === 'trends'} onclick={() => setTab('trends')}>
+					{m.stats_trends()}
 				</button>
 			</div>
 			{#if babies.length > 1}
@@ -228,26 +263,30 @@
 		</div>
 
 		<div class="period">
-			<button
-				class="icon-btn"
-				type="button"
-				aria-label={view === 'day' ? m.stats_prev_day() : m.stats_prev_week()}
-				onclick={() => step(-1)}
-			>
-				<Icon name="back" />
-			</button>
+			{#if tab !== 'trends'}
+				<button
+					class="icon-btn"
+					type="button"
+					aria-label={view === 'day' ? m.stats_prev_day() : m.stats_prev_week()}
+					onclick={() => step(-1)}
+				>
+					<Icon name="back" />
+				</button>
+			{/if}
 			<h1 class="period-label num">{periodLabel}</h1>
-			<button
-				class="icon-btn"
-				type="button"
-				aria-label={view === 'day' ? m.stats_next_day() : m.stats_next_week()}
-				disabled={atLatest}
-				onclick={() => step(1)}
-			>
-				<Icon name="chev" />
-			</button>
-			{#if !containsToday}
-				<button class="chip period-today" type="button" onclick={jumpToday}>{m.stats_today()}</button>
+			{#if tab !== 'trends'}
+				<button
+					class="icon-btn"
+					type="button"
+					aria-label={view === 'day' ? m.stats_next_day() : m.stats_next_week()}
+					disabled={atLatest}
+					onclick={() => step(1)}
+				>
+					<Icon name="chev" />
+				</button>
+				{#if !containsToday}
+					<button class="chip period-today" type="button" onclick={jumpToday}>{m.stats_today()}</button>
+				{/if}
 			{/if}
 		</div>
 	</header>
@@ -255,46 +294,52 @@
 	<Notices />
 
 	<div class="scroll" bind:this={scrollEl}>
-		{#if present.length > 0}
-			<!-- The legend is also the filter: it names every hue on the grid —
-			     which is what keeps colour a scanning aid rather than the only
-			     channel — and turning one off isolates a type. Only facets with
-			     something in the window appear, the same admission test the cards
-			     use, so nothing here is an empty category. -->
-			<div class="chips daygrid-legend" role="group" aria-label={m.stats_legend()}>
-				{#each FACET_KEYS.filter((f) => present.includes(f)) as facet (facet)}
-					<button
-						class="chip"
-						type="button"
-						data-t={facet}
-						aria-pressed={!hidden.includes(facet)}
-						onclick={() => toggle(facet)}
-					>
-						<Icon name={FACET_GLYPH[facet]} />
-						{FACET_NAME[facet]()}
-					</button>
-				{/each}
-			</div>
-		{/if}
-
-		{#key `${view}:${keys[0]}`}
-			<div class="daygrid-swap">
-				<DayGrid {keys} {view} facets={shown} onpick={pickDay} onopen={(e) => (openEntry = e)} />
-			</div>
-		{/key}
-
-		{#if cards.length > 0}
-			<!-- The other question, kept: the grid says what her day looks like,
-			     the cards say whether it is getting better. Same scroll, no
-			     switcher — they are not alternatives. -->
-			<section class="trends">
-				<h2 class="trends-head">{m.stats_trends()}</h2>
+		{#if tab === 'trends'}
+			<!-- The other question: the grid says what her day looks like, the cards
+			     say whether it is getting better. They live here now rather than
+			     under a 24-hour axis nobody scrolls past. -->
+			{#if cards.length > 0}
 				<div class="cards">
 					{#each cards as card (card.kind)}
 						<StatCard {card} />
 					{/each}
 				</div>
-			</section>
+			{:else}
+				<!-- A card appears only where its type has data in the window, so an
+				     empty tab means an empty week rather than a screen to fix. -->
+				<div class="empty">
+					<b>{m.stats_none()}</b>
+					{m.stats_none_hint()}
+				</div>
+			{/if}
+		{:else}
+			{#if present.length > 0}
+				<!-- The legend is also the filter: it names every hue on the grid —
+				     which is what keeps colour a scanning aid rather than the only
+				     channel — and turning one off isolates a type. Only facets with
+				     something in the window appear, the same admission test the cards
+				     use, so nothing here is an empty category. -->
+				<div class="chips daygrid-legend" role="group" aria-label={m.stats_legend()}>
+					{#each FACET_KEYS.filter((f) => present.includes(f)) as facet (facet)}
+						<button
+							class="chip"
+							type="button"
+							data-t={facet}
+							aria-pressed={!hidden.includes(facet)}
+							onclick={() => toggle(facet)}
+						>
+							<Icon name={FACET_GLYPH[facet]} />
+							{FACET_NAME[facet]()}
+						</button>
+					{/each}
+				</div>
+			{/if}
+
+			{#key `${view}:${keys[0]}`}
+				<div class="daygrid-swap">
+					<DayGrid {keys} {view} facets={shown} onpick={pickDay} onopen={(e) => (openEntry = e)} />
+				</div>
+			{/key}
 		{/if}
 		<div class="pad-bottom"></div>
 	</div>

@@ -1528,18 +1528,6 @@
 		font-size: var(--fs-1);
 	}
 
-	.trends {
-		border-top: 1px solid var(--line);
-		padding-top: var(--sp-2);
-	}
-	.trends-head {
-		margin: 0;
-		padding: var(--sp-4) var(--sp-4) 0;
-		font-size: var(--fs-2);
-		font-weight: var(--fw-medium);
-		color: var(--ink-3);
-	}
-
 	/* ---- stats: the trend cards --------------------------------------- */
 
 	.cards {

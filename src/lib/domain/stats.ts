@@ -27,7 +27,7 @@ export const WINDOW_DAYS = 7;
     not two. Measured from the end of one feed to the start of the next. */
 export const FEED_ROUND_GAP_MS = 15 * MS.minute;
 
-export type CardKind = 'sleep' | 'feeds' | 'nappies' | 'solids' | 'tummy';
+export type CardKind = 'feeds' | 'sleep' | 'nappies' | 'solids' | 'tummy';
 
 export interface DayBar {
 	key: string;
@@ -112,9 +112,10 @@ function mean(values: number[]): number {
 	return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
-/** The five cards, in the order the screen draws them. A card appears only when
-    its entry type has data in the window, which makes age-appropriateness free:
-    a newborn's screen has no Solids card, and no age logic exists anywhere. */
+/** The five cards, in the order the screen draws them — Feeds first, then Sleep.
+    A card appears only when its entry type has data in the window, which makes
+    age-appropriateness free: a newborn's screen has no Solids card, and no age
+    logic exists anywhere. */
 export function statsFor(input: StatsInput): StatsCard[] {
 	const { babyId, now, dayStart, zone } = input;
 	const today = dayBucketOf(now, dayStart, zone);
@@ -278,17 +279,6 @@ export function statsFor(input: StatsInput): StatsCard[] {
 
 	const cards: StatsCard[] = [];
 
-	if (hasSleep) {
-		cards.push({
-			kind: 'sleep',
-			bars: bars(acc.sleepMs),
-			today: acc.sleepMs.get(today) ?? 0,
-			average: completeAverage(acc.sleepMs),
-			delta: deltaOf(acc.sleepMs, previous.sleepMs),
-			secondary: { longestMs, nightMs, napMs } satisfies SleepSecondary
-		});
-	}
-
 	if (hasFeed) {
 		cards.push({
 			kind: 'feeds',
@@ -302,6 +292,17 @@ export function statsFor(input: StatsInput): StatsCard[] {
 				volumeMlToday: hasBottle ? (acc.volume.get(today) ?? 0) : null,
 				volumeMlAverage: hasBottle ? completeAverage(acc.volume) : null
 			} satisfies FeedsSecondary
+		});
+	}
+
+	if (hasSleep) {
+		cards.push({
+			kind: 'sleep',
+			bars: bars(acc.sleepMs),
+			today: acc.sleepMs.get(today) ?? 0,
+			average: completeAverage(acc.sleepMs),
+			delta: deltaOf(acc.sleepMs, previous.sleepMs),
+			secondary: { longestMs, nightMs, napMs } satisfies SleepSecondary
 		});
 	}
 

@@ -1,7 +1,7 @@
 # 28 — The day grid: what her day actually looks like
 
 Type: feature
-Status: **resolved 2026-08-21** — shipped: a Week and a Day view over an hour axis, stepping periods, a legend that filters, and the five trend cards kept below it. Amended the same day after review: **every Entry takes the whole column**, and a **Combined Feed is drawn as the one sitting it was**.
+Status: **resolved 2026-08-21** — shipped: a Week and a Day view over an hour axis, stepping periods, a legend that filters, and the five trend cards kept below it. Amended the same day after review: **every Entry takes the whole column**, and a **Combined Feed is drawn as the one sitting it was**. Amended **2026-08-22**: rule 2 below is reversed on the evidence of the shipped screen — **Trends is a third tab beside Week and Day**, and the cards moved into it.
 
 ## Question
 
@@ -64,7 +64,7 @@ A **Combined Feed** is one sitting of milk from more than one source — pumped 
 ### Two overturned rules from §9.1
 
 1. **"No navigation to earlier weeks in v1."** Overturned. A grid you cannot step is a grid you can only ever check once. `‹ ›` steps a week or a day, forward is capped at today, and a **Today** button appears when the window has left it. Nothing is remembered across a cold start — the screen always opens on today, because nothing this app remembers overnight may surprise anyone at 3am ([issue 19](19-timeline-filtering.md)'s rule for the filter, applied here).
-2. **"A trend screen and only that."** Overturned. It is a **pattern** screen and a **trend** screen, in that order down one scroll. No switcher between them: they are not alternatives.
+2. **"A trend screen and only that."** Overturned. It is a **pattern** screen and a **trend** screen. ~~In that order down one scroll. No switcher between them: they are not alternatives.~~ **Reversed 2026-08-22 — there is a switcher.** The screen shipped and the cards read as *missing*: the hour axis is a full 24 hours, ~1,050px, so they began a screen and a half below the fold with nothing above to say they were there, and the first report from the household running it was "stats doesn't show the trends". The argument for one scroll was that the two are not alternatives, and that still holds — what makes them separate tabs is **stepping**. The grid is nothing but paging: `‹ ›`, a window, a Today button. A rolling seven days ending today cannot be paged at all, so on the trends half every one of those controls is dead furniture. Trends is a third tab, its heading states the eight-day window instead of offering to step it, and the cards live there — moved, not copied, because two homes for one set of figures is worse than either home alone.
 
 This does not settle the v3 "monthly/yearly stats" question — it narrows it. Period *navigation* now exists and has a shape; what v3 still owns is aggregating over a period longer than a day.
 

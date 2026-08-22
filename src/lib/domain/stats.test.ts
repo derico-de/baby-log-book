@@ -146,7 +146,7 @@ describe('which cards appear', () => {
 
 	it('gives a newborn no Solids card, with no age logic anywhere', () => {
 		const cards = statsFor({ ...LENS, entries: [bottle('2026-08-16T08:00:00Z'), sleep('2026-08-16T20:00:00Z', '2026-08-17T04:00:00Z')] });
-		expect(cards.map((c) => c.kind)).toEqual(['sleep', 'feeds']);
+		expect(cards.map((c) => c.kind)).toEqual(['feeds', 'sleep']);
 	});
 
 	it('gives Milestones no card, however many there are', () => {
