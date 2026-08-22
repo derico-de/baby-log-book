@@ -34,6 +34,10 @@ _Avoid_: Guest, viewer, read-only member
 The end state of a Membership. The Member and every Entry they logged remain, so the timeline still says who did what years later; what ends is access.
 _Avoid_: Deleted member, deactivated, disabled
 
+**Erasure**:
+The end of a Household: every row it owns, deleted at once — Entries, Revisions and all. The opposite of **Removed**, and for the same reason: a Member ends as a state because the timeline still has to say who did what, while a Household that ends leaves nobody to read that timeline, so nothing is kept. The operator's act alone and never the family's, typed at a terminal against one named Household. What outlives it is only the nightly backups it was already in, until those age out.
+_Avoid_: Purge, wipe, offboarding, cancellation
+
 ### Getting in
 
 **Device**:

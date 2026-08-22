@@ -105,11 +105,16 @@ docker exec baby-log-book babylog households
 docker exec baby-log-book babylog members
 docker exec -e ORIGIN=https://log.example.com baby-log-book babylog rescue "Mama"
 docker exec -e ORIGIN=https://log.example.com baby-log-book babylog household "Anna & Tom"
+docker exec -it baby-log-book babylog delete "Anna & Tom"
 ```
 
 `rescue` mints a 15-minute link that signs a device back in **as an existing
 person**, so everything they have already logged stays theirs. Use it when a
 phone is lost and no parent is left to send an invite.
+
+`delete` erases one household and everything it ever logged. It shows you what
+it is about to destroy and then asks you to type that household's id back before
+it does anything — see [Deleting a household](#5-deleting-a-household).
 
 Every command opens the SQLite file directly, so they work whether or not the app
 is running. There is no HTTP admin endpoint: an admin route on a public-internet
@@ -233,6 +238,50 @@ leaves the household you named. Leave it out and the command says so and lists
 them. Name one that two households share and it refuses to guess, printing the
 ids to choose between. With exactly one household, plain
 `babylog rescue "Mama"` keeps working.
+
+#### 5. Deleting a household
+
+```sh
+docker exec -it baby-log-book babylog delete "Anna & Tom"
+```
+
+For a family that has left, or one that has asked to be erased. It prints what
+it is about to destroy and waits:
+
+```
+  About to delete The Hansens
+      the family calls it “Familie Hansen”
+      2 members · 1 baby · 4210 entries · 2 devices
+      last activity 2026-08-21 18:05 UTC
+      id 6f3a1c2e-9b17-4f2a-8a55-2b0d1c9e77aa
+
+This deletes everything they have ever logged, along with everyone in
+the household and every device signed in. It cannot be undone from
+here, and their phones keep only what they already hold — they stop
+syncing and nobody can sign in again.
+
+If they want their data, have a parent export it from Settings first.
+
+Type the id above to delete it, or press ctrl-c to stop.
+>
+```
+
+Type the id and it deletes every entry, revision, baby, member, food, target,
+device and pending link that household had, in one transaction, and reports what
+went. Type anything else — including the household's name — and nothing is
+deleted. There is no flag that skips the question, which is why the command needs
+a terminal: `docker exec` **without `-it`** has nothing to answer on, and says
+so instead of guessing.
+
+Two things it does not do. It takes no backup of its own: the rows stay in the
+nightly backups until those age out, about two weeks, which is the erasure
+window to quote to anyone who asked to be forgotten — and a copy made here would
+quietly extend it. And it cannot fetch their data back for them, so if the family
+wants their log, have a parent run the export in Settings **before** you run this.
+Their phones keep whatever they already hold and simply stop syncing.
+
+Deleting the last household on the box leaves an empty deployment, and the next
+restart prints a fresh setup link exactly as a new one does.
 
 #### What hosting for other people costs you
 

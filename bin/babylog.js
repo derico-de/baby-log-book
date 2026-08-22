@@ -5,12 +5,15 @@
 
        docker exec <container> babylog members
        docker exec <container> babylog rescue "Mama"
+       docker exec -it <container> babylog delete "Anna & Tom"
        docker exec -e ORIGIN=... <container> babylog household "Anna & Tom"
 
    One deployment may host several Households (ADR-0020), so everything here
    either names one or says which it means: `households` lists them, `members`
    groups by them, `rescue` searches inside one, `household` mints the Founding
-   Link that creates the next, and `label` fixes what this tool calls one.
+   Link that creates the next, `label` fixes what this tool calls one, and
+   `delete` ends one — the only command that destroys anything, and the only one
+   that asks before it acts.
 
    That label is the operator's, not the family's. Parents rename their own
    Household from Settings and that rename syncs to their Devices; it must not
@@ -31,7 +34,7 @@
 
 import Database from 'better-sqlite3';
 import { createHmac, randomBytes } from 'node:crypto';
-import { readFileSync, realpathSync } from 'node:fs';
+import { readFileSync, readSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const DATA_DIR = process.env.DATA_DIR && process.env.DATA_DIR !== '' ? process.env.DATA_DIR : '/data';
@@ -402,6 +405,243 @@ function rescue(db, inHousehold, needle) {
 	console.log('');
 }
 
+/** The tables the sweep below cannot find by itself, and why each one is safe
+ * to leave out of it. Exported because a test walks the migrated schema and
+ * insists every table is either keyed by `household_id` — and therefore swept —
+ * or named here: the day a table is added, that test is what makes deleting a
+ * Household a decision rather than an oversight.
+ */
+export const UNSWEPT_TABLES = {
+	households: 'the row being deleted',
+	sessions: 'reached through its Member',
+	claim_links: 'reached through the Household or its Members',
+	_migrations: "the deployment's, not any Household's"
+};
+
+/** Every table the schema keys by Household, asked of the file rather than
+ * listed here, so a table added later is swept by construction.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @returns {string[]}
+ */
+function householdScopedTables(db) {
+	const tables = /** @type {Array<{name: string}>} */ (db
+		.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+		.all());
+	return tables
+		.map((table) => table.name)
+		.filter((name) =>
+			/** @type {Array<{name: string}>} */ (db.prepare(`PRAGMA table_info("${name}")`).all()).some(
+				(column) => column.name === 'household_id'
+			)
+		);
+}
+
+/** What is about to be destroyed, in the shape the operator has to recognise
+ * before they can answer the prompt.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} id
+ */
+function inventory(db, id) {
+	const count = (/** @type {string} */ sql) =>
+		/** @type {{n: number}} */ (db.prepare(sql).get(id)).n;
+	return {
+		members: count('SELECT COUNT(*) AS n FROM members WHERE household_id = ? AND removed_at IS NULL'),
+		babies: count('SELECT COUNT(*) AS n FROM babies WHERE household_id = ? AND deleted_at IS NULL'),
+		entries: count('SELECT COUNT(*) AS n FROM entries WHERE household_id = ?'),
+		devices: count(
+			`SELECT COUNT(*) AS n FROM sessions
+			  WHERE revoked_at IS NULL AND member_id IN (SELECT id FROM members WHERE household_id = ?)`
+		),
+		lastActivity: /** @type {{at: number | null}} */ (db
+			.prepare('SELECT MAX(received_at) AS at FROM revisions WHERE household_id = ?')
+			.get(id)).at
+	};
+}
+
+/**
+ * @param {number} n
+ * @param {string} one
+ * @param {string} many
+ */
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/** Deletes every row the Household owns, in one transaction: it either all goes
+ * or none of it does, because a half-deleted Household is a support case nobody
+ * can read their way out of.
+ *
+ * The revision log goes with it. Append-only (ADR-0002) is what makes a
+ * correction recoverable *inside* a living Household; it is not a reason to keep
+ * a deleted family's Entries on the disk. Nothing here is a tombstone — a
+ * tombstone hides a row from an app that still has to render it, and after this
+ * there is no app left to render anything.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} id
+ * @returns {Record<string, number>}
+ */
+function erase(db, id) {
+	const swept = householdScopedTables(db);
+	/** @type {Record<string, number>} */
+	const removed = {};
+
+	db.transaction(() => {
+		/* Both of these hang off Members, so they go before the Members do. */
+		removed.sessions = db
+			.prepare('DELETE FROM sessions WHERE member_id IN (SELECT id FROM members WHERE household_id = ?)')
+			.run(id).changes;
+		removed.claim_links = db
+			.prepare(
+				`DELETE FROM claim_links
+				  WHERE household_id = ?
+				     OR member_id IN (SELECT id FROM members WHERE household_id = ?)`
+			)
+			.run(id, id).changes;
+		for (const table of swept) {
+			removed[table] = db.prepare(`DELETE FROM "${table}" WHERE household_id = ?`).run(id).changes;
+		}
+		removed.households = db.prepare('DELETE FROM households WHERE id = ?').run(id).changes;
+	})();
+
+	return removed;
+}
+
+/** Table names as an operator says them. A table added later and not named here
+ * prints as itself, so the report is never wrong — only less fluent.
+ *
+ * @type {Record<string, [string, string]>}
+ */
+const AS_SPOKEN = {
+	entries: ['entry', 'entries'],
+	revisions: ['revision', 'revisions'],
+	members: ['member', 'members'],
+	babies: ['baby', 'babies'],
+	foods: ['food', 'foods'],
+	targets: ['target', 'targets'],
+	sessions: ['device', 'devices'],
+	claim_links: ['link', 'links']
+};
+
+/** One line from stdin, read without the stream API — everything here is
+ * synchronous, and `docker exec -it` hands us a blocking descriptor. An empty
+ * string means there was nothing to read at all, which is exactly what
+ * `docker exec` without `-it` looks like from in here.
+ *
+ * @returns {string}
+ */
+function readLine() {
+	const byte = Buffer.alloc(1);
+	/** @type {number[]} */
+	const line = [];
+	for (;;) {
+		let read = 0;
+		try {
+			read = readSync(0, byte, 0, 1, null);
+		} catch (error) {
+			const code = /** @type {{code?: string}} */ (error).code;
+			/* A terminal with nothing typed yet, on the platforms that report it
+			   this way. Wait a moment rather than spinning the CPU at the prompt. */
+			if (code === 'EAGAIN') {
+				Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+				continue;
+			}
+			if (code === 'EOF') break;
+			throw error;
+		}
+		if (read === 0) break;
+		if (byte[0] === 0x0a) break;
+		line.push(byte[0]);
+	}
+	return Buffer.from(line).toString('utf8').trim();
+}
+
+/**
+ * Deletes a Household — the `babylog delete` command, and the only thing in this
+ * tool that destroys anything. It is how an erasure request is answered and how
+ * a family that has left stops being hosted.
+ *
+ * Two things stand between a typo and a deleted family. First the inventory:
+ * the Household is named, in both names, with what it holds — an operator who
+ * resolved the wrong one sees it here, before anything happens. Then the id,
+ * typed back at a prompt. The id rather than a yes, because "yes" is the answer
+ * to a question you have stopped reading, and rather than the name, because the
+ * name is what was ambiguous in the first place. There is no flag that skips
+ * this: a `--force` exists to be pasted into a script, and no script should be
+ * deleting a family's log.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string[]} argv
+ */
+function deleteHousehold(db, argv) {
+	const all = allHouseholds(db);
+	if (all.length === 0) fail('There are no households yet.');
+
+	const wanted = argv.join(' ').trim();
+	if (wanted === '') fail('Which one? Try: babylog delete "Anna & Tom"');
+
+	const household = resolve(all, wanted);
+	const holds = inventory(db, household.id);
+
+	console.log('');
+	console.log(`  About to delete ${called(household)}`);
+	if (household.name !== household.label) {
+		console.log(`      the family calls it “${household.name || UNNAMED}”`);
+	}
+	console.log(
+		`      ${plural(holds.members, 'member', 'members')} · ${plural(holds.babies, 'baby', 'babies')} · ` +
+			`${plural(holds.entries, 'entry', 'entries')} · ${plural(holds.devices, 'device', 'devices')}`
+	);
+	console.log(`      last activity ${utcStamp(holds.lastActivity)}`);
+	console.log(`      id ${household.id}`);
+	console.log('');
+	console.log('This deletes everything they have ever logged, along with everyone in');
+	console.log('the household and every device signed in. It cannot be undone from');
+	console.log('here, and their phones keep only what they already hold — they stop');
+	console.log('syncing and nobody can sign in again.');
+	console.log('');
+	console.log('If they want their data, have a parent export it from Settings first.');
+	console.log('');
+	console.log('Type the id above to delete it, or press ctrl-c to stop.');
+	process.stdout.write('> ');
+
+	const typed = readLine();
+	if (typed === '') {
+		fail(
+			'\nNothing was typed, so nothing was deleted.\n' +
+				'This command asks before it deletes, so it needs a terminal to ask on:\n' +
+				`  docker exec -it <container> babylog delete "${called(household)}"`
+		);
+	}
+	if (typed !== household.id) fail('\nThat is not the id, so nothing was deleted.');
+
+	const removed = erase(db, household.id);
+	const rows = Object.values(removed).reduce((sum, n) => sum + n, 0);
+	/* Read in the order the family would recognise — what they logged first,
+	   the plumbing last — with any table added later on the end. */
+	const order = Object.keys(AS_SPOKEN);
+	const detail = Object.entries(removed)
+		.filter(([table, n]) => n > 0 && table !== 'households')
+		.sort(([a], [b]) => (order.indexOf(a) + 1 || order.length + 1) - (order.indexOf(b) + 1 || order.length + 1))
+		.map(([table, n]) => plural(n, ...(AS_SPOKEN[table] ?? [table, table])))
+		.join(' · ');
+
+	console.log('');
+	console.log(`  Deleted ${called(household)}`);
+	if (detail !== '') console.log(`      ${detail}`);
+	console.log(`      ${plural(rows, 'row', 'rows')} in all, id ${household.id}`);
+	console.log('');
+	console.log('The rows are gone from the database. They are still inside the nightly');
+	console.log('backups until those age out, which takes about two weeks — that is the');
+	console.log('window to quote if somebody asked to be erased.');
+	if (allHouseholds(db).length === 0) {
+		console.log('');
+		console.log('That was the last household here. The next restart prints a fresh setup');
+		console.log('link, exactly as a new deployment does.');
+	}
+	console.log('');
+}
+
 function usage() {
 	console.log('');
 	console.log('babylog — the Baby Log Book operator tool');
@@ -411,9 +651,13 @@ function usage() {
 	console.log('  babylog label [household] <name>   what this tool calls one, whatever the family renames itself');
 	console.log('  babylog members                    who has access, and from how many devices');
 	console.log('  babylog rescue [household] <name>  a 15-minute link to sign a device back in');
+	console.log('  babylog delete <household>         erase one household and everything it ever logged');
 	console.log('');
 	console.log('The two link commands need ORIGIN in the shell, the same one the');
 	console.log('container uses, because a claim link is an absolute URL.');
+	console.log('');
+	console.log('`delete` asks before it deletes, so run it with a terminal attached:');
+	console.log('  docker exec -it <container> babylog delete "Anna & Tom"');
 	console.log('');
 	console.log(`It reads the database directly from ${DATA_DIR}, so it works whether or`);
 	console.log('not the app is running. Set DATA_DIR if the volume is mounted elsewhere.');
@@ -444,6 +688,10 @@ function main(argv) {
 		}
 		if (command === 'household') {
 			mintFoundingLink(db, rest.join(' '));
+			return;
+		}
+		if (command === 'delete') {
+			deleteHousehold(db, rest);
 			return;
 		}
 		if (command === 'rescue') {

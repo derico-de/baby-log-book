@@ -8,7 +8,13 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { BOOTSTRAP_TTL_MS, DISCLOSURE, hashToken, RESCUE_TTL_MS } from '../../../bin/babylog.js';
+import {
+	BOOTSTRAP_TTL_MS,
+	DISCLOSURE,
+	hashToken,
+	RESCUE_TTL_MS,
+	UNSWEPT_TABLES
+} from '../../../bin/babylog.js';
 import { loadSecret, tokenHash } from './auth';
 import { claim, BOOTSTRAP_TTL_MS as APP_BOOTSTRAP_TTL_MS, RESCUE_TTL_MS as APP_RESCUE_TTL_MS } from './claims';
 import { openDb, type Db } from './db';
@@ -449,6 +455,256 @@ describe('babylog rescue, hosting more than one Household', () => {
 					stdio: 'pipe'
 				})
 			).toThrow();
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('babylog delete', () => {
+	/** One row in every table a Household owns, so "everything it ever logged"
+	    can be asserted rather than assumed. */
+	function seedData(db: Db, householdId: string, memberId: string, tag: string) {
+		db.prepare('INSERT INTO babies (id, household_id, name, birth_date) VALUES (?,?,?,?)').run(
+			`baby-${tag}`,
+			householdId,
+			'Nele',
+			'2026-01-01'
+		);
+		db.prepare('INSERT INTO foods (id, household_id, name) VALUES (?,?,?)').run(
+			`food-${tag}`,
+			householdId,
+			'Karotte'
+		);
+		db.prepare(
+			'INSERT INTO targets (id, household_id, baby_id, activity, duration_s, anchor) VALUES (?,?,?,?,?,?)'
+		).run(`target-${tag}`, householdId, `baby-${tag}`, 'feed', 10800, 'start');
+		db.prepare(
+			`INSERT INTO entries (id, household_id, baby_id, type, occurred_at, payload, logged_by)
+			 VALUES (?,?,?,?,?,?,?)`
+		).run(`entry-${tag}`, householdId, `baby-${tag}`, 'feed', 1, '{}', memberId);
+		db.prepare(
+			`INSERT INTO revisions (id, household_id, kind, entity_id, fields, merge_at, device_id, author_id, received_at)
+			 VALUES (?,?,?,?,?,?,?,?,?)`
+		).run(`rev-${tag}`, householdId, 'entry', `entry-${tag}`, '{}', 1, 'device', memberId, 1);
+		db.prepare(
+			'INSERT INTO sessions (token_hash, member_id, device_id, created_at, last_seen_at) VALUES (?,?,?,?,?)'
+		).run(`session-${tag}`, memberId, 'device', 1, 1);
+		db.prepare(
+			`INSERT INTO claim_links (token_hash, kind, household_id, member_id, created_at, expires_at)
+			 VALUES (?,?,?,?,?,?)`
+		).run(`link-${tag}`, 'rescue', householdId, memberId, 1, 2);
+	}
+
+	const attempt = (env: NodeJS.ProcessEnv, answer: string, ...args: string[]) =>
+		execFileSync('node', ['bin/babylog.js', ...args], {
+			env,
+			encoding: 'utf8',
+			input: answer,
+			stdio: ['pipe', 'pipe', 'pipe']
+		});
+
+	const stderrOf = (run: () => string) => {
+		try {
+			run();
+			throw new Error('should have failed');
+		} catch (error) {
+			return String((error as { stderr?: string }).stderr ?? '');
+		}
+	};
+
+	/** Every row still keyed to this Household, table by table. */
+	const leftBehind = (db: Db, householdId: string) =>
+		tablesWithHousehold(db)
+			.map((table) => [
+				table,
+				(
+					db
+						.prepare(`SELECT COUNT(*) AS n FROM "${table}" WHERE household_id = ?`)
+						.get(householdId) as { n: number }
+				).n
+			])
+			.filter(([, n]) => (n as number) > 0);
+
+	const tablesWithHousehold = (db: Db) =>
+		(
+			db
+				.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+				.all() as Array<{ name: string }>
+		)
+			.map((t) => t.name)
+			.filter((name) =>
+				(db.prepare(`PRAGMA table_info("${name}")`).all() as Array<{ name: string }>).some(
+					(column) => column.name === 'household_id'
+				)
+			);
+
+	it('deletes everything one Household owns, and nothing of the other', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			seedHousehold(db, 'h2', 'Bea & Ben', [['b-mum', 'Beatriz', 'parent']]);
+			seedData(db, 'h1', 'a-mum', 'a');
+			seedData(db, 'h2', 'b-mum', 'b');
+			db.close();
+
+			const said = attempt(vol.env, 'h1\n', 'delete', 'Anna & Tom');
+			expect(said).toContain('Deleted Anna & Tom');
+
+			const after = vol.db();
+			/* Every household-keyed table, asked of the schema rather than listed,
+			   so a table added later is covered here too. */
+			expect(leftBehind(after, 'h1')).toEqual([]);
+			expect(after.prepare('SELECT id FROM households WHERE id = ?').get('h1')).toBeUndefined();
+			/* The two tables that reach a Household through its Members. */
+			expect(after.prepare('SELECT COUNT(*) AS n FROM sessions').get()).toEqual({ n: 1 });
+			expect(after.prepare('SELECT COUNT(*) AS n FROM claim_links').get()).toEqual({ n: 1 });
+			expect(after.prepare('SELECT member_id FROM sessions').get()).toEqual({ member_id: 'b-mum' });
+			expect(after.prepare('SELECT member_id FROM claim_links').get()).toEqual({ member_id: 'b-mum' });
+
+			/* Household #2 still has one of everything. */
+			for (const table of tablesWithHousehold(after)) {
+				expect([
+					table,
+					(after.prepare(`SELECT COUNT(*) AS n FROM "${table}" WHERE household_id = ?`).get('h2') as {
+						n: number;
+					}).n
+				]).toEqual([table, 1]);
+			}
+			expect(after.prepare('SELECT name FROM households WHERE id = ?').get('h2')).toEqual({
+				name: 'Bea & Ben'
+			});
+			after.close();
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('names what it is about to destroy before it asks', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Familie Hansen', [
+				['a-mum', 'Mama', 'parent'],
+				['a-oma', 'Oma', 'caregiver']
+			]);
+			db.prepare('UPDATE households SET label = ? WHERE id = ?').run('The Hansens', 'h1');
+			seedData(db, 'h1', 'a-mum', 'a');
+			db.close();
+
+			const said = attempt(vol.env, 'h1\n', 'delete', 'The Hansens');
+			/* Both names, so an operator who resolved the wrong Household sees it
+			   here rather than afterwards. */
+			expect(said).toContain('About to delete The Hansens');
+			expect(said).toContain('the family calls it “Familie Hansen”');
+			expect(said).toContain('2 members · 1 baby · 1 entry · 1 device');
+			expect(said).toContain('id h1');
+			/* And the way out that costs nothing. */
+			expect(said).toContain('export it from Settings first');
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('deletes nothing when the id is not typed back', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			seedData(db, 'h1', 'a-mum', 'a');
+			db.close();
+
+			/* A yes is the answer to a question you have stopped reading. */
+			expect(stderrOf(() => attempt(vol.env, 'yes\n', 'delete', 'Anna & Tom'))).toContain(
+				'nothing was deleted'
+			);
+			/* The name is not the id: it is the part that was ambiguous. */
+			expect(stderrOf(() => attempt(vol.env, 'Anna & Tom\n', 'delete', 'Anna & Tom'))).toContain(
+				'nothing was deleted'
+			);
+
+			const after = vol.db();
+			expect(after.prepare('SELECT COUNT(*) AS n FROM entries').get()).toEqual({ n: 1 });
+			expect(after.prepare('SELECT id FROM households WHERE id = ?').get('h1')).toEqual({ id: 'h1' });
+			after.close();
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('says how to answer when there is no terminal to answer on', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			db.close();
+
+			/* `docker exec` without -it, from in here. */
+			const stderr = stderrOf(() => attempt(vol.env, '', 'delete', 'Anna & Tom'));
+			expect(stderr).toContain('Nothing was typed');
+			expect(stderr).toContain('docker exec -it');
+
+			const after = vol.db();
+			expect(after.prepare('SELECT id FROM households WHERE id = ?').get('h1')).toEqual({ id: 'h1' });
+			after.close();
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('refuses to guess between two Households of the same name', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			seedHousehold(db, 'h2', 'Anna & Tom', [['b-mum', 'Beatriz', 'parent']]);
+			db.close();
+
+			const stderr = stderrOf(() => attempt(vol.env, 'h1\n', 'delete', 'Anna & Tom'));
+			expect(stderr).toContain('h1');
+			expect(stderr).toContain('h2');
+
+			const after = vol.db();
+			expect(after.prepare('SELECT COUNT(*) AS n FROM households').get()).toEqual({ n: 2 });
+			after.close();
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('tells the operator when that was the last Household on the box', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			db.close();
+			expect(attempt(vol.env, 'h1\n', 'delete', 'Anna & Tom')).toContain(
+				'That was the last household here'
+			);
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	/* The sweep finds its tables by asking the schema for a household_id column.
+	   This is what makes that safe as the schema grows: a table added later is
+	   either swept by construction, or named as a deliberate exception — never
+	   silently left holding a deleted family's rows. */
+	it('leaves no table unaccounted for', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			const tables = (
+				db
+					.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+					.all() as Array<{ name: string }>
+			).map((t) => t.name);
+			const swept = new Set(tablesWithHousehold(db));
+			expect(tables.filter((t) => !swept.has(t) && !(t in UNSWEPT_TABLES))).toEqual([]);
+			/* And the exceptions are all real tables, so the list cannot rot. */
+			expect(Object.keys(UNSWEPT_TABLES).filter((t) => !tables.includes(t))).toEqual([]);
+			db.close();
 		} finally {
 			rmSync(vol.dir, { recursive: true, force: true });
 		}
