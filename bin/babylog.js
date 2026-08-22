@@ -563,12 +563,17 @@ function readLine() {
  *
  * Two things stand between a typo and a deleted family. First the inventory:
  * the Household is named, in both names, with what it holds — an operator who
- * resolved the wrong one sees it here, before anything happens. Then the id,
- * typed back at a prompt. The id rather than a yes, because "yes" is the answer
- * to a question you have stopped reading, and rather than the name, because the
- * name is what was ambiguous in the first place. There is no flag that skips
- * this: a `--force` exists to be pasted into a script, and no script should be
- * deleting a family's log.
+ * resolved the wrong one sees it here, before anything happens. Then its id,
+ * given back. The id rather than a yes, because "yes" is the answer to a
+ * question you have stopped reading, and rather than the name, because the name
+ * is what was ambiguous in the first place.
+ *
+ * The id is typed at a prompt, or passed as the last argument. Two forms rather
+ * than one because `docker exec` without `-it` has no terminal to answer on, and
+ * an operator standing in front of a prompt that cannot be answered is not being
+ * protected — they are being sent to look for a flag. The argument form asks the
+ * same thing the prompt does, and the first run is what prints it: nothing is
+ * deleted by a command that has not already shown what it would destroy.
  *
  * @param {import('better-sqlite3').Database} db
  * @param {string[]} argv
@@ -577,10 +582,18 @@ function deleteHousehold(db, argv) {
 	const all = allHouseholds(db);
 	if (all.length === 0) fail('There are no households yet.');
 
-	const wanted = argv.join(' ').trim();
-	if (wanted === '') fail('Which one? Try: babylog delete "Anna & Tom"');
+	const args = argv.map((arg) => arg.trim()).filter((arg) => arg !== '');
+	if (args.length === 0) fail('Which one? Try: babylog delete "Anna & Tom"');
 
-	const household = resolve(all, wanted);
+	/* The id may be given as the last argument instead of typed at the prompt —
+	   the same answer to the same question, for the shell that has no terminal to
+	   ask on. It is the last argument only when the ones before it already name a
+	   Household, so `babylog delete <id>` still means the Household with that id
+	   rather than an answer with nothing to answer. */
+	const head = args.slice(0, -1).join(' ');
+	const given = args.length > 1 && matching(all, head).length > 0 ? args[args.length - 1] : null;
+
+	const household = resolve(all, given === null ? args.join(' ') : head);
 	const holds = inventory(db, household.id);
 
 	console.log('');
@@ -602,18 +615,28 @@ function deleteHousehold(db, argv) {
 	console.log('');
 	console.log('If they want their data, have a parent export it from Settings first.');
 	console.log('');
-	console.log('Type the id above to delete it, or press ctrl-c to stop.');
-	process.stdout.write('> ');
 
-	const typed = readLine();
-	if (typed === '') {
+	let answer = given;
+	if (answer === null) {
+		console.log('Type the id above to delete it, or press ctrl-c to stop.');
+		process.stdout.write('> ');
+		answer = readLine();
+	}
+
+	if (answer === '') {
+		/* `docker exec` without `-it`: the prompt was printed into a shell with
+		   nothing attached to answer it. Rather than leave the operator at a dead
+		   end, hand them the command that does work — the id they need is on the
+		   screen above, and passing it back is the same act as typing it. */
 		fail(
-			'\nNothing was typed, so nothing was deleted.\n' +
-				'This command asks before it deletes, so it needs a terminal to ask on:\n' +
-				`  docker exec -it <container> babylog delete "${called(household)}"`
+			'\nNothing was deleted: there is no terminal here to answer on.\n\n' +
+				'Pass the id as the last argument instead — it is the same answer:\n\n' +
+				`    babylog delete "${called(household)}" ${household.id}\n\n` +
+				'Or attach a terminal and answer the prompt:\n\n' +
+				`    docker exec -it <container> babylog delete "${called(household)}"`
 		);
 	}
-	if (typed !== household.id) fail('\nThat is not the id, so nothing was deleted.');
+	if (answer !== household.id) fail(`\nThat is not the id of ${called(household)}, so nothing was deleted.`);
 
 	const removed = erase(db, household.id);
 	const rows = Object.values(removed).reduce((sum, n) => sum + n, 0);
@@ -651,13 +674,16 @@ function usage() {
 	console.log('  babylog label [household] <name>   what this tool calls one, whatever the family renames itself');
 	console.log('  babylog members                    who has access, and from how many devices');
 	console.log('  babylog rescue [household] <name>  a 15-minute link to sign a device back in');
-	console.log('  babylog delete <household>         erase one household and everything it ever logged');
+	console.log('  babylog delete <household> [id]    erase one household and everything it ever logged');
 	console.log('');
 	console.log('The two link commands need ORIGIN in the shell, the same one the');
 	console.log('container uses, because a claim link is an absolute URL.');
 	console.log('');
-	console.log('`delete` asks before it deletes, so run it with a terminal attached:');
+	console.log('`delete` shows what it would destroy and then wants that household\'s id');
+	console.log('back — typed at the prompt, or passed as the last argument when there is');
+	console.log('no terminal to ask on:');
 	console.log('  docker exec -it <container> babylog delete "Anna & Tom"');
+	console.log('  docker exec <container> babylog delete "Anna & Tom" <id>');
 	console.log('');
 	console.log(`It reads the database directly from ${DATA_DIR}, so it works whether or`);
 	console.log('not the app is running. Set DATA_DIR if the volume is mounted elsewhere.');

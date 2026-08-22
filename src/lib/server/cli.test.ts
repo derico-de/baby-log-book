@@ -633,21 +633,96 @@ describe('babylog delete', () => {
 		}
 	});
 
-	it('says how to answer when there is no terminal to answer on', () => {
+	it('hands over the command that works when there is no terminal to answer on', () => {
 		const vol = volume();
 		try {
 			const db = vol.db();
 			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
 			db.close();
 
-			/* `docker exec` without -it, from in here. */
+			/* `docker exec` without -it, from in here: the prompt was printed into a
+			   shell with nothing attached to answer it. A dead end is not an answer,
+			   so the failure carries the form that needs no terminal. */
 			const stderr = stderrOf(() => attempt(vol.env, '', 'delete', 'Anna & Tom'));
-			expect(stderr).toContain('Nothing was typed');
+			expect(stderr).toContain('no terminal here to answer on');
+			expect(stderr).toContain('babylog delete "Anna & Tom" h1');
 			expect(stderr).toContain('docker exec -it');
 
 			const after = vol.db();
 			expect(after.prepare('SELECT id FROM households WHERE id = ?').get('h1')).toEqual({ id: 'h1' });
 			after.close();
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('takes the id as the last argument, for the shell that cannot be asked', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			seedHousehold(db, 'h2', 'Bea & Ben', [['b-mum', 'Beatriz', 'parent']]);
+			seedData(db, 'h1', 'a-mum', 'a');
+			seedData(db, 'h2', 'b-mum', 'b');
+			db.close();
+
+			/* No stdin at all, exactly as `docker exec` without -it. */
+			const said = attempt(vol.env, '', 'delete', 'Anna & Tom', 'h1');
+			/* Still shows what it destroyed before it did it. */
+			expect(said).toContain('About to delete Anna & Tom');
+			expect(said).toContain('Deleted Anna & Tom');
+
+			const after = vol.db();
+			expect(leftBehind(after, 'h1')).toEqual([]);
+			expect(after.prepare('SELECT COUNT(*) AS n FROM entries WHERE household_id = ?').get('h2')).toEqual({
+				n: 1
+			});
+			after.close();
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it("deletes nothing when the id passed is another household's, or no id at all", () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			seedHousehold(db, 'h2', 'Bea & Ben', [['b-mum', 'Beatriz', 'parent']]);
+			db.close();
+
+			expect(stderrOf(() => attempt(vol.env, '', 'delete', 'Anna & Tom', 'h2'))).toContain(
+				'not the id of Anna & Tom'
+			);
+			expect(stderrOf(() => attempt(vol.env, '', 'delete', 'Anna & Tom', 'yes'))).toContain(
+				'nothing was deleted'
+			);
+
+			const after = vol.db();
+			expect(after.prepare('SELECT COUNT(*) AS n FROM households').get()).toEqual({ n: 2 });
+			after.close();
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('reads a bare id as the household to delete, never as an answer', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			db.close();
+
+			/* `babylog delete h1` names the Household; the answer is still owed. */
+			const stderr = stderrOf(() => attempt(vol.env, '', 'delete', 'h1'));
+			expect(stderr).toContain('babylog delete "Anna & Tom" h1');
+
+			const after = vol.db();
+			expect(after.prepare('SELECT COUNT(*) AS n FROM households').get()).toEqual({ n: 1 });
+			after.close();
+
+			/* And typed at the prompt it goes, as it always did. */
+			expect(attempt(vol.env, 'h1\n', 'delete', 'h1')).toContain('Deleted Anna & Tom');
 		} finally {
 			rmSync(vol.dir, { recursive: true, force: true });
 		}

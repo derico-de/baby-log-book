@@ -106,6 +106,7 @@ docker exec baby-log-book babylog members
 docker exec -e ORIGIN=https://log.example.com baby-log-book babylog rescue "Mama"
 docker exec -e ORIGIN=https://log.example.com baby-log-book babylog household "Anna & Tom"
 docker exec -it baby-log-book babylog delete "Anna & Tom"
+docker exec baby-log-book babylog delete "Anna & Tom" <id>
 ```
 
 `rescue` mints a 15-minute link that signs a device back in **as an existing
@@ -113,8 +114,8 @@ person**, so everything they have already logged stays theirs. Use it when a
 phone is lost and no parent is left to send an invite.
 
 `delete` erases one household and everything it ever logged. It shows you what
-it is about to destroy and then asks you to type that household's id back before
-it does anything — see [Deleting a household](#5-deleting-a-household).
+it is about to destroy and then wants that household's id back before it does
+anything — see [Deleting a household](#5-deleting-a-household).
 
 Every command opens the SQLite file directly, so they work whether or not the app
 is running. There is no HTTP admin endpoint: an admin route on a public-internet
@@ -269,9 +270,21 @@ Type the id above to delete it, or press ctrl-c to stop.
 Type the id and it deletes every entry, revision, baby, member, food, target,
 device and pending link that household had, in one transaction, and reports what
 went. Type anything else — including the household's name — and nothing is
-deleted. There is no flag that skips the question, which is why the command needs
-a terminal: `docker exec` **without `-it`** has nothing to answer on, and says
-so instead of guessing.
+deleted.
+
+`docker exec` **without `-it`** has no terminal to answer on. That is not a dead
+end: the id is on the screen, and passing it back as the last argument asks the
+same question.
+
+```sh
+docker exec baby-log-book babylog delete "Anna & Tom" 6f3a1c2e-9b17-4f2a-8a55-2b0d1c9e77aa
+```
+
+Which is what the run without a terminal tells you to do, printing that exact
+line. Either way the inventory comes first — nothing is deleted by a command
+that has not already shown you what it would destroy — and an id belonging to
+another household is refused rather than followed. There is no flag that skips
+the question.
 
 Two things it does not do. It takes no backup of its own: the rows stay in the
 nightly backups until those age out, about two weeks, which is the erasure

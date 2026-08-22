@@ -237,10 +237,11 @@ parents may change from Settings, and your label, which they never see and which
 name when the two differ; every command takes the id, your label or their name.
 
 `babylog delete` is the way back out: it names the household and what it holds,
-then asks you to type its id before erasing every row it owns. It needs a
-terminal to ask on, hence the `-it`, and it takes no backup of its own — the
-rows age out of the nightly rotation on their own, in about two weeks. Have a
-parent export from Settings first if the family wants their log.
+then wants its id back before erasing every row it owns — typed at the prompt,
+hence the `-it`, or passed as the last argument (`babylog delete "Anna & Tom"
+<id>`) when the shell has no terminal to answer on. It takes no backup of its
+own: the rows age out of the nightly rotation by themselves, in about two weeks.
+Have a parent export from Settings first if the family wants their log.
 
 The proxy changes nothing here: all households share the one `ORIGIN`, so there
 is no second server block, no second certificate and no second container. The
