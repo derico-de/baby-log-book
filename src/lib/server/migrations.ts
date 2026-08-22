@@ -199,6 +199,22 @@ export const MIGRATIONS: Migration[] = [
 			   revision. */
 			CREATE INDEX revisions_entity_id ON revisions(entity_id);
 		`
+	},
+	{
+		name: '0003-operator-label',
+		sql: `
+			/* The operator's own name for a Household, beside the family's. The two
+			   were one column until Parents could rename the Household from Settings:
+			   a rename is theirs to make, but it must not move the label an operator
+			   types into \`babylog rescue\` or reads in a support mail. So the label
+			   lives here, is never a Revision field, never syncs and never appears in
+			   the app — the family cannot reach it, and \`name\` is theirs to change.
+
+			   Existing rows are backfilled from the name, which at this point still is
+			   the founding label: renaming ships in the same release as this column. */
+			ALTER TABLE households ADD COLUMN label TEXT NOT NULL DEFAULT '';
+			UPDATE households SET label = name;
+		`
 	}
 ];
 

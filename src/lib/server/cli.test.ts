@@ -178,6 +178,11 @@ describe('babylog household', () => {
 				name: 'Anna & Tom',
 				zone: 'Europe/Istanbul'
 			});
+			/* The same string lands in both names: the family's, which they may
+			   change from Settings, and the operator's, which they cannot reach. */
+			expect(db.prepare('SELECT label FROM households WHERE id = ?').get(result.householdId)).toEqual({
+				label: 'Anna & Tom'
+			});
 			expect(listMembers(db, result.householdId)).toMatchObject([{ display_name: 'Anna', role: 'parent' }]);
 			/* Household #1 is untouched. */
 			expect(listMembers(db, 'h1').map((m) => m.display_name)).toEqual(['Mama']);
@@ -256,6 +261,105 @@ describe('babylog households', () => {
 			expect(listed).toContain('(unnamed)');
 			expect(listed).toContain('1 member(s) · last activity never');
 			expect(listed).toContain('id h2');
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('babylog label', () => {
+	it('names a Household for the operator without touching the name the family chose', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			seedHousehold(db, 'h2', 'Bea & Ben', [['b-mum', 'Beatriz', 'parent']]);
+			db.close();
+
+			const said = run(vol.env, 'label', 'Anna & Tom', 'The Hansens');
+			expect(said).toContain('The Hansens');
+
+			const after = vol.db();
+			expect(after.prepare('SELECT name, label FROM households WHERE id = ?').get('h1')).toEqual({
+				name: 'Anna & Tom',
+				label: 'The Hansens'
+			});
+			/* Household #2 is untouched. */
+			expect(after.prepare('SELECT label FROM households WHERE id = ?').get('h2')).toEqual({ label: '' });
+			after.close();
+
+			/* The listing leads with the operator's name and still prints the
+			   family's, so a mail quoting either one resolves. */
+			const listed = run(vol.env, 'households');
+			expect(listed.indexOf('The Hansens')).toBeLessThan(listed.indexOf('the family calls it “Anna & Tom”'));
+
+			/* And both keep working as the argument that scopes a rescue. */
+			expect(run(vol.env, 'rescue', 'The Hansens', 'Mama')).toContain(`${ORIGIN}/claim?t=`);
+			expect(run(vol.env, 'rescue', 'Anna & Tom', 'Mama')).toContain(`${ORIGIN}/claim?t=`);
+			expect(run(vol.env, 'rescue', 'h1', 'Mama')).toContain(`${ORIGIN}/claim?t=`);
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('names the one Household in the file from a single argument — including the unnamed one', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			/* Founded by the setup link, which carries no label: there is no name to
+			   type, so the id would be the only handle without this shortcut. */
+			seedHousehold(db, 'h1', '', [['a-mum', 'Mama', 'parent']]);
+			db.close();
+
+			run(vol.env, 'label', 'The Hansens');
+
+			const after = vol.db();
+			expect(after.prepare('SELECT name, label FROM households WHERE id = ?').get('h1')).toEqual({
+				name: '',
+				label: 'The Hansens'
+			});
+			after.close();
+			expect(run(vol.env, 'households')).toContain('The Hansens');
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
+
+	it('refuses to guess between two Households of the same name, and changes nothing', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [['a-mum', 'Mama', 'parent']]);
+			seedHousehold(db, 'h2', 'Anna & Tom', [['b-mum', 'Beatriz', 'parent']]);
+			db.close();
+
+			let stderr = '';
+			try {
+				execFileSync('node', ['bin/babylog.js', 'label', 'Anna & Tom', 'The Hansens'], {
+					env: vol.env,
+					encoding: 'utf8',
+					stdio: 'pipe'
+				});
+				throw new Error('should have failed');
+			} catch (error) {
+				stderr = String((error as { stderr?: string }).stderr ?? '');
+			}
+			expect(stderr).toContain('h1');
+			expect(stderr).toContain('h2');
+
+			const after = vol.db();
+			expect(
+				(after.prepare("SELECT COUNT(*) AS n FROM households WHERE label <> ''").get() as { n: number }).n
+			).toBe(0);
+			after.close();
+
+			/* The id is the way through, exactly as the message says. */
+			run(vol.env, 'label', 'h2', 'The Hansens');
+			const settled = vol.db();
+			expect(settled.prepare('SELECT label FROM households WHERE id = ?').get('h2')).toEqual({
+				label: 'The Hansens'
+			});
+			settled.close();
 		} finally {
 			rmSync(vol.dir, { recursive: true, force: true });
 		}

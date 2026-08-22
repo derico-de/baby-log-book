@@ -32,7 +32,7 @@ describe('the boot-time migration runner', () => {
 		expect(pendingMigrations(db).map((m) => m.name)).toEqual([MIGRATIONS.at(-1)!.name]);
 	});
 
-	it('adds the founding label to a database that predates it, keeping its rows', () => {
+	it('adds the founding label and the operator label to a database that predates them, keeping its rows', () => {
 		/* The upgrade path an operator actually takes: a deployment already holding
 		   a household and a pending invite meets 0002 on the next boot. */
 		const db = fresh();
@@ -50,10 +50,16 @@ describe('the boot-time migration runner', () => {
 			 VALUES (?,?,?,?,?,?)`
 		).run('hash', 'invite', 'h1', 'Oma', 1, 2);
 
-		expect(runMigrations(db)).toEqual(['0002-founding-label']);
+		expect(runMigrations(db)).toEqual(['0002-founding-label', '0003-operator-label']);
 		expect(
 			db.prepare('SELECT display_name, household_label FROM claim_links WHERE token_hash = ?').get('hash')
 		).toEqual({ display_name: 'Oma', household_label: null });
+		/* The operator's label starts as whatever the household is already called:
+		   before 0003 there was one name, and it was the one they typed. */
+		expect(db.prepare('SELECT name, label FROM households WHERE id = ?').get('h1')).toEqual({
+			name: 'Zuhause',
+			label: 'Zuhause'
+		});
 		expect(integrityOk(db)).toBe(true);
 	});
 

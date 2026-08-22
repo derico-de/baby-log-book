@@ -227,7 +227,13 @@ household's; nothing is created until they do. Then:
 ```sh
 docker compose exec app babylog households   # who is here, and last active when
 docker compose exec app babylog members      # everyone, grouped by household
+docker compose exec app babylog label "Anna & Tom" "The Hansens"   # your name for them
 ```
+
+The name you type when founding becomes two names: the household's own, which its
+parents may change from Settings, and your label, which they never see and which
+`babylog label` corrects. Listings lead with your label and print the family's
+name when the two differ; every command takes the id, your label or their name.
 
 The proxy changes nothing here: all households share the one `ORIGIN`, so there
 is no second server block, no second certificate and no second container. The

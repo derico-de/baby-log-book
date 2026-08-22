@@ -10,6 +10,10 @@ A shared log of a baby's day — feeds, sleep, nappies, solids and growth — ke
 The circle of people who look after the same babies, and the boundary of all shared data.
 _Avoid_: Family, group, team, account
 
+**Household Label**:
+The operator's own name for a Household, kept beside the name the Household calls itself. Founding a Household writes the operator's chosen name into both, and they part company the moment Parents rename themselves in Settings — a rename that must reach every Device without moving the name in the operator's runbook. It never syncs, never appears in the app and never leaves the server; the operator's tool leads with it, and resolves a Household by it, by the Household's own name, or by its id.
+_Avoid_: Slug, alias, internal name
+
 **Baby**:
 A child whose life is being logged. A Household may have several.
 _Avoid_: Child, infant, kid

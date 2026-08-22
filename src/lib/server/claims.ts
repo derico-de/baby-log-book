@@ -240,9 +240,12 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 			const label = (row.household_label ?? '').trim();
 			householdId = randomUUID();
 			memberId = randomUUID();
+			/* The label lands twice: once as the family's `name`, which is theirs to
+			   change from Settings, and once as the operator's `label`, which they
+			   cannot reach. Same string today, two owners from tomorrow. */
 			db.prepare(
-				'INSERT INTO households (id, name, day_start, zone, created_at) VALUES (?, ?, ?, ?, ?)'
-			).run(householdId, label, DEFAULT_DAY_START, input.zone, input.now);
+				'INSERT INTO households (id, name, label, day_start, zone, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+			).run(householdId, label, label, DEFAULT_DAY_START, input.zone, input.now);
 			/* Household settings travel as revisions like everything else — the
 			   Day Start above all — so a Device that pulls from cursor 0 learns
 			   the lens from the log rather than from a side channel. The label the

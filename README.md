@@ -146,9 +146,10 @@ that saves you on the day you run the command in a shell that has none, where it
 refuses to print a link at all rather than printing a dead one.
 
 The name is required (up to 200 characters) and is how the household shows up in
-`babylog households`. No screen in the app displays it, but it does land in the
-`household.csv` of their own export — so name it something you would not mind
-them reading.
+`babylog households`. It lands in two places at once: **your** label for them,
+which nothing in the app can reach, and the household's own name, which their
+parents can change from Settings and which rides along in the `household.csv` of
+their export — so name it something you would not mind them reading.
 
 It prints the link, when it expires, and the sentence to send with it:
 
@@ -191,6 +192,29 @@ docker exec baby-log-book babylog households
       id 6f3a1c2e-...
 ```
 
+If they later rename themselves in Settings, the listing keeps leading with your
+label and prints theirs underneath:
+
+```
+  Anna & Tom
+      the family calls it “Familie Hansen”
+      1 member(s) · last activity 2026-08-21 18:05 UTC
+      id 6f3a1c2e-...
+```
+
+Your own label is yours to change too, and every command below takes the id, your
+label or the family's name — whichever one the mail in front of you happens to
+quote:
+
+```sh
+docker exec baby-log-book babylog label "Anna & Tom" "The Hansens"
+```
+
+With exactly one household on the box, `babylog label "The Hansens"` names it
+without naming it first — which is how the household founded by the first-boot
+setup link, carrying no label at all, gets one. The id is always the last resort
+and never moves: it is in every listing, and in the family's own export.
+
 Whoever opened the link is that household's first parent, and **their** phone's
 time zone became the household's — you configure nothing about a family's
 rhythm, they do. They invite the rest of their household themselves, from
@@ -203,10 +227,11 @@ docker exec -e ORIGIN=https://log.example.com \
   baby-log-book babylog rescue "Anna & Tom" "Mama"
 ```
 
-With two or more households the household name comes first, as its own
-argument — two people called "Mama" in two families are not ambiguous, because
-the search never leaves the household you named. Leave it out and the command
-says so and lists the names. With exactly one household, plain
+With two or more households the household comes first, as its own argument — two
+people called "Mama" in two families are not ambiguous, because the search never
+leaves the household you named. Leave it out and the command says so and lists
+them. Name one that two households share and it refuses to guess, printing the
+ids to choose between. With exactly one household, plain
 `babylog rescue "Mama"` keeps working.
 
 #### What hosting for other people costs you

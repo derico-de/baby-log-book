@@ -9,8 +9,13 @@
 
    One deployment may host several Households (ADR-0020), so everything here
    either names one or says which it means: `households` lists them, `members`
-   groups by them, `rescue` searches inside one, and `household` mints the
-   Founding Link that creates the next.
+   groups by them, `rescue` searches inside one, `household` mints the Founding
+   Link that creates the next, and `label` fixes what this tool calls one.
+
+   That label is the operator's, not the family's. Parents rename their own
+   Household from Settings and that rename syncs to their Devices; it must not
+   move the name an operator has in a runbook, so the two are separate columns
+   and every command here accepts the id, the label or the family's name.
 
    It opens the SQLite file directly rather than talking to the running server,
    which is what makes "works without the app running" free — WAL mode makes
@@ -114,15 +119,37 @@ function utcStamp(at) {
 /** The label to print for a Household that was never named. */
 const UNNAMED = '(unnamed)';
 
+/** What the operator calls this Household: their own label, and only if they
+ * never set one, whatever the family named itself.
+ *
+ * @param {{id: string, name: string, label: string}} household
+ */
+const called = (household) => household.label || household.name || UNNAMED;
+
+/** Matches on the id, the operator's label or the family's name — all three,
+ * because a support mail quotes whichever one its writer happens to know.
+ *
+ * @param {Array<{id: string, name: string, label: string}>} all
+ * @param {string} wanted
+ */
+function matching(all, wanted) {
+	const needle = wanted.trim().toLowerCase();
+	const same = (/** @type {string} */ value) => value !== '' && value.toLowerCase() === needle;
+	return all.filter((h) => h.id === wanted.trim() || same(h.label) || same(h.name));
+}
+
+/** @param {Array<{id: string, name: string, label: string}>} all */
+const listing = (all) => all.map((h) => `  ${called(h)}`).join('\n');
+
 /** @param {import('better-sqlite3').Database} db */
 function allHouseholds(db) {
-	return /** @type {Array<{id: string, name: string, members: number, last_activity: number | null}>} */ (db
+	return /** @type {Array<{id: string, name: string, label: string, members: number, last_activity: number | null}>} */ (db
 		.prepare(
-			`SELECT h.id, h.name,
+			`SELECT h.id, h.name, h.label,
 			        (SELECT COUNT(*) FROM members m
 			          WHERE m.household_id = h.id AND m.removed_at IS NULL) AS members,
 			        (SELECT MAX(r.received_at) FROM revisions r WHERE r.household_id = h.id) AS last_activity
-			 FROM households h ORDER BY h.name, h.id`
+			 FROM households h ORDER BY h.label, h.name, h.id`
 		)
 		.all());
 }
@@ -140,7 +167,10 @@ function households(db) {
 
 	console.log('');
 	for (const row of rows) {
-		console.log(`  ${row.name || UNNAMED}`);
+		console.log(`  ${called(row)}`);
+		/* Parents may rename their Household from Settings, and then the name in a
+		   mail from them is not the one below. Both are printed so either resolves. */
+		if (row.name !== row.label) console.log(`      the family calls it “${row.name || UNNAMED}”`);
 		console.log(`      ${row.members} member(s) · last activity ${utcStamp(row.last_activity)}`);
 		console.log(`      id ${row.id}`);
 	}
@@ -189,6 +219,44 @@ function mintFoundingLink(db, label) {
 	console.log('');
 }
 
+/**
+ * Sets the operator's label — the `babylog label` command. It renames nothing
+ * the family can see: `households.name` is theirs, changeable from Settings and
+ * synced to every Device, while this column never leaves the server. Founding a
+ * Household seeds both from the same string; this is how they come apart, and
+ * how a Household founded from the plain setup link — which carries no label at
+ * all — gets one.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string[]} argv
+ */
+function relabel(db, argv) {
+	const all = allHouseholds(db);
+	if (all.length === 0) fail('There are no households yet.');
+
+	/* With one Household in the file a single argument can only be the new label,
+	   which is also the shape that reaches the unnamed one founded by the setup
+	   link: it has no name to type. With several, both arguments are required. */
+	const [household, wanted] =
+		all.length === 1 && argv.length === 1
+			? [all[0], argv[0]]
+			: [resolve(all, argv[0] ?? ''), argv.slice(1).join(' ')];
+
+	const label = wanted.trim();
+	if (label === '') fail(`What should it be called? Try: babylog label "${called(household)}" "Anna & Tom"`);
+	if (label.length > 200) fail('That name is too long — 200 characters at most.');
+
+	db.prepare('UPDATE households SET label = ? WHERE id = ?').run(label, household.id);
+
+	console.log('');
+	console.log(`  ${called(household)} → ${label}`);
+	console.log(`      id ${household.id}`);
+	console.log('');
+	console.log('That is this tool\'s name for them. The family keeps the name they');
+	console.log(`chose in Settings${household.name === '' ? ' — they have not chosen one yet' : `, “${household.name}”`}, and nobody there sees this one.`);
+	console.log('');
+}
+
 /** @param {import('better-sqlite3').Database} db */
 function members(db) {
 	const rows = /** @type {Array<{id: string, household_id: string, display_name: string, role: string, removed_at: number | null, devices: number, last_seen: number | null}>} */ (db
@@ -211,7 +279,7 @@ function members(db) {
 	for (const group of allHouseholds(db)) {
 		const mine = rows.filter((row) => row.household_id === group.id);
 		if (mine.length === 0) continue;
-		console.log(`  ${group.name || group.id}`);
+		console.log(`  ${called(group)}`);
 		for (const row of mine) {
 			const state = row.removed_at ? 'removed' : row.role;
 			console.log(`      ${row.display_name}`);
@@ -223,13 +291,35 @@ function members(db) {
 }
 
 /**
+ * The one Household an argument names, or a loud failure. Two Households may
+ * share a name — nothing stops a family renaming itself into a collision — so an
+ * ambiguous argument is answered with the ids rather than with a guess.
+ *
+ * @param {Array<{id: string, name: string, label: string}>} all
+ * @param {string} wanted
+ */
+function resolve(all, wanted) {
+	const matches = matching(all, wanted);
+	if (matches.length === 0) {
+		fail(`No household here is called “${wanted.trim()}”. The households are:\n` + listing(all));
+	}
+	if (matches.length > 1) {
+		fail(
+			`More than one household is called “${wanted.trim()}”. Use the id instead:\n` +
+				matches.map((h) => `  ${h.id}  ${called(h)}`).join('\n')
+		);
+	}
+	return matches[0];
+}
+
+/**
  * The Household a rescue runs inside. With one in the file it is that one, so
  * `babylog rescue "Mama"` keeps working; with more, the operator names it and
  * omitting it fails loudly rather than guessing.
  *
  * @param {import('better-sqlite3').Database} db
  * @param {string[]} argv
- * @returns {{household: {id: string, name: string}, needle: string}}
+ * @returns {{household: {id: string, name: string, label: string}, needle: string}}
  */
 function scopeRescue(db, argv) {
 	const all = allHouseholds(db);
@@ -241,30 +331,18 @@ function scopeRescue(db, argv) {
 		return { household: all[0], needle };
 	}
 
-	const names = all.map((h) => `  ${h.name || UNNAMED}`).join('\n');
 	if (argv.length < 2) {
 		fail(
 			`This deployment hosts ${all.length} households, so say which one:\n` +
 				'  babylog rescue "Anna & Tom" "Mama"\n' +
-				names
+				listing(all)
 		);
 	}
 
-	const wanted = argv[0].trim();
-	const matches = all.filter((h) => h.id === wanted || h.name.toLowerCase() === wanted.toLowerCase());
-	if (matches.length === 0) {
-		fail(`No household here is called “${wanted}”. The households are:\n` + names);
-	}
-	if (matches.length > 1) {
-		fail(
-			`More than one household is called “${wanted}”. Use the id instead:\n` +
-				matches.map((h) => `  ${h.id}  ${h.name || UNNAMED}`).join('\n')
-		);
-	}
-
+	const household = resolve(all, argv[0]);
 	const needle = argv.slice(1).join(' ').trim();
-	if (needle === '') fail(`Who for? Try: babylog rescue "${matches[0].name || matches[0].id}" "Mama"`);
-	return { household: matches[0], needle };
+	if (needle === '') fail(`Who for? Try: babylog rescue "${called(household)}" "Mama"`);
+	return { household, needle };
 }
 
 /**
@@ -330,6 +408,7 @@ function usage() {
 	console.log('');
 	console.log('  babylog households                 every household, its size and its last activity');
 	console.log('  babylog household <name>           a 7-day link that sets up a new household');
+	console.log('  babylog label [household] <name>   what this tool calls one, whatever the family renames itself');
 	console.log('  babylog members                    who has access, and from how many devices');
 	console.log('  babylog rescue [household] <name>  a 15-minute link to sign a device back in');
 	console.log('');
@@ -357,6 +436,10 @@ function main(argv) {
 		}
 		if (command === 'households') {
 			households(db);
+			return;
+		}
+		if (command === 'label') {
+			relabel(db, rest);
 			return;
 		}
 		if (command === 'household') {
