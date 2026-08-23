@@ -228,6 +228,45 @@ describe('applying a pulled page', () => {
 		expect(await db.households.get('h1')).toMatchObject({ day_start: '05:00', zone: BERLIN });
 	});
 
+	/* The replica's half of the same rule the server keeps: a stated `null` is
+	   *never say this Notice*, and a Revision that does not mention the field
+	   leaves the standing choice alone (ADR-0031). */
+	it('folds a Notice Offset, and tells "never" from "not mentioned"', async () => {
+		await applyRevisions(db, 'h1', [
+			revision({ id: 'r-1', seq: 1, kind: 'household', entity_id: 'h1', fields: { zone: BERLIN } })
+		]);
+		expect(await db.households.get('h1')).toMatchObject({ feed_notice_s: 0, sleep_notice_s: 0 });
+
+		await applyRevisions(db, 'h1', [
+			revision({ id: 'r-2', seq: 2, kind: 'household', entity_id: 'h1', fields: { feed_notice_s: 900 } })
+		]);
+		expect(await db.households.get('h1')).toMatchObject({ feed_notice_s: 900, sleep_notice_s: 0 });
+
+		await applyRevisions(db, 'h1', [
+			revision({
+				id: 'r-3',
+				seq: 3,
+				kind: 'household',
+				entity_id: 'h1',
+				merge_at: NOW + 1000,
+				fields: { feed_notice_s: null }
+			})
+		]);
+		expect(await db.households.get('h1')).toMatchObject({ feed_notice_s: null, sleep_notice_s: 0 });
+
+		await applyRevisions(db, 'h1', [
+			revision({
+				id: 'r-4',
+				seq: 4,
+				kind: 'household',
+				entity_id: 'h1',
+				merge_at: NOW + 2000,
+				fields: { day_start: '06:00' }
+			})
+		]);
+		expect(await db.households.get('h1')).toMatchObject({ day_start: '06:00', feed_notice_s: null });
+	});
+
 	it('folds a Member, and nothing authenticating comes with it', async () => {
 		await applyRevisions(db, 'h1', [
 			revision({

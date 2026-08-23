@@ -7,6 +7,7 @@
    revisions, and it removes any need to store per-field merge keys. */
 
 import { coercePayload } from '$domain/entries';
+import { noticeOffset } from '$domain/notices';
 import { compareRevisions, foldEntity, foldEntry, splitFields } from '$domain/revisions';
 import type {
 	Baby,
@@ -282,16 +283,27 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 			   a household-kind entity_id with it before this is ever reached, so
 			   "a Parent of A renames B" is unwritable rather than merely rejected
 			   (hosted spec §5.2). */
+			/* The two Notice offsets are the only Household fields whose *null* is
+			   a value a Member chose — it is how a Household says "never say this
+			   one" — so COALESCE cannot carry them: it would read the choice as
+			   "unchanged". The presence flag beside each is what the fold already
+			   knows and SQL cannot see. */
 			db.prepare(
 				`UPDATE households SET
 				   name = COALESCE(?, name),
 				   day_start = COALESCE(?, day_start),
-				   zone = COALESCE(?, zone)
+				   zone = COALESCE(?, zone),
+				   feed_notice_s  = CASE WHEN ? THEN ? ELSE feed_notice_s  END,
+				   sleep_notice_s = CASE WHEN ? THEN ? ELSE sleep_notice_s END
 				 WHERE id = ?`
 			).run(
 				state.name == null ? null : String(state.name),
 				state.day_start == null ? null : String(state.day_start),
 				state.zone == null ? null : String(state.zone),
+				'feed_notice_s' in state ? 1 : 0,
+				noticeOffset(state.feed_notice_s),
+				'sleep_notice_s' in state ? 1 : 0,
+				noticeOffset(state.sleep_notice_s),
 				householdId
 			);
 			return;
@@ -366,6 +378,29 @@ export function liveSessions(db: Db, householdId: string): Entry[] {
 	return rows.map(rowToEntry).filter((e): e is Entry => e != null);
 }
 
+/** Everything the notifier has to look at: every Live Session, plus every Entry
+    recent enough to still be some Target's anchor (ADR-0031).
+
+    Two anchors are *closed* Entries — the previous Feed and the last Sleep — so
+    `liveSessions` alone cannot answer "is a Feed due". The lookback is what
+    keeps this from being a scan of the log: a Notice is only ever said inside a
+    quarter of an hour of its due instant, and no Target runs longer than a
+    handful of hours, so anything older than the window cannot make one true.
+
+    Open sessions are kept whatever their age — a bottle nobody stopped is still
+    the bottle the Bottle Chime is about. */
+export function noticeEntries(db: Db, householdId: string, since: number): Entry[] {
+	const rows = db
+		.prepare(
+			`SELECT ${ENTRY_COLUMNS} FROM entries
+			 WHERE household_id = ? AND deleted_at IS NULL AND merged_into IS NULL
+			   AND type IN ('sleep', 'breast_feed', 'bottle_feed')
+			   AND (ended_at IS NULL OR occurred_at >= ?)`
+		)
+		.all(householdId, since) as EntryRow[];
+	return rows.map(rowToEntry).filter((e): e is Entry => e != null);
+}
+
 /** The merge chain, for redirecting a late stop onto the survivor. */
 export function mergedIntoMap(db: Db, householdId: string): Map<string, string> {
 	const rows = db
@@ -385,9 +420,9 @@ export function getEntry(db: Db, householdId: string, id: string): Entry | null 
     Household comes from the session or the Claim Link, never from "the one
     household in the file" (ADR-0020). */
 export function getHousehold(db: Db, householdId: string): Household | null {
-	const row = db.prepare('SELECT id, name, day_start, zone FROM households WHERE id = ?').get(householdId) as
-		| Household
-		| undefined;
+	const row = db
+		.prepare('SELECT id, name, day_start, zone, feed_notice_s, sleep_notice_s FROM households WHERE id = ?')
+		.get(householdId) as Household | undefined;
 	return row ?? null;
 }
 

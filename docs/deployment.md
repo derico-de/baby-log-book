@@ -260,7 +260,7 @@ One consequence worth knowing before you host somebody else's log: the nightly
 backup is the whole file, so a restore rolls **every** household back to that
 night.
 
-### Outbound HTTPS, for the one notification
+### Outbound HTTPS, for the notifications
 
 A phone that has switched its bottle chime on is woken by a push, which the
 container sends **outbound** to whichever push service that browser uses —

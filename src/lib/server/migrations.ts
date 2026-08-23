@@ -255,6 +255,46 @@ export const MIGRATIONS: Migration[] = [
 				PRIMARY KEY (entry_id, endpoint)
 			);
 		`
+	},
+	{
+		name: '0005-notice-offsets',
+		sql: `
+			/* When a Feed Notice and a Sleep Notice are said, relative to the
+			   instant the Target they belong to comes round (ADR-0031). Seconds,
+			   and NULL means the Household does not want that one said at all.
+
+			   On the Household rather than the Device, because the Device is
+			   asleep: this is the number the server's timer reads, and how much
+			   warning is useful is a fact about the routine rather than about the
+			   phone. Whether a phone is woken *at all* stays where ADR-0030 put
+			   it — in the existence of a subscription.
+
+			   Zero on every existing row, which is the Notice landing on the due
+			   instant itself: a Household that has never been asked has stated no
+			   offset, and an offset the app invented would be a guess. */
+			ALTER TABLE households ADD COLUMN feed_notice_s  INTEGER DEFAULT 0;
+			ALTER TABLE households ADD COLUMN sleep_notice_s INTEGER DEFAULT 0;
+
+			/* Three kinds of Notice now share the once-per-Device record, and two
+			   of them can be anchored to the same Entry at the same moment — a
+			   bottle nearly out is also the Feed the next interval is measured
+			   from. Without the kind in the key, one would silence the other.
+
+			   Rebuilt rather than altered because the key itself changes; the
+			   table is a cache of the last day's sends, so the copy is small and
+			   losing it would only re-say a Notice. */
+			ALTER TABLE push_sent RENAME TO push_sent_old;
+			CREATE TABLE push_sent (
+				entry_id TEXT NOT NULL,
+				kind     TEXT NOT NULL,
+				endpoint TEXT NOT NULL,
+				sent_at  INTEGER NOT NULL,
+				PRIMARY KEY (entry_id, kind, endpoint)
+			);
+			INSERT INTO push_sent (entry_id, kind, endpoint, sent_at)
+				SELECT entry_id, 'bottle', endpoint, sent_at FROM push_sent_old;
+			DROP TABLE push_sent_old;
+		`
 	}
 ];
 

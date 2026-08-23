@@ -191,6 +191,14 @@ export interface Household {
 	/** One IANA zone id — the single lens for bucketing, timeline, stats and
 	    export (spec §7.3). */
 	zone: string;
+	/** Seconds *before* the Feed Interval is up that the Feed Notice is sent;
+	    `null` never sends it. A Household setting rather than a Device one,
+	    because the server is what holds the timer and how much warning is
+	    useful is a fact about the routine, not about the phone (ADR-0031). */
+	feed_notice_s: number | null;
+	/** Seconds *after* the Wake Window is up that the Sleep Notice is sent;
+	    `null` never sends it. */
+	sleep_notice_s: number | null;
 }
 
 /** A revision is immutable and names only the fields it changed (ADR-0003). */
@@ -235,6 +243,17 @@ export const SHARED_ENTRY_FIELDS = [
 ] as const;
 
 export const DEFAULT_DAY_START = '05:00';
+
+/** Both Notices land on the due instant until a Household says otherwise: an
+    offset nobody has thought about yet should not be a guess the app made
+    (ADR-0031). */
+export const DEFAULT_FEED_NOTICE_S = 0;
+export const DEFAULT_SLEEP_NOTICE_S = 0;
+
+/** No Household wants to be told about a Feed a day and a half from now. Here
+    rather than beside the fold, because the field validator has to reach it and
+    a Notice must not be able to import the whole schedule to say so. */
+export const MAX_NOTICE_OFFSET_S = 6 * 3600;
 
 /** Bumped only by a change that would make an old client write something
     wrong. Additive payload changes do not bump it (spec §5.5).

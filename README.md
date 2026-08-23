@@ -23,9 +23,12 @@ Read those before changing anything structural.
 - **Export**: a zip of per-type CSVs. Everything, always.
 - **Offline sync** with a full local replica, a durable outbox and silent
   conflict resolution.
-- **One notification, if a phone asks for it**: ten minutes before a started
+- **Notifications, if a phone asks for them**: ten minutes before a started
   bottle's life runs out, so the rest of it can be offered while there is still
-  time. Off until switched on, per device, and it needs nothing configured —
+  time; when a feed is due; and when the wake window is up. Each is a target the
+  household stated coming round, at an offset the household sets — never a
+  number the app decided, and never while she is already feeding or already
+  asleep. Off until switched on, per device, and it needs nothing configured —
   the signing key is generated in the volume on first boot.
 - **Three languages** (English, German, Romanian), metric only.
 

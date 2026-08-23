@@ -500,7 +500,7 @@ describe('babylog delete', () => {
 		).run(`https://push.example.com/${tag}`, householdId, memberId, 'device', 'p', 'a', 1);
 		/* Reached through the subscription rather than by a household_id of its
 		   own, which is why the erasure names it and this seeds it. */
-		db.prepare('INSERT INTO push_sent (entry_id, endpoint, sent_at) VALUES (?,?,?)').run(
+		db.prepare("INSERT INTO push_sent (entry_id, kind, endpoint, sent_at) VALUES (?,'bottle',?,?)").run(
 			`entry-${tag}`,
 			`https://push.example.com/${tag}`,
 			1

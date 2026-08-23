@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import { runMigrations } from './migrations';
 import { MAX_BATCH, pull, push, SKEW_TOLERANCE_MS, SyncError } from './sync';
-import { getEntry, listMembers, liveSessions, revisionsOf } from './store';
+import { getEntry, getHousehold, listMembers, liveSessions, revisionsOf } from './store';
 import type { PendingRevision, Role } from '$domain/types';
 
 const BERLIN = 'Europe/Berlin';
@@ -185,6 +185,25 @@ describe('roles', () => {
 			'oma'
 		);
 		expect(target.rejected).toHaveLength(1);
+	});
+
+	/* The Notice offsets are the only Household fields whose *null* is a value
+	   a Member chose, so the storage edge has to tell "cleared" from "not
+	   mentioned" — a COALESCE would read the choice as unchanged (ADR-0031). */
+	it('let a Parent state a Notice offset, clear it to never, and leave the other alone', () => {
+		asMember([rev({ kind: 'household', entity_id: 'h1', fields: { feed_notice_s: 900 } })]);
+		expect(getHousehold(db, 'h1')).toMatchObject({ feed_notice_s: 900, sleep_notice_s: 0 });
+
+		asMember([
+			rev({ kind: 'household', entity_id: 'h1', merge_at: NOW + 1000, fields: { feed_notice_s: null } })
+		]);
+		expect(getHousehold(db, 'h1')).toMatchObject({ feed_notice_s: null, sleep_notice_s: 0 });
+
+		/* And a Revision that never mentions them leaves the choice standing. */
+		asMember([
+			rev({ kind: 'household', entity_id: 'h1', merge_at: NOW + 2000, fields: { day_start: '06:00' } })
+		]);
+		expect(getHousehold(db, 'h1')).toMatchObject({ day_start: '06:00', feed_notice_s: null });
 	});
 
 	it('let a Caregiver add a Food, because logging a Meal grows the catalogue', () => {

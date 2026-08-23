@@ -32,6 +32,31 @@ function openBottle(id: string, at = STARTED, householdId = 'h1', babyId = 'b1')
 	).run(id, householdId, babyId, at, at);
 }
 
+function closedEntry(id: string, type: string, at: number, endedAt: number, babyId = 'b1') {
+	db.prepare(
+		`INSERT INTO entries (id, household_id, baby_id, type, occurred_at, ended_at, payload, logged_by, logged_at)
+		 VALUES (?,'h1',?,?,?,?,'{}','mum',?)`
+	).run(id, babyId, type, at, endedAt, at);
+}
+
+/** A Target the Household typed. The bottle has one by default — the fold falls
+    back to the seeded hour — but a Feed Notice and a Sleep Notice need a stated
+    number, exactly as the sticky header does. */
+function target(id: string, activity: string, durationS: number, anchor: string, babyId = 'b1') {
+	db.prepare(
+		`INSERT INTO targets (id, household_id, baby_id, activity, duration_s, anchor)
+		 VALUES (?,'h1',?,?,?,?)`
+	).run(id, babyId, activity, durationS, anchor);
+}
+
+function setOffsets(feed: number | null, sleep: number | null) {
+	db.prepare('UPDATE households SET feed_notice_s = ?, sleep_notice_s = ? WHERE id = ?').run(
+		feed,
+		sleep,
+		'h1'
+	);
+}
+
 function subscribe(endpoint: string, memberId = 'mum', deviceId = 'phone', householdId = 'h1') {
 	saveSubscription(db, {
 		endpoint,
@@ -45,10 +70,12 @@ function subscribe(endpoint: string, memberId = 'mum', deviceId = 'phone', house
 }
 
 /** A push service that always accepts, and remembers what it was told. */
-function acceptAll(): Sender & { calls: Array<{ endpoint: string; payload: string }> } {
-	const calls: Array<{ endpoint: string; payload: string }> = [];
-	const sender = (async (subscription: StoredSubscription, payload: string) => {
-		calls.push({ endpoint: subscription.endpoint, payload });
+function acceptAll(): Sender & {
+	calls: Array<{ endpoint: string; payload: string; ttlSeconds: number }>;
+} {
+	const calls: Array<{ endpoint: string; payload: string; ttlSeconds: number }> = [];
+	const sender = (async (subscription: StoredSubscription, payload: string, ttlSeconds: number) => {
+		calls.push({ endpoint: subscription.endpoint, payload, ttlSeconds });
 		return { ok: true, status: 201, gone: false };
 	}) as Sender & { calls: typeof calls };
 	sender.calls = calls;
@@ -91,7 +118,7 @@ describe('what is owed to whom', () => {
 		subscribe('https://push.example.com/1');
 		expect(planNotices(db, Date.parse('2026-08-17T13:40:00Z'))).toEqual([]);
 		const notices = planNotices(db, INSIDE);
-		expect(notices.map((n) => n.entry.id)).toEqual(['f1']);
+		expect(notices.map((n) => n.notice.entry_id)).toEqual(['f1']);
 		expect(notices[0].babyName).toBe('Lina');
 		expect(notices[0].subscriptions.map((s) => s.endpoint)).toEqual(['https://push.example.com/1']);
 	});
@@ -190,16 +217,125 @@ describe('a tick', () => {
 	});
 });
 
+describe('the Notices a Target brings round', () => {
+	/* Fed 10:00–10:20 against a three-hour interval, so the Feed is due at 13:00;
+	   woke at 11:00 against a two-hour Wake Window, so that is up at 13:00 too. */
+	const FED = Date.parse('2026-08-17T10:00:00Z');
+	const DUE = Date.parse('2026-08-17T13:00:00Z');
+
+	beforeEach(() => {
+		target('t-feed', 'feed', 3 * 3600, 'feed_start');
+		target('t-sleep', 'sleep', 2 * 3600, 'sleep_end');
+		subscribe('https://push.example.com/1');
+	});
+
+	it('says a Feed is due, in the Member\'s own language and about the right Entry', async () => {
+		closedEntry('f1', 'breast_feed', FED, FED + 20 * 60_000);
+		const send = acceptAll();
+		expect(await runNotifierTick(db, DUE, send)).toEqual({ sent: 1, failed: 0, dropped: 0 });
+
+		const payload = JSON.parse(send.calls[0].payload);
+		expect(payload.title).toBe('Mahlzeit fällig');
+		expect(payload.body).toContain('Lina');
+		expect(payload.tag).toBe('feed:f1');
+	});
+
+	it('says the Wake Window is up, anchored to the Sleep that opened it', async () => {
+		closedEntry('s1', 'sleep', Date.parse('2026-08-17T10:00:00Z'), Date.parse('2026-08-17T11:00:00Z'));
+		const send = acceptAll();
+		await runNotifierTick(db, DUE, send);
+		expect(JSON.parse(send.calls[0].payload).tag).toBe('sleep:s1');
+	});
+
+	it('waits for the offset the Household stated, and never says it twice', async () => {
+		closedEntry('f1', 'breast_feed', FED, FED + 20 * 60_000);
+		setOffsets(15 * 60, 0);
+		const send = acceptAll();
+
+		expect(await runNotifierTick(db, DUE - 20 * 60_000, send)).toEqual({ sent: 0, failed: 0, dropped: 0 });
+		expect(await runNotifierTick(db, DUE - 15 * 60_000, send)).toEqual({ sent: 1, failed: 0, dropped: 0 });
+		expect(await runNotifierTick(db, DUE - 14 * 60_000, send)).toEqual({ sent: 0, failed: 0, dropped: 0 });
+		expect(JSON.parse(send.calls[0].payload).body).toContain('15');
+	});
+
+	it('says nothing at all when the Household has switched that Notice off', async () => {
+		closedEntry('f1', 'breast_feed', FED, FED + 20 * 60_000);
+		closedEntry('s1', 'sleep', Date.parse('2026-08-17T10:00:00Z'), Date.parse('2026-08-17T11:00:00Z'));
+		setOffsets(null, null);
+		expect(await runNotifierTick(db, DUE, acceptAll())).toEqual({ sent: 0, failed: 0, dropped: 0 });
+	});
+
+	/* Two Notices can be anchored to the same Entry at the same moment — a bottle
+	   nearly out is also the Feed the next interval is measured from — so the
+	   kind is part of the once-per key. */
+	it('keeps the bottle Notice and the Feed Notice from silencing each other', async () => {
+		openBottle('f1', Date.parse('2026-08-17T13:00:00Z'));
+		const send = acceptAll();
+		/* 13:55: the bottle is nearly out and its Feed is still running. */
+		await runNotifierTick(db, INSIDE, send);
+		expect(send.calls.map((c) => JSON.parse(c.payload).tag)).toEqual(['bottle:f1']);
+
+		/* The Feed ends at 14:00 with the bottle, and the interval is up at 16:00. */
+		db.prepare('UPDATE entries SET ended_at = ? WHERE id = ?').run(Date.parse('2026-08-17T14:00:00Z'), 'f1');
+		await runNotifierTick(db, Date.parse('2026-08-17T16:00:00Z'), send);
+		expect(send.calls.map((c) => JSON.parse(c.payload).tag)).toEqual(['bottle:f1', 'feed:f1']);
+	});
+});
+
+describe('a Notice that has stopped being true', () => {
+	/* The whole point of the deadline: a push service holds what it cannot
+	   deliver, and a phone that surfaces twenty minutes later must not be told
+	   about a bottle whose Feed has already ended. */
+	it('asks the push service to hold a bottle Notice no longer than the bottle', async () => {
+		openBottle('f1');
+		subscribe('https://push.example.com/1');
+		const send = acceptAll();
+		await runNotifierTick(db, INSIDE, send);
+		/* 13:55, due at 14:00. */
+		expect(send.calls[0].ttlSeconds).toBe(300);
+		expect(JSON.parse(send.calls[0].payload).until).toBe(Date.parse('2026-08-17T14:00:00Z'));
+	});
+
+	it('is never planned for a Feed somebody stopped', async () => {
+		openBottle('f1');
+		subscribe('https://push.example.com/1');
+		db.prepare('UPDATE entries SET ended_at = ? WHERE id = ?').run(
+			Date.parse('2026-08-17T13:52:00Z'),
+			'f1'
+		);
+		expect(planNotices(db, INSIDE)).toEqual([]);
+		expect(await runNotifierTick(db, INSIDE, acceptAll())).toEqual({ sent: 0, failed: 0, dropped: 0 });
+	});
+});
+
 describe('the wording', () => {
 	it('falls back to English for a Member who has never chosen', () => {
-		expect(noticeText('Lina', null).title).toBe('Bottle nearly out');
-		expect(noticeText('Lina', 'fr').title).toBe('Bottle nearly out');
+		expect(noticeText('bottle', 'Lina', 10, null).title).toBe('Bottle nearly out');
+		expect(noticeText('bottle', 'Lina', 10, 'fr').title).toBe('Bottle nearly out');
 	});
 
 	it('says nearly out rather than expired — the Household\'s number, not a verdict', () => {
 		for (const locale of [null, 'de', 'ro']) {
-			const text = noticeText('Lina', locale);
+			const text = noticeText('bottle', 'Lina', 10, locale);
 			expect(`${text.title} ${text.body}`.toLowerCase()).not.toMatch(/expire|abgelaufen|verdorben|stricat/);
+		}
+	});
+
+	/* Two sentences per Notice, because *due in ten minutes* and *due now* are
+	   different facts and one rounded sentence would have to lie about one of
+	   them (ADR-0031). */
+	it('says the stated offset out loud, and drops it when there is none', () => {
+		expect(noticeText('feed', 'Lina', 10, 'en').body).toBe("Lina's next feed is due in 10 minutes.");
+		expect(noticeText('feed', 'Lina', 0, 'en').body).toBe("Lina's next feed is due.");
+		expect(noticeText('sleep', 'Lina', 15, 'en').body).toContain('15 minutes past');
+		expect(noticeText('sleep', 'Lina', 0, 'en').body).not.toContain('0');
+	});
+
+	it('names the Baby in every Notice, in the language that Member reads', () => {
+		for (const kind of ['bottle', 'feed', 'sleep'] as const) {
+			for (const locale of ['en', 'de', 'ro']) {
+				expect(noticeText(kind, 'Lina', 5, locale).body).toContain('Lina');
+			}
 		}
 	});
 });

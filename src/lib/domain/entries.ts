@@ -26,7 +26,7 @@ import type {
 	Side,
 	Where
 } from './types';
-import { ENTRY_TYPES, SESSION_TYPES } from './types';
+import { ENTRY_TYPES, MAX_NOTICE_OFFSET_S, SESSION_TYPES } from './types';
 
 const SIDES: Side[] = ['left', 'right', 'both'];
 const CONTENTS: BottleContents[] = ['breast_milk', 'formula', 'other'];
@@ -139,11 +139,19 @@ const MEMBER_FIELD_CHECKS: Record<string, Check> = {
 	locale: isNullableOneOf(['en', 'de', 'ro'])
 };
 
+/** A Notice Offset, or `null` for *never say it* — which is a value a Member
+    chose and not an absent field, so the check has to admit it (ADR-0031). */
+const isNoticeOffset: Check = (v) =>
+	v === null ||
+	(isFiniteNumber(v) && Number.isInteger(v) && (v as number) >= 0 && (v as number) <= MAX_NOTICE_OFFSET_S);
+
 const HOUSEHOLD_FIELD_CHECKS: Record<string, Check> = {
 	name: isText(MAX_NAME),
 	/** An hour, not an instant (spec §7.4). */
 	day_start: (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
-	zone: isZone
+	zone: isZone,
+	feed_notice_s: isNoticeOffset,
+	sleep_notice_s: isNoticeOffset
 };
 
 const TARGET_FIELD_CHECKS: Record<string, Check> = {

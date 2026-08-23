@@ -49,26 +49,41 @@ sw.addEventListener('message', (event) => {
 	if ((event.data as { type?: string })?.type === 'skip-waiting') void sw.skipWaiting();
 });
 
-/* The Bottle Chime, when the phone is asleep (ADR-0030).
+/* A Notice, when the phone is asleep (ADR-0030, ADR-0031).
 
    The payload arrives encrypted to this Device and is decrypted by the browser
    before it gets here, so what the push service carried was ciphertext. The
    text is composed on the server, in the Member's own language: this worker has
    no locale of its own — it is one file for every Household on the deployment —
-   and a notification in the wrong language at 3am is worse than none. */
+   and a notification in the wrong language at 3am is worse than none.
+
+   `until` is the one thing this worker decides for itself, and it is the last
+   guard on the honesty of the whole feature: a push is queued by somebody
+   else's service and handed over whenever the phone next surfaces, which can be
+   long after the bottle was stopped or the Feed was logged. The server already
+   asks for a TTL of exactly what is left, so a stale push should never get this
+   far — but *should* is not a guarantee anyone else is keeping, and popping
+   "bottle nearly out" over a Feed that ended twenty minutes ago is worse than
+   staying quiet.
+
+   Staying quiet spends this app's `userVisibleOnly` promise, which is why it is
+   reachable only by a push service that overran the TTL it was given: rare
+   enough that the browser's budget for it is never in question, and the honest
+   trade either way. */
 sw.addEventListener('push', (event) => {
-	let notice: { title?: string; body?: string; tag?: string } = {};
+	let notice: { title?: string; body?: string; tag?: string; until?: number } = {};
 	try {
 		notice = (event.data?.json() ?? {}) as typeof notice;
 	} catch {
 		/* Something we did not send, or nothing at all. A push must still show
 		   something — the permission was granted on that promise. */
 	}
+	if (typeof notice.until === 'number' && Date.now() >= notice.until) return;
 	event.waitUntil(
 		sw.registration.showNotification(notice.title ?? 'Baby Log Book', {
 			body: notice.body ?? '',
-			/* One notification per bottle: a second tick replaces it rather than
-			   stacking a pile of them on the lock screen. */
+			/* One notification per bottle, per Feed, per Wake Window: a second tick
+			   replaces it rather than stacking a pile of them on the lock screen. */
 			tag: notice.tag ?? 'blb',
 			icon: '/icons/icon-192.png',
 			badge: '/icons/icon-192.png'

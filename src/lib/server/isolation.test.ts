@@ -543,7 +543,7 @@ describe('push subscriptions', () => {
 		/* B's Baby has a bottle open and nearly out; A's has nothing. */
 		fromB([bottle('b-bottle', 'b-baby', NOW)], 'parent', 'b-mum', NOW);
 		const notices = planNotices(db, NOW + 55 * 60_000);
-		expect(notices.map((n) => n.entry.id)).toEqual(['b-bottle']);
+		expect(notices.map((n) => n.notice.entry_id)).toEqual(['b-bottle']);
 		expect(notices.flatMap((n) => n.subscriptions.map((s) => s.endpoint))).toEqual([
 			'https://push.example.com/b'
 		]);

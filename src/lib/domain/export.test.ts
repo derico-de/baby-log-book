@@ -38,7 +38,7 @@ const revision: Revision = {
 };
 
 const input: ExportInput = {
-	household: { id: 'h1', name: 'Zuhause', day_start: '05:00', zone: BERLIN },
+	household: { id: 'h1', name: 'Zuhause', day_start: '05:00', zone: BERLIN, feed_notice_s: 0, sleep_notice_s: 0 },
 	babies: [{ id: 'b1', household_id: 'h1', name: 'Lina', birth_date: '2026-02-17', deleted_at: null }],
 	members: [
 		{ id: 'mum', household_id: 'h1', display_name: 'Mama', role: 'parent', removed_at: null, locale: 'de' },

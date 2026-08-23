@@ -6,9 +6,12 @@
    or from a replay — lands on the same state. */
 
 import { coercePayload } from '$domain/entries';
+import { noticeOffset } from '$domain/notices';
 import { foldEntity, foldEntry, splitFields } from '$domain/revisions';
 import {
 	DEFAULT_DAY_START,
+	DEFAULT_FEED_NOTICE_S,
+	DEFAULT_SLEEP_NOTICE_S,
 	type Baby,
 	type Food,
 	type Household,
@@ -95,7 +98,20 @@ async function materialise(db: ReplicaDb, householdId: string, kind: RevisionKin
 				day_start: str(state.day_start, existing?.day_start ?? DEFAULT_DAY_START),
 				/* Until the log says otherwise, this Device's own zone is the least
 				   wrong lens available. */
-				zone: str(state.zone, existing?.zone ?? deviceZone())
+				zone: str(state.zone, existing?.zone ?? deviceZone()),
+				/* A stated `null` is a choice — *never say this one* — so the fold
+				   has to tell "absent" from "cleared", exactly as the server's does.
+				   A replica that predates the field reads the default rather than
+				   silence, because the deployment has been sending the Notice since
+				   the migration ran (ADR-0031). */
+				feed_notice_s:
+					'feed_notice_s' in state
+						? noticeOffset(state.feed_notice_s)
+						: (existing?.feed_notice_s ?? DEFAULT_FEED_NOTICE_S),
+				sleep_notice_s:
+					'sleep_notice_s' in state
+						? noticeOffset(state.sleep_notice_s)
+						: (existing?.sleep_notice_s ?? DEFAULT_SLEEP_NOTICE_S)
 			} satisfies Household);
 			return;
 		}

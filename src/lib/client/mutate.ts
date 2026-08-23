@@ -29,6 +29,7 @@ import type {
 	Where
 } from '$domain/types';
 import { milestoneInstant } from '$domain/milestones';
+import { noticeOffset } from '$domain/notices';
 
 export interface Writer {
 	db: ReplicaDb;
@@ -347,6 +348,20 @@ export function setDayStart(w: Writer, dayStart: string): Promise<string> {
     lens; the Day Start hour is untouched (spec §7.3). */
 export function setHouseholdZone(w: Writer, zone: string): Promise<string> {
 	return write(w, 'household', w.householdId, { zone });
+}
+
+/** When the Feed Notice is said — seconds before the Feed Interval is up, or
+    `null` for never (ADR-0031). A Revision like every other Household setting,
+    so the server's timer learns it from the log rather than from a side
+    channel, and a Parent can change it from a phone that is offline. */
+export function setFeedNotice(w: Writer, seconds: number | null): Promise<string> {
+	return write(w, 'household', w.householdId, { feed_notice_s: noticeOffset(seconds) });
+}
+
+/** When the Sleep Notice is said — seconds *after* the Wake Window is up, or
+    `null` for never. */
+export function setSleepNotice(w: Writer, seconds: number | null): Promise<string> {
+	return write(w, 'household', w.householdId, { sleep_notice_s: noticeOffset(seconds) });
 }
 
 /** A Target is a duration plus the anchor it measures from. */

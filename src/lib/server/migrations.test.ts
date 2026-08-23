@@ -53,7 +53,8 @@ describe('the boot-time migration runner', () => {
 		expect(runMigrations(db)).toEqual([
 			'0002-founding-label',
 			'0003-operator-label',
-			'0004-push-subscriptions'
+			'0004-push-subscriptions',
+			'0005-notice-offsets'
 		]);
 		expect(
 			db.prepare('SELECT display_name, household_label FROM claim_links WHERE token_hash = ?').get('hash')

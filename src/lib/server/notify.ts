@@ -1,26 +1,32 @@
-/* The notifier: what gets said, to which Devices, and exactly once (ADR-0030).
+/* The notifier: what gets said, to which Devices, and exactly once (ADR-0030,
+   ADR-0031).
 
-   This is the server's half of the Bottle Chime. The in-app chime can only
-   sound on a phone that is awake with the app open; ten minutes before a
-   bottle's Life runs out is very often neither. So the same instant — the one
-   `dueInstant` computes, from the same synced Target — is reached here on a
-   timer and delivered as a push.
+   This is the server's half of three reminders a phone that is awake with the
+   app open would give by itself — a bottle nearly out, a Feed due, a Wake
+   Window run out. At 3am the phone is none of those things, so the instants the
+   Household's own Targets compute are reached here on a timer and delivered as
+   pushes.
 
-   Nothing about which bottle is nearly out is decided twice: `bottlesNearingEnd`
-   is the domain fold the client uses, imported unchanged. What is server-only is
-   *delivery* — who is subscribed, what language they read, and the record that
-   keeps one bottle from being announced twice. */
+   None of them is decided twice: `liveNotices` is the domain fold, imported
+   unchanged, and it is the only thing that knows what is due. What is
+   server-only is *delivery* — who is subscribed, what language they read, the
+   record that keeps a Notice from being said twice, and the deadline that keeps
+   a queued push from arriving after it has stopped being true. */
 
-import { bottlesNearingEnd } from '$domain/targets';
-import type { Entry } from '$domain/types';
+import { liveNotices, type Notice, type NoticeKind } from '$domain/notices';
 import * as m from '$lib/paraglide/messages';
 import type { Db } from './db';
-import { listTargets, liveSessions } from './store';
+import { getHousehold, listTargets, noticeEntries } from './store';
 import { sendPush, type PushResult, type PushSubscription, type VapidKeys } from './webpush';
 
-/** Kept in step with nothing: the record only has to outlive the ten minutes it
+/** Kept in step with nothing: the record only has to outlive the window it
     guards, and a day is a generous margin for a server that was asleep. */
 const SENT_TTL_MS = 24 * 60 * 60_000;
+
+/** How far back a tick reads. Every anchor a Notice can hang on is either an
+    open session — read whatever its age — or an Entry inside the last stretch
+    of a Target, and nothing in the age tables comes near a day. */
+const LOOKBACK_MS = 24 * 60 * 60_000;
 
 export interface StoredSubscription extends PushSubscription {
 	household_id: string;
@@ -101,8 +107,8 @@ export function listSubscriptions(db: Db, householdId: string): StoredSubscripti
 		.all(householdId) as StoredSubscription[];
 }
 
-export interface Notice {
-	entry: Entry;
+export interface PlannedNotice {
+	notice: Notice;
 	babyName: string;
 	subscriptions: StoredSubscription[];
 }
@@ -114,49 +120,53 @@ function babyNames(db: Db, householdId: string): Map<string, string> {
 	return new Map(rows.map((r) => [r.id, r.name]));
 }
 
-/** Which Devices are owed which notice, right now.
+/** Which Devices are owed which Notice, right now.
 
     Households with no subscription at all are never looked at, which is the
     common case on a self-hosted Book and keeps the tick free. */
-export function planNotices(db: Db, now: number): Notice[] {
+export function planNotices(db: Db, now: number): PlannedNotice[] {
 	const households = (
 		db.prepare('SELECT DISTINCT household_id AS id FROM push_subscriptions').all() as Array<{ id: string }>
 	).map((r) => r.id);
 
-	const notices: Notice[] = [];
+	const planned: PlannedNotice[] = [];
 	for (const householdId of households) {
 		const subscriptions = listSubscriptions(db, householdId);
 		if (subscriptions.length === 0) continue;
 
-		const open = liveSessions(db, householdId);
-		const nearing = bottlesNearingEnd(open, listTargets(db, householdId), now);
-		if (nearing.length === 0) continue;
+		const household = getHousehold(db, householdId);
+		if (!household) continue;
+
+		const notices = liveNotices(
+			noticeEntries(db, householdId, now - LOOKBACK_MS),
+			listTargets(db, householdId),
+			household,
+			now
+		);
+		if (notices.length === 0) continue;
 
 		const names = babyNames(db, householdId);
-		for (const id of nearing) {
-			const entry = open.find((e) => e.id === id);
-			if (!entry) continue;
-			const unsent = subscriptions.filter((s) => !alreadySent(db, id, s.endpoint));
+		for (const notice of notices) {
+			const unsent = subscriptions.filter((s) => !alreadySent(db, notice, s.endpoint));
 			if (unsent.length === 0) continue;
-			notices.push({ entry, babyName: names.get(entry.baby_id) ?? '', subscriptions: unsent });
+			planned.push({ notice, babyName: names.get(notice.baby_id) ?? '', subscriptions: unsent });
 		}
 	}
-	return notices;
+	return planned;
 }
 
-function alreadySent(db: Db, entryId: string, endpoint: string): boolean {
+function alreadySent(db: Db, notice: Notice, endpoint: string): boolean {
 	return (
-		db.prepare('SELECT 1 FROM push_sent WHERE entry_id = ? AND endpoint = ?').get(entryId, endpoint) !=
-		null
+		db
+			.prepare('SELECT 1 FROM push_sent WHERE entry_id = ? AND kind = ? AND endpoint = ?')
+			.get(notice.entry_id, notice.kind, endpoint) != null
 	);
 }
 
-function recordSent(db: Db, entryId: string, endpoint: string, now: number): void {
-	db.prepare('INSERT OR REPLACE INTO push_sent (entry_id, endpoint, sent_at) VALUES (?,?,?)').run(
-		entryId,
-		endpoint,
-		now
-	);
+function recordSent(db: Db, notice: Notice, endpoint: string, now: number): void {
+	db.prepare(
+		'INSERT OR REPLACE INTO push_sent (entry_id, kind, endpoint, sent_at) VALUES (?,?,?,?)'
+	).run(notice.entry_id, notice.kind, endpoint, now);
 }
 
 export function pruneSent(db: Db, now: number): number {
@@ -166,19 +176,56 @@ export function pruneSent(db: Db, now: number): number {
 /** What the Device is told, in the language that Member reads.
 
     The wording is the row's, not a new vocabulary: the bottle is *nearly out*,
-    which says the Household's own number is running down and says nothing about
-    the milk (ADR-0016). The Baby's name is in it because a notification with no
-    name is a notification you have to open to understand — and it is safe to
-    put there precisely because the payload is encrypted to the Device. */
-export function noticeText(babyName: string, locale: string | null): { title: string; body: string } {
+    the Feed is *due*, the Wake Window is *up* — each says the Household's own
+    number has come round and none of them says anything the app decided
+    (ADR-0016). The Baby's name is in it because a notification with no name is
+    a notification you have to open to understand — and it is safe to put there
+    precisely because the payload is encrypted to the Device.
+
+    Each of the two stated offsets gets its own sentence rather than a single
+    one that quietly rounds: *due in 10 minutes* and *due now* are different
+    facts, and so are *awake past her window* and *her window is up*. */
+export function noticeText(
+	kind: NoticeKind,
+	babyName: string,
+	offsetMinutes: number,
+	locale: string | null
+): { title: string; body: string } {
 	const known = locale === 'de' || locale === 'ro' ? locale : 'en';
+	const options = { locale: known } as const;
+	const name = babyName;
+	if (kind === 'feed') {
+		return {
+			title: m.push_feed_title({}, options),
+			body:
+				offsetMinutes > 0
+					? m.push_feed_body_soon({ name, minutes: offsetMinutes }, options)
+					: m.push_feed_body_now({ name }, options)
+		};
+	}
+	if (kind === 'sleep') {
+		return {
+			title: m.push_sleep_title({}, options),
+			body:
+				offsetMinutes > 0
+					? m.push_sleep_body_late({ name, minutes: offsetMinutes }, options)
+					: m.push_sleep_body_now({ name }, options)
+		};
+	}
 	return {
-		title: m.push_bottle_title({}, { locale: known }),
-		body: m.push_bottle_body({ name: babyName }, { locale: known })
+		title: m.push_bottle_title({}, options),
+		body: m.push_bottle_body({ name }, options)
 	};
 }
 
-export type Sender = (subscription: StoredSubscription, payload: string) => Promise<PushResult>;
+export type Sender = (
+	subscription: StoredSubscription,
+	payload: string,
+	/** How long the push service may hold it: what is left of the Notice, never
+	    a flat quarter of an hour. A queued push that arrives after `until` would
+	    announce a bottle whose Feed has already ended (ADR-0031). */
+	ttlSeconds: number
+) => Promise<PushResult>;
 
 export interface TickResult {
 	sent: number;
@@ -194,13 +241,25 @@ export async function runNotifierTick(db: Db, now: number, send: Sender): Promis
 	const result: TickResult = { sent: 0, failed: 0, dropped: 0 };
 	const notices = planNotices(db, now);
 
-	for (const notice of notices) {
-		const jobs = notice.subscriptions.map(async (subscription) => {
-			const text = noticeText(notice.babyName, subscription.locale);
-			const payload = JSON.stringify({ ...text, tag: `bottle:${notice.entry.id}` });
-			const outcome = await send(subscription, payload);
+	for (const planned of notices) {
+		const { notice } = planned;
+		/* Seconds, rounded up and never zero: a TTL of 0 asks the push service to
+		   deliver now or not at all, which is the right shape but throws away the
+		   last second of a Notice that is still true. */
+		const ttlSeconds = Math.max(1, Math.ceil((notice.until - now) / 1000));
+		const jobs = planned.subscriptions.map(async (subscription) => {
+			const text = noticeText(notice.kind, planned.babyName, notice.offset_minutes, subscription.locale);
+			const payload = JSON.stringify({
+				...text,
+				tag: `${notice.kind}:${notice.entry_id}`,
+				/* The worker's own deadline, because a push service is free to be
+				   generous with a TTL and a phone can be handed a message it queued
+				   before going into doze. */
+				until: notice.until
+			});
+			const outcome = await send(subscription, payload, ttlSeconds);
 			if (outcome.ok) {
-				recordSent(db, notice.entry.id, subscription.endpoint, now);
+				recordSent(db, notice, subscription.endpoint, now);
 				db.prepare('UPDATE push_subscriptions SET last_ok_at = ? WHERE endpoint = ?').run(
 					now,
 					subscription.endpoint
@@ -222,14 +281,16 @@ export async function runNotifierTick(db: Db, now: number, send: Sender): Promis
 
 /** The live sender: the tick above, wired to real push services. */
 export function pushSender(keys: VapidKeys, subject: string, now: () => number): Sender {
-	return (subscription, payload) =>
-		sendPush(subscription, payload, { keys, subject, now: now() });
+	return (subscription, payload, ttlSeconds) =>
+		sendPush(subscription, payload, { keys, subject, now: now(), ttlSeconds });
 }
 
 /** Every thirty seconds, because ten minutes of warning that arrives nine and a
     half minutes early is the same notification, and the query costs nothing
-    when nobody is subscribed. Unref'd like the backup timer: it must never be
-    the reason the process will not exit. */
+    when nobody is subscribed. It is also the whole of the window in which a
+    Feed stopped on somebody's phone can still be announced as running — the
+    plan is re-read from the log on every tick. Unref'd like the backup timer:
+    it must never be the reason the process will not exit. */
 const TICK_MS = 30_000;
 
 export function startNotifier(

@@ -78,38 +78,49 @@ export function dueInstant(target: Target, anchorAt: number): number {
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
 
-/** The instant a Target measures from: the previous Feed's start, the last
-    Sleep's end, or the start of the bottle that is still open. Three anchors,
-    because "she sleeps every 3h" is not a Wake Window — how long she stays
-    comfortably awake is a different anchor, and getting it wrong would have
-    made the sleep number useless. */
-export function anchorInstant(target: Target, entries: Entry[]): number | null {
+/** The Entry a Target measures from: the previous Feed, the last Sleep, or the
+    bottle that is still open. Three anchors, because "she sleeps every 3h" is
+    not a Wake Window — how long she stays comfortably awake is a different
+    anchor, and getting it wrong would have made the sleep number useless.
+
+    The Entry rather than only its instant, because a Notice has to be said
+    once per anchor and the anchor's id is the only key that survives a server
+    restart (ADR-0031). */
+export function anchorEntry(target: Pick<Target, 'anchor'>, entries: Entry[]): Entry | null {
 	if (target.anchor === 'bottle_start') {
 		/* The bottle still open, not the last one poured. A bottle that has been
 		   stopped is a bottle nobody is going to offer again, so it has no life
 		   left to count; two open at once is a Combined Feed, and the older of
 		   them is the one running out first. */
-		let earliest: number | null = null;
+		let earliest: Entry | null = null;
 		for (const e of entries) {
 			if (!live(e) || e.type !== 'bottle_feed' || e.ended_at != null) continue;
-			if (earliest == null || e.occurred_at < earliest) earliest = e.occurred_at;
+			if (earliest == null || e.occurred_at < earliest.occurred_at) earliest = e;
 		}
 		return earliest;
 	}
 	if (target.anchor === 'feed_start') {
-		let latest: number | null = null;
+		let latest: Entry | null = null;
 		for (const e of entries) {
 			if (!live(e) || !isFeed(e.type)) continue;
-			if (latest == null || e.occurred_at > latest) latest = e.occurred_at;
+			if (latest == null || e.occurred_at > latest.occurred_at) latest = e;
 		}
 		return latest;
 	}
-	let latest: number | null = null;
+	let latest: Entry | null = null;
 	for (const e of entries) {
 		if (!live(e) || e.type !== 'sleep' || e.ended_at == null) continue;
-		if (latest == null || e.ended_at > latest) latest = e.ended_at;
+		if (latest == null || e.ended_at > latest.ended_at!) latest = e;
 	}
 	return latest;
+}
+
+/** The instant that anchor sits at — a Sleep is measured from its end, and
+    everything else from its start. */
+export function anchorInstant(target: Pick<Target, 'anchor'>, entries: Entry[]): number | null {
+	const entry = anchorEntry(target, entries);
+	if (!entry) return null;
+	return target.anchor === 'sleep_end' ? entry.ended_at : entry.occurred_at;
 }
 
 /** The Bottle Life a Household has stated, or the seeded hour if this Baby

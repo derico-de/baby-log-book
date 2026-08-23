@@ -13,8 +13,10 @@
 		removeMember,
 		renameFood,
 		setDayStart,
+		setFeedNotice,
 		setHouseholdName,
 		setHouseholdZone,
+		setSleepNotice,
 		setMemberLocale,
 		setMemberRole,
 		setTarget,
@@ -39,11 +41,12 @@
 	import { playChime, primeChime } from '$client/chime';
 	import { disablePush, enablePush, type PushOutcome } from '$client/push';
 	import { ANCHOR_FOR, bottleTargetOf, typicalFor } from '$domain/targets';
+	import { noticeOffset } from '$domain/notices';
 	import { ageInMonths } from '$domain/time';
 	import { EMPTY_FILTER } from '$domain/filter';
 	import { LOCALE_NAMES, LOCALES, switchLocale } from '$lib/i18n/locale.svelte';
 	import { dateAndTime, plural, targetDuration } from '$lib/i18n/format';
-	import type { Activity, Where } from '$domain/types';
+	import { DEFAULT_FEED_NOTICE_S, DEFAULT_SLEEP_NOTICE_S, type Activity, type Where } from '$domain/types';
 	import type { Locale } from '$lib/paraglide/runtime';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from '$lib/components/Icon.svelte';
@@ -173,6 +176,20 @@
 			})
 		);
 	}
+
+	/** The offsets a Household is offered, in seconds. A short list rather than a
+	    free number: the question is *how much warning*, which nobody has a
+	    fifty-three-minute opinion about, and a select is one thumb (ADR-0031). */
+	const NOTICE_CHOICES = [0, 5 * 60, 10 * 60, 15 * 60, 30 * 60, 45 * 60, 60 * 60];
+
+	/** The empty option is *never say it*, which is a value and not a blank. */
+	const offsetValue = (raw: string): number | null => (raw === '' ? null : noticeOffset(raw));
+
+	/** What the select shows. A stated `null` is *never*; a replica written before
+	    the field existed has neither, and must show the default the deployment has
+	    been sending since the migration ran rather than a *never* nobody chose. */
+	const stated = (value: number | null | undefined, fallback: number): string =>
+		value === undefined ? String(fallback) : value === null ? '' : String(value);
 
 	const ageMonths = $derived(baby ? ageInMonths(baby.birth_date, app.now, app.zone) : 0);
 	const typicalFeed = $derived(typicalFor('feed', ageMonths));
@@ -467,6 +484,51 @@
 									? m.settings_bottle_chime_push_unsupported()
 									: m.settings_bottle_chime_push_failed()}
 					</small>
+				{/if}
+
+				<!-- The two Notices the server sends on top of the chime, and the only
+				     Household settings on this screen: the switch above says which
+				     phone is woken, these say when — and *when* is a fact about the
+				     routine, so it is the same answer on every Device (ADR-0031). -->
+				{#if household}
+					<h3>{m.settings_notices()}</h3>
+					<label>
+						{m.settings_feed_notice()}
+						<select
+							value={stated(household.feed_notice_s, DEFAULT_FEED_NOTICE_S)}
+							disabled={!isParent}
+							onchange={(event) =>
+								void app.edit((w) => setFeedNotice(w, offsetValue(event.currentTarget.value)))}
+						>
+							<option value="">{m.settings_notice_off()}</option>
+							{#each NOTICE_CHOICES as seconds (seconds)}
+								<option value={String(seconds)}>
+									{seconds === 0
+										? m.settings_feed_notice_now()
+										: m.settings_notice_before({ minutes: seconds / 60 })}
+								</option>
+							{/each}
+						</select>
+					</label>
+					<label>
+						{m.settings_sleep_notice()}
+						<select
+							value={stated(household.sleep_notice_s, DEFAULT_SLEEP_NOTICE_S)}
+							disabled={!isParent}
+							onchange={(event) =>
+								void app.edit((w) => setSleepNotice(w, offsetValue(event.currentTarget.value)))}
+						>
+							<option value="">{m.settings_notice_off()}</option>
+							{#each NOTICE_CHOICES as seconds (seconds)}
+								<option value={String(seconds)}>
+									{seconds === 0
+										? m.settings_sleep_notice_now()
+										: m.settings_notice_after({ minutes: seconds / 60 })}
+								</option>
+							{/each}
+						</select>
+					</label>
+					<small class="hint">{m.settings_notices_hint()}</small>
 				{/if}
 
 				<label>

@@ -140,17 +140,28 @@ describe('what a push service receives', () => {
 		const { headers, body } = received[0];
 		expect(headers['content-encoding']).toBe('aes128gcm');
 		expect(headers['content-type']).toBe('application/octet-stream');
-		expect(headers.ttl).toBe('900');
+		/* Exactly what is left of the bottle's Life, never a flat quarter of an
+		   hour: a push service holding this one past 14:00 must drop it rather
+		   than pop it over a Feed the server has already ended (ADR-0031). */
+		expect(headers.ttl).toBe('300');
 		expect(headers.urgency).toBe('high');
 		expect(String(headers.authorization)).toMatch(/^vapid t=[\w-]+\.[\w-]+\.[\w-]+, k=[\w-]+$/);
 		expect(String(headers.authorization)).toContain(`k=${keys.publicKey}`);
 
 		/* And the part that matters: the push service carried bytes it could not
 		   read, and the Device's own key opens them. */
-		const notice = JSON.parse(readsBack(body)) as { title: string; body: string; tag: string };
+		const notice = JSON.parse(readsBack(body)) as {
+			title: string;
+			body: string;
+			tag: string;
+			until: number;
+		};
 		expect(notice.title).toBe('Fläschchenzeit fast um');
 		expect(notice.body).toContain('Lina');
 		expect(notice.tag).toBe('bottle:f1');
+		/* The worker's own deadline rides along, so a service that overran the TTL
+		   still cannot make the notification pop. */
+		expect(notice.until).toBe(Date.parse('2026-08-17T14:00:00Z'));
 		expect(body.toString('utf8')).not.toContain('Lina');
 	});
 
