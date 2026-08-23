@@ -215,6 +215,46 @@ export const MIGRATIONS: Migration[] = [
 			ALTER TABLE households ADD COLUMN label TEXT NOT NULL DEFAULT '';
 			UPDATE households SET label = name;
 		`
+	},
+	{
+		name: '0004-push-subscriptions',
+		sql: `
+			/* One row per Device that has switched the Bottle Chime on and been
+			   granted notification permission (ADR-0030). The row IS the setting:
+			   there is no server-side preference to keep in step with a Device
+			   Setting, and switching the chime off deletes it.
+
+			   The endpoint is the key because that is what the browser mints and
+			   what identifies the subscription to the push service; a Device that
+			   re-subscribes gets a new one and the old row dies at its first 410.
+			   Never a Revision, never in the log: a subscription is a fact about one
+			   phone's relationship with Google or Apple, not about the Baby. */
+			CREATE TABLE push_subscriptions (
+				endpoint     TEXT PRIMARY KEY,
+				household_id TEXT NOT NULL REFERENCES households(id),
+				member_id    TEXT NOT NULL REFERENCES members(id),
+				/* Not a capability, here as everywhere (spec §6.2) — it is what lets
+				   signing out on one phone take that phone's subscription with it. */
+				device_id    TEXT NOT NULL,
+				p256dh       TEXT NOT NULL,
+				auth         TEXT NOT NULL,
+				created_at   INTEGER NOT NULL,
+				last_ok_at   INTEGER
+			);
+			CREATE INDEX push_subscriptions_household ON push_subscriptions(household_id);
+			CREATE INDEX push_subscriptions_member ON push_subscriptions(member_id);
+
+			/* What has already been said, so a bottle is announced once per Device
+			   however often the notifier ticks inside its last ten minutes — the
+			   server's half of the same rule the in-app chime keeps. Pruned by age,
+			   so it stays the size of a day's open bottles rather than of the log. */
+			CREATE TABLE push_sent (
+				entry_id TEXT NOT NULL,
+				endpoint TEXT NOT NULL,
+				sent_at  INTEGER NOT NULL,
+				PRIMARY KEY (entry_id, endpoint)
+			);
+		`
 	}
 ];
 

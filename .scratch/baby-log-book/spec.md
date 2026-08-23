@@ -392,6 +392,7 @@ Two limitations accepted rather than papered over:
 - A Target stores **a duration plus the anchor it measures from**, so clock-time schedules ("nap at 12:30") can arrive later as a second anchor kind. They are the older-baby model and do not earn their keep in v1.
 - **Feeds, Sleep and started bottles.** Nappies keep the plain count in the header and get no target — "no wet nappy in 6 hours" is a real signal but a *health* one, and the one target that would genuinely alarm. Nothing on Measurements.
 - **The Bottle Life is a countdown, not a verdict** ([ADR-0016](../../docs/adr/0016-the-bottle-life-is-a-target-not-a-verdict.md)). It shows on the row of a bottle Feed that has started and not been stopped — per row, because a Combined Feed can have two bottles open at once — keeps counting past the stated duration, shifts colour once, and never says whether the milk is safe. It is seeded at **1h** with no age table, because milk does not care how old she is, and it can only ever read *younger* than the milk: the Feed's start is the only instant the model has, so a bottle made up earlier or returned from the fridge is not modelled. Settings states that beside the field.
+- **The Bottle Chime is the one thing that reaches for a Member's attention** ([ADR-0029](../../docs/adr/0029-the-bottle-chime-is-a-device-setting.md)). Ten minutes before a started bottle's Life runs out, a Device *that has been switched on for it* plays two soft notes — so the rest of the bottle can be offered while there is still time. A **Device Setting**, off by default (§9.4): the same bottle is open on every Device, and the phone in the room with the baby is not the one on a sleeping partner's bedside table. The lead is fixed at ten minutes, clamped to half the Life, and is not a fifth setting. Nothing else changes: no badge, no banner, no second colour, nothing written and nothing synced, and no claim about the milk. When the app is not open, the same reminder arrives as a **push notification** ([ADR-0030](../../docs/adr/0030-a-push-is-the-bottle-chime-reaching-a-sleeping-phone.md), §9.6) — one reminder with two ways of arriving, off on both counts until this phone asks.
 - **Targets are per Baby. Day Start is per Household.** Two Babies of different ages share no interval, but they must share a day boundary or "yesterday" means two things inside one Household.
 - **Stated, never learned.** Seeded once at Baby creation from the age table below, never re-derived, never averaged from the log. Schedule settings renders the current band's typical value as a **static hint beside the field** (`typical at 3 months: 2h`) — no state, no dismissal flag to sync, never on the home screen.
 - **Nothing is ever materialised.** No expected Entry is written; every due figure is a display-time fold.
@@ -699,7 +700,7 @@ The home screen already answers *when did she last eat*; the timeline already an
 
 A **Device Setting** belongs to one Device alone and **never enters the sync log**. This is a carve-out on "one log for everything" (§5.1) and it is load-bearing: without it, mum dismissing the install banner hides it on Oma's phone, where the app is not installed and the risk is real.
 
-Four instances in v1, which is what made it a category rather than an exception:
+Six instances in v1, which is what made it a category rather than an exception:
 
 | Setting | Why it is per Device |
 |---|---|
@@ -707,8 +708,10 @@ Four instances in v1, which is what made it a category rather than an exception:
 | Install banner dismissal | Depends on this phone not having been installed |
 | Language preference | Per Member, mirrored into a cookie and a synchronous rune for first paint |
 | Feeding default (*Breast* / *Bottle · breast milk* / *Bottle · formula*) | How feeds usually happen on this phone: mum breastfeeds, Oma bottles. Stated in Settings, never learned from the log; choosing differently in the sheet is session-local |
+| Pee & poop default (*Nappy* / *Potty* / *Toilet*) | Where it lands is a fact about this phase of this child's life, stated once rather than re-tapped forty times a week |
+| Bottle Chime (off / on) | Whether this phone should make a noise: the one in the room with the baby, not the one beside a sleeping partner ([ADR-0029](../../docs/adr/0029-the-bottle-chime-is-a-device-setting.md)) |
 
-v2 push preferences will be the fifth. The test is whether the setting answers a question about *this phone* rather than about the Household.
+The Bottle Chime's push subscription is the same rule taken to its end: there is no notification preference at all, because the subscription *is* the setting (§9.6). The test is whether the setting answers a question about *this phone* rather than about the Household.
 
 ### 9.5 i18n
 
@@ -720,6 +723,19 @@ v2 push preferences will be the fifth. The test is whether the setting answers a
 - **The switch**: the preference lives in the account record (already replicated locally), mirrored into a synchronous `$state` rune that a `custom-account` strategy reads. **It must be synchronous** — `getLocale()` silently skips promise-returning custom strategies. A cookie mirror keeps the first paint correct. Switching writes the record, updates cookie and rune, calls `setLocale(next, { reload: false })`, and re-renders via one root `{#key}`. **Deliberately not the default reload**: offline, a reload is answered from cache, and a cached document has the old language baked into its markup.
 - **Rejected**: `sveltekit-i18n` (no plural modifier at all — it cannot spell Romanian correctly), `svelte-i18n` (its own SvelteKit guide mutates a process-global store in `hooks.server.ts`, a cross-request language leak that in a Household app renders one Member's page in another's language), `typesafe-i18n` (its positional syntax reads three slots as zero|one|other, so the obvious Romanian spelling silently renders "2 de minute").
 - **Formatting** uses `Intl.RelativeTimeFormat`, `Intl.DateTimeFormat` and `Intl.NumberFormat` throughout. Metric only.
+
+### 9.6 Push — the one notification this app sends
+
+[ADR-0030](../../docs/adr/0030-a-push-is-the-bottle-chime-reaching-a-sleeping-phone.md). The Bottle Chime, and nothing else: ten minutes before a started bottle's Life runs out, to the Devices that switched the chime on. No overdue-Feed notification, no Wake Window, no Stale Session — the reminder that earned this is one where being late is the same as being absent.
+
+- **The subscription is the setting.** One row per Device, alive exactly while that phone's chime is on and its browser has granted permission. Switching the chime off deletes it, signing out deletes it, removal deletes it (a notification is access), and Erasure takes it with the Household. There is no `notify` flag anywhere, which is §2's constraint kept by having nothing to keep in step.
+- **The due instant is computed once, in the domain.** The notifier imports `bottlesNearingEnd` — the same fold the timeline row draws from — so the server and every Device agree by construction. §6.5's promise, paid.
+- **Payloads are encrypted to the Device** (RFC 8291, aes128gcm), written against the RFCs with `node:crypto` rather than a dependency. The push service forwards ciphertext, which is what makes it safe for the notification to name the Baby.
+- **VAPID keys live in the volume** (`/data/vapid.json`), generated on first boot like the session key. No environment variable, nothing for an operator to configure. Losing them costs subscriptions, not data.
+- **A thirty-second server tick**, unref'd beside the nightly backup, doing nothing at all while no Device is subscribed. It is *not* where past bottles are closed — that stays in the push and pull path (ADR-0017), where being late is harmless.
+- **Once per bottle per Device.** Only a delivered notice is recorded, so a push service having a bad minute is retried while the bottle is still inside its last ten minutes; a 404 or 410 drops the subscription and nothing else does.
+- **iOS needs the app installed**, which is what §9.3's install nudge was already for. The switch in Settings reports what the browser allowed — woken when closed, blocked, or this-browser-cannot — because those are three different promises.
+- **It stops at the notification**: no action buttons, no badge count, nothing logged. Tapping opens the timeline, where the row states the figure.
 
 ---
 
@@ -749,7 +765,7 @@ Thirteen ADRs, in [`docs/adr/`](../../docs/adr/). Read these before changing any
 
 Nothing architectural. What survives is genuinely later work, and each is pinned enough that it arrives without a migration.
 
-**v2 push notifications.** Delivery only. iOS delivers web push **only to installed PWAs**, so v1's install nudge is the precondition for v2 on an iPhone and the feasibility question is *how many Devices actually installed*, not whether the platform allows it. Still open: permission prompt placement, and what a notification does when the Device has been offline for a day.
+**Push notifications.** Built, for exactly one thing: the Bottle Chime reaching a phone whose screen is off (§9.6, [ADR-0030](../../docs/adr/0030-a-push-is-the-bottle-chime-reaching-a-sleeping-phone.md)). iOS delivers web push **only to installed PWAs**, so the install nudge is the precondition on an iPhone and Settings says so where a Member can act on it. What stays open is every *other* notification — an overdue Feed, a Wake Window, a Stale Session — none of which is sent, and none of which should be until something as concrete as a bottle running out justifies it.
 
 **v3 growth charts.** Data source, licensing and rendering for WHO percentile curves. Untouched by this map.
 

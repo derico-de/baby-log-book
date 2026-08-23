@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	anchorInstant,
 	bottleLife,
+	bottlesNearingEnd,
 	bottleTargetOf,
+	BOTTLE_CHIME_LEAD_MS,
 	dueInstant,
 	pastBottleRevision,
 	headerState,
@@ -183,6 +185,67 @@ describe('a past bottle', () => {
 		);
 		expect(revision.author_id).toBeNull();
 		expect(revision.fields).toEqual({ ended_at: iso('2026-08-17T13:50:00Z') });
+	});
+});
+
+describe('a bottle nearing its end', () => {
+	/* The bottle Target is an hour, so a bottle started at 13:00 is due at 14:00
+	   and its last ten minutes begin at 13:50. */
+	const started = iso('2026-08-17T13:00:00Z');
+	const open = entry({ id: 'f1', type: 'bottle_feed', occurred_at: started });
+
+	it('says nothing until the last ten minutes have begun', () => {
+		expect(bottlesNearingEnd([open], [bottleTarget], iso('2026-08-17T13:49:00Z'))).toEqual([]);
+	});
+
+	it('names the bottle once the last ten minutes have begun', () => {
+		expect(bottlesNearingEnd([open], [bottleTarget], iso('2026-08-17T13:51:00Z'))).toEqual(['f1']);
+	});
+
+	it('says nothing about a bottle already past its Life — that Feed is over', () => {
+		expect(bottlesNearingEnd([open], [bottleTarget], iso('2026-08-17T14:01:00Z'))).toEqual([]);
+	});
+
+	it('says nothing at the due instant itself', () => {
+		expect(bottlesNearingEnd([open], [bottleTarget], iso('2026-08-17T14:00:00Z'))).toEqual([]);
+	});
+
+	it('touches nothing that is not an open bottle', () => {
+		const stopped = entry({ type: 'bottle_feed', occurred_at: started, ended_at: started + 60_000 });
+		const breast = entry({ type: 'breast_feed', occurred_at: started });
+		const deleted = entry({ type: 'bottle_feed', occurred_at: started, deleted_at: started });
+		const merged = entry({ type: 'bottle_feed', occurred_at: started, merged_into: 'f9' });
+		const at = iso('2026-08-17T13:55:00Z');
+		expect(bottlesNearingEnd([stopped, breast, deleted, merged], [bottleTarget], at)).toEqual([]);
+	});
+
+	it('counts against the seeded hour for a Baby with no stored bottle Target', () => {
+		const at = iso('2026-08-17T13:55:00Z');
+		expect(bottlesNearingEnd([open], [feedTarget, sleepTarget], at)).toEqual(['f1']);
+	});
+
+	it('reads each Baby against their own Target, and speaks for both', () => {
+		const sibling = entry({ id: 'f2', type: 'bottle_feed', occurred_at: iso('2026-08-17T13:30:00Z') });
+		sibling.baby_id = 'b2';
+		const short: Target = { ...bottleTarget, id: 't9', baby_id: 'b2', duration_s: 1800 };
+		const at = iso('2026-08-17T13:55:00Z');
+		expect(bottlesNearingEnd([open, sibling], [bottleTarget, short], at)).toEqual(['f1', 'f2']);
+	});
+
+	it('never sounds at the start of a Life shorter than the lead: the warning is halved instead', () => {
+		/* Ten minutes of warning on a ten-minute Life would be the feed itself. */
+		const short: Target = { ...bottleTarget, duration_s: 600 };
+		expect(bottlesNearingEnd([open], [short], started + 60_000)).toEqual([]);
+		expect(bottlesNearingEnd([open], [short], started + 6 * 60_000)).toEqual(['f1']);
+	});
+
+	it('says nothing when the Household has typed a Life of nothing', () => {
+		const none: Target = { ...bottleTarget, duration_s: 0 };
+		expect(bottlesNearingEnd([open], [none], iso('2026-08-17T13:55:00Z'))).toEqual([]);
+	});
+
+	it('warns ten minutes ahead', () => {
+		expect(BOTTLE_CHIME_LEAD_MS).toBe(10 * 60_000);
 	});
 });
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { feedingDefault, setFeedingDefault } from './device';
+import { bottleChime, feedingDefault, setBottleChime, setFeedingDefault } from './device';
 
 describe('the feeding default, a Device Setting', () => {
 	beforeEach(() => {
@@ -29,5 +29,32 @@ describe('the feeding default, a Device Setting', () => {
 	it('lives in localStorage like the other Device Settings, which is what keeps it out of the sync log', () => {
 		setFeedingDefault('bottle_formula');
 		expect(localStorage.getItem('blb.feedingDefault')).toBe('bottle_formula');
+	});
+});
+
+describe('the bottle chime, a Device Setting', () => {
+	beforeEach(() => {
+		localStorage.clear();
+	});
+
+	it('is off until this phone asks for it — no Device that never asked makes a noise', () => {
+		expect(bottleChime()).toBe(false);
+	});
+
+	it('round-trips both states', () => {
+		setBottleChime(true);
+		expect(bottleChime()).toBe(true);
+		setBottleChime(false);
+		expect(bottleChime()).toBe(false);
+	});
+
+	it('reads a value it has never heard of as off, which is the silent side', () => {
+		localStorage.setItem('blb.bottleChime', 'vibrate');
+		expect(bottleChime()).toBe(false);
+	});
+
+	it('lives in localStorage like the other Device Settings, which keeps it out of the sync log', () => {
+		setBottleChime(true);
+		expect(localStorage.getItem('blb.bottleChime')).toBe('1');
 	});
 });

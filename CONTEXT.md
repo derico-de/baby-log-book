@@ -168,6 +168,14 @@ _Avoid_: Awake window, sleep schedule, sleep interval
 The Target for a started bottle — how long the Household is willing to go on offering one — measured from the Feed's start. A number a Member typed, never a health guideline the app fetched, and the countdown it drives is on the bottle that is still open rather than on the Baby. Because the Feed's start is the only instant the model has, it reads younger than the milk whenever the bottle was made up earlier. When it runs out, the server ends the Feed at the due instant, attributed to the app (ADR-0017).
 _Avoid_: Freshness, expiry, shelf life, safe until
 
+**Bottle Chime**:
+The reminder a Device gives ten minutes before a started bottle's Life runs out, so the rest of it can be offered while there is still time. Two soft notes when the app is open, and a notification when it is not (ADR-0030) — one thing with two ways of arriving, because a phone in a pocket at 3am is the case it exists for. A Device Setting and off until someone switches it on: the same bottle is open on every Device, and whether a sound is wanted is a question about the phone in the room rather than about the Household. It sounds once per bottle, and says nothing the row was not already saying — the countdown addressed to someone who is not looking at it.
+_Avoid_: Alarm, alert, timer going off
+
+**Push Subscription**:
+What one Device's browser mints so this deployment can wake it, held on the server for as long as that phone's Bottle Chime is on. It is the setting rather than a record of it: there is no notification preference anywhere, and the subscription ends when the chime is switched off, when the Device signs out, or when the Member is Removed. Never a Revision and never in the log — it is a fact about one phone's relationship with a push service, not about the Baby. What travels through that service is encrypted to the Device, so the name in a notification is readable only on the phone it was sent to.
+_Avoid_: Notification setting, push token, registration
+
 **Live Session**:
 A Feed or Sleep that has started but not yet ended. Visible as a running timer on every Member's device.
 _Avoid_: Active entry, open session, timer

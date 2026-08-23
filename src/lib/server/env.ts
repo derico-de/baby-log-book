@@ -20,6 +20,9 @@ export interface Config {
 	dbPath: string;
 	backupDir: string;
 	secretPath: string;
+	/** The VAPID keypair, beside the session key and for the same reason: an
+	    operator configures nothing, and losing it costs only re-subscribing. */
+	vapidPath: string;
 	/** Off by default. Behind an unknown proxy topology an untrusted
 	    `X-Forwarded-For` is a forged client IP walking through the rate limit. */
 	trustProxy: boolean;
@@ -67,6 +70,7 @@ export function readConfig(source: Record<string, string | undefined> = env): Co
 		dbPath: `${dataDir}/app.db`,
 		backupDir: `${dataDir}/backups`,
 		secretPath: `${dataDir}/secret.key`,
+		vapidPath: `${dataDir}/vapid.json`,
 		trustProxy: truthy(source.TRUST_PROXY),
 		sessionSecretOverride: source.SESSION_SECRET && source.SESSION_SECRET !== '' ? source.SESSION_SECRET : null
 	};

@@ -6,6 +6,9 @@
 	import { page } from '$app/state';
 	import { app } from '$client/state.svelte';
 	import { configurePwa, registerWorker, watchForColdLaunch, watchInstallPrompt } from '$client/pwa';
+	import { primeChime } from '$client/chime';
+	import { resumePush } from '$client/push';
+	import { bottleChime } from '$client/device';
 	import { requestUpdate } from '$client/pwa';
 	import { activeLocale } from '$lib/i18n/locale.svelte';
 	import TabBar from '$lib/components/TabBar.svelte';
@@ -30,10 +33,21 @@
 		});
 		watchForColdLaunch();
 		watchInstallPrompt();
+		/* The first touch anywhere is what buys the Bottle Chime its voice: a
+		   browser keeps an audio context suspended until someone has interacted
+		   with the page, and the chime comes an hour after that touch (ADR-0029).
+		   Harmless on a Device with the setting off — priming makes no sound. */
+		window.addEventListener('pointerdown', primeChime, { once: true });
 		void app.start().then(() => {
 			/* The worker registers only after a Claim has succeeded — which, on a
 			   Device that already has an identity, is true by the time we get here. */
-			if (app.identity) void registerWorker();
+			if (app.identity) {
+				void registerWorker();
+				/* And a Device whose chime is on re-states its push subscription, which
+				   a browser may have rotated and a reinstall will have dropped. Never
+				   prompts: no permission, no subscription, nothing happens (ADR-0030). */
+				if (bottleChime()) void resumePush();
+			}
 		});
 	});
 

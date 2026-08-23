@@ -14,6 +14,13 @@ import { claim, mintBootstrap, mintInvite, mintRescue, listPendingInvites } from
 import { createSession, resolveSession, revokeMember } from './auth';
 import { getEntry, getHousehold, getMember, insertRevision, listMembers, materialise, revisionsOf } from './store';
 import { listenerCount, subscribe, wake } from './live';
+import {
+	deleteMemberSubscriptions,
+	deleteOwnSubscription,
+	listSubscriptions,
+	planNotices,
+	saveSubscription
+} from './notify';
 import type { PendingRevision, Role } from '$domain/types';
 
 const BERLIN = 'Europe/Berlin';
@@ -499,5 +506,74 @@ describe('the wake signal', () => {
 		} finally {
 			off();
 		}
+	});
+});
+
+describe('push subscriptions', () => {
+	/** Two phones, one in each Household, both asking to be told about bottles. */
+	function subscribed() {
+		saveSubscription(db, {
+			endpoint: 'https://push.example.com/a',
+			p256dh: 'p',
+			auth: 'a',
+			householdId: 'A',
+			memberId: 'a-mum',
+			deviceId: 'phone-a',
+			now: NOW
+		});
+		saveSubscription(db, {
+			endpoint: 'https://push.example.com/b',
+			p256dh: 'p',
+			auth: 'a',
+			householdId: 'B',
+			memberId: 'b-mum',
+			deviceId: 'phone-b',
+			now: NOW
+		});
+	}
+
+	it('lists only the Household that owns them', () => {
+		subscribed();
+		expect(listSubscriptions(db, 'A').map((s) => s.endpoint)).toEqual(['https://push.example.com/a']);
+		expect(listSubscriptions(db, 'B').map((s) => s.endpoint)).toEqual(['https://push.example.com/b']);
+	});
+
+	it('never tells one Household about the other Household\'s bottle', () => {
+		subscribed();
+		/* B's Baby has a bottle open and nearly out; A's has nothing. */
+		fromB([bottle('b-bottle', 'b-baby', NOW)], 'parent', 'b-mum', NOW);
+		const notices = planNotices(db, NOW + 55 * 60_000);
+		expect(notices.map((n) => n.entry.id)).toEqual(['b-bottle']);
+		expect(notices.flatMap((n) => n.subscriptions.map((s) => s.endpoint))).toEqual([
+			'https://push.example.com/b'
+		]);
+	});
+
+	it('refuses to silence a Device belonging to someone else', () => {
+		subscribed();
+		/* An endpoint is a client-supplied id, and one of those is never a
+		   capability (ADR-0020). */
+		expect(deleteOwnSubscription(db, 'https://push.example.com/b', 'a-mum')).toBe(0);
+		expect(listSubscriptions(db, 'B').length).toBe(1);
+		expect(deleteOwnSubscription(db, 'https://push.example.com/a', 'a-mum')).toBe(1);
+	});
+
+	it('removes only the named Member\'s own subscriptions', () => {
+		subscribed();
+		expect(deleteMemberSubscriptions(db, 'a-mum')).toBe(1);
+		expect(listSubscriptions(db, 'B').length).toBe(1);
+	});
+
+	it('is dropped when that Member is removed from their own Household', () => {
+		subscribed();
+		revokeMember(db, 'A', 'a-mum', NOW);
+		expect(listSubscriptions(db, 'A')).toEqual([]);
+		expect(listSubscriptions(db, 'B').length).toBe(1);
+	});
+
+	it('survives a removal attempted from the wrong Household', () => {
+		subscribed();
+		revokeMember(db, 'A', 'b-mum', NOW);
+		expect(listSubscriptions(db, 'B').length).toBe(1);
 	});
 });

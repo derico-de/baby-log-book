@@ -5,7 +5,7 @@ milestones — kept by the people who look after them, on phones that are often
 offline. Self-hosted: one container, one volume, your data.
 
 The design is written down before the code: the vocabulary in
-[`CONTEXT.md`](CONTEXT.md), the thirteen decisions in [`docs/adr/`](docs/adr/),
+[`CONTEXT.md`](CONTEXT.md), the decisions in [`docs/adr/`](docs/adr/),
 and the shape of the thing in [`.scratch/baby-log-book/spec.md`](.scratch/baby-log-book/spec.md).
 Read those before changing anything structural.
 
@@ -23,6 +23,10 @@ Read those before changing anything structural.
 - **Export**: a zip of per-type CSVs. Everything, always.
 - **Offline sync** with a full local replica, a durable outbox and silent
   conflict resolution.
+- **One notification, if a phone asks for it**: ten minutes before a started
+  bottle's life runs out, so the rest of it can be offered while there is still
+  time. Off until switched on, per device, and it needs nothing configured —
+  the signing key is generated in the volume on first boot.
 - **Three languages** (English, German, Romanian), metric only.
 
 ## Running it
@@ -59,7 +63,7 @@ that bite — is in [`docs/deployment.md`](docs/deployment.md).
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `ORIGIN` | — | **Required.** The public URL Members open. Every Claim Link is built from it, so the container refuses to start without one. The session cookie gets `Secure` if and only if this is `https`, which is why `http://localhost:3000` works with no dev-only flag. |
-| `DATA_DIR` | `/data` | Where the database, its backups and the session key live. |
+| `DATA_DIR` | `/data` | Where the database, its backups, the session key and the push signing key live. |
 | `TRUST_PROXY` | off | Trust `X-Forwarded-For` for the claim rate limit. Leave it off unless you know your proxy overwrites that header. |
 | `PORT` | `3000` | The port inside the container. |
 | `SESSION_SECRET` | — | Overrides the key in the volume. Only for a deliberate rotation: setting it signs out every device. |

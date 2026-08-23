@@ -21,6 +21,7 @@ const INSTALL_DISMISSED_KEY = 'blb.installDismissed';
 const LOCALE_KEY = 'blb.locale';
 const FEEDING_DEFAULT_KEY = 'blb.feedingDefault';
 const WHERE_DEFAULT_KEY = 'blb.whereDefault';
+const BOTTLE_CHIME_KEY = 'blb.bottleChime';
 
 export type AppearanceOverride = 'auto' | 'day' | 'night';
 export type FeedingDefault = 'breast' | 'bottle_breast_milk' | 'bottle_formula';
@@ -92,6 +93,23 @@ export function whereDefault(): Where {
 
 export function setWhereDefault(value: Where): void {
 	write(WHERE_DEFAULT_KEY, value);
+}
+
+/** Whether this phone chimes ten minutes before a started bottle's Life runs
+    out (ADR-0029). A Device Setting, and one of the clearest cases for the
+    category: whether a sound is wanted is a question about *this* phone — the
+    one in the room with the baby, rather than the one on a sleeping partner's
+    bedside table or in Oma's handbag. Off until someone switches it on, so no
+    Device in a Household that never asked for it ever makes a noise.
+
+    A value from a newer release that is not the switched-on string reads as
+    off, which is the silent side. */
+export function bottleChime(): boolean {
+	return read(BOTTLE_CHIME_KEY) === '1';
+}
+
+export function setBottleChime(value: boolean): void {
+	write(BOTTLE_CHIME_KEY, value ? '1' : '0');
 }
 
 /** The Household's Day Start, mirrored where the resolver can read it

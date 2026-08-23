@@ -162,6 +162,49 @@ export function bottleLife(entry: Entry, target: Target, now: number): BottleLif
 	};
 }
 
+/** How long before a bottle's Life runs out the Bottle Chime sounds. Fixed,
+    and deliberately not a fourth Target: it is not an interval anyone is
+    keeping to — it is how much warning is useful, and ten minutes is enough to
+    offer the rest of a bottle before its Life is up (ADR-0029).
+
+    Clamped to half the Life below, so a Household that has typed a short
+    number still gets a chime that means *nearly out* rather than one that
+    sounds as the feed starts. */
+export const BOTTLE_CHIME_LEAD_MS = 10 * 60_000;
+
+/** The open bottles now inside their last stretch — the ids the Bottle Chime
+    sounds for, once each.
+
+    It says nothing about how long a bottle has left beyond *this one is nearly
+    out*: the row already prints the countdown, and this exists so a Member who
+    put the bottle down is reminded to offer the rest while there is still time
+    (ADR-0029). Past bottles are excluded — their Feed is over, and the server
+    has already ended it (ADR-0017).
+
+    Every Baby in the Household, not just the one the timeline is showing: the
+    bottle that is running out is running out whichever name is at the top of
+    the screen. */
+export function bottlesNearingEnd(
+	entries: Entry[],
+	targets: Target[],
+	now: number,
+	leadMs: number = BOTTLE_CHIME_LEAD_MS
+): string[] {
+	const ids: string[] = [];
+	for (const e of entries) {
+		if (e.type !== 'bottle_feed' || e.ended_at != null || !live(e)) continue;
+		const target = bottleTargetOf(
+			targets.filter((t) => t.baby_id === e.baby_id),
+			e.baby_id
+		);
+		if (target.duration_s <= 0) continue;
+		const lead = Math.min(leadMs, (target.duration_s * 1000) / 2);
+		const remaining = dueInstant(target, e.occurred_at) - now;
+		if (remaining > 0 && remaining <= lead) ids.push(e.id);
+	}
+	return ids;
+}
+
 export interface PastBottle {
 	entry_id: string;
 	/** The bottle's due instant — the Feed ends when the bottle did, not when

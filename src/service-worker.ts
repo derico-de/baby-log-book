@@ -49,6 +49,48 @@ sw.addEventListener('message', (event) => {
 	if ((event.data as { type?: string })?.type === 'skip-waiting') void sw.skipWaiting();
 });
 
+/* The Bottle Chime, when the phone is asleep (ADR-0030).
+
+   The payload arrives encrypted to this Device and is decrypted by the browser
+   before it gets here, so what the push service carried was ciphertext. The
+   text is composed on the server, in the Member's own language: this worker has
+   no locale of its own — it is one file for every Household on the deployment —
+   and a notification in the wrong language at 3am is worse than none. */
+sw.addEventListener('push', (event) => {
+	let notice: { title?: string; body?: string; tag?: string } = {};
+	try {
+		notice = (event.data?.json() ?? {}) as typeof notice;
+	} catch {
+		/* Something we did not send, or nothing at all. A push must still show
+		   something — the permission was granted on that promise. */
+	}
+	event.waitUntil(
+		sw.registration.showNotification(notice.title ?? 'Baby Log Book', {
+			body: notice.body ?? '',
+			/* One notification per bottle: a second tick replaces it rather than
+			   stacking a pile of them on the lock screen. */
+			tag: notice.tag ?? 'blb',
+			icon: '/icons/icon-192.png',
+			badge: '/icons/icon-192.png'
+		})
+	);
+});
+
+/* Straight into the app, and into the one that is already open if there is one:
+   the notification exists to get someone looking at the timeline. */
+sw.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	event.waitUntil(
+		(async () => {
+			const open = await sw.clients.matchAll({ type: 'window', includeUncontrolled: true });
+			for (const client of open) {
+				if ('focus' in client) return client.focus();
+			}
+			return sw.clients.openWindow('/');
+		})()
+	);
+});
+
 sw.addEventListener('fetch', (event) => {
 	const request = event.request;
 	if (request.method !== 'GET') return;

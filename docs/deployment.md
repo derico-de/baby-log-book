@@ -259,3 +259,16 @@ the proxy out of it.
 One consequence worth knowing before you host somebody else's log: the nightly
 backup is the whole file, so a restore rolls **every** household back to that
 night.
+
+### Outbound HTTPS, for the one notification
+
+A phone that has switched its bottle chime on is woken by a push, which the
+container sends **outbound** to whichever push service that browser uses —
+`*.googleapis.com` for Chrome and Android, `*.push.apple.com` for Safari and
+iOS. Nothing needs opening inbound and the proxy is not involved. If your egress
+is locked down, that traffic is what to allow; if it stays blocked, everything
+else keeps working and the chime simply only sounds while the app is open.
+
+The signing key it uses is generated in the volume as `/data/vapid.json` on
+first boot. Deleting it costs every device its subscription — each one switches
+the chime off and on again to get a new one — and costs no data.

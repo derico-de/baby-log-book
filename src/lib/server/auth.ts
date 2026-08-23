@@ -148,6 +148,12 @@ export function revokeMember(db: Db, householdId: string, memberId: string, now:
 			   AND EXISTS (SELECT 1 FROM members m WHERE m.id = sessions.member_id AND m.household_id = ?)`
 		)
 		.run(now, memberId, householdId);
+	/* And every push subscription with them: a notification is access, and access
+	   is what removal ends (ADR-0030). Scoped by the same Household guard — a
+	   member id is a client-supplied id (ADR-0020). */
+	db.prepare(
+		`DELETE FROM push_subscriptions WHERE member_id = ? AND household_id = ?`
+	).run(memberId, householdId);
 	return info.changes;
 }
 

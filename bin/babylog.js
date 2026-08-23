@@ -415,7 +415,8 @@ export const UNSWEPT_TABLES = {
 	households: 'the row being deleted',
 	sessions: 'reached through its Member',
 	claim_links: 'reached through the Household or its Members',
-	_migrations: "the deployment's, not any Household's"
+	_migrations: "the deployment's, not any Household's",
+	push_sent: "reached through the Household's push subscriptions"
 };
 
 /** Every table the schema keys by Household, asked of the file rather than
@@ -498,8 +499,22 @@ function erase(db, id) {
 				     OR member_id IN (SELECT id FROM members WHERE household_id = ?)`
 			)
 			.run(id, id).changes;
+		/* The push subscriptions hang off Members too, and what was said to them
+		   hangs off the subscriptions — so both go here, ahead of the sweep. */
+		removed.push_sent = db
+			.prepare(
+				`DELETE FROM push_sent
+				  WHERE endpoint IN (SELECT endpoint FROM push_subscriptions WHERE household_id = ?)`
+			)
+			.run(id).changes;
+		removed.push_subscriptions = db
+			.prepare('DELETE FROM push_subscriptions WHERE household_id = ?')
+			.run(id).changes;
 		for (const table of swept) {
-			removed[table] = db.prepare(`DELETE FROM "${table}" WHERE household_id = ?`).run(id).changes;
+			/* Added to, never overwritten: a table the steps above already emptied
+			   for a reason of its own must keep the count it reported. */
+			const gone = db.prepare(`DELETE FROM "${table}" WHERE household_id = ?`).run(id).changes;
+			removed[table] = (removed[table] ?? 0) + gone;
 		}
 		removed.households = db.prepare('DELETE FROM households WHERE id = ?').run(id).changes;
 	})();
@@ -520,7 +535,9 @@ const AS_SPOKEN = {
 	foods: ['food', 'foods'],
 	targets: ['target', 'targets'],
 	sessions: ['device', 'devices'],
-	claim_links: ['link', 'links']
+	claim_links: ['link', 'links'],
+	push_subscriptions: ['notification subscription', 'notification subscriptions'],
+	push_sent: ['sent notification', 'sent notifications']
 };
 
 /** One line from stdin, read without the stream API — everything here is

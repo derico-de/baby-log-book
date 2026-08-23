@@ -15,10 +15,14 @@
         needs no command at all. That line is the first thing a new operator sees
         after `docker run`, and it has to stand alone. Further Households are
         founded from the CLI (`babylog household`), never from boot.
-     7. Start the nightly backup timer. */
+     7. Start the nightly backup timer, and the push notifier beside it — one
+        more unref'd interval, doing nothing at all until some Device has asked
+        to be told a bottle is nearly out (ADR-0030). */
 
 import { mintBootstrap } from './claims';
 import { loadSecret } from './auth';
+import { startNotifier } from './notify';
+import { loadVapidKeys, type VapidKeys } from './webpush';
 import { openDb, type Db } from './db';
 import { BootError, readConfig, VERSION, type Config } from './env';
 import { pendingMigrations, runMigrations } from './migrations';
@@ -28,6 +32,7 @@ export interface Boot {
 	db: Db;
 	config: Config;
 	secret: Buffer;
+	vapid: VapidKeys;
 }
 
 let booted: Boot | null = null;
@@ -104,7 +109,12 @@ export function boot(): Boot {
 
 	startNightlyBackups(db, config.backupDir, log);
 
-	booted = { db, config, secret };
+	/* The subject a push service is given to complain to. A self-hosted Book has
+	   no support address, and its own origin is the honest answer. */
+	const vapid = loadVapidKeys(config.vapidPath);
+	startNotifier(db, { keys: vapid, subject: config.origin, log });
+
+	booted = { db, config, secret, vapid };
 	return booted;
 }
 

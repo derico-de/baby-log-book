@@ -24,9 +24,11 @@
 	import { buildExportZip, saveBlob } from '$client/export';
 	import {
 		appearanceOverride,
+		bottleChime,
 		deviceZone,
 		feedingDefault,
 		setAppearanceOverride,
+		setBottleChime,
 		setFeedingDefault,
 		setWhereDefault,
 		whereDefault,
@@ -34,6 +36,8 @@
 		type FeedingDefault
 	} from '$client/device';
 	import { canPromptInstall, isStandalone, promptInstall, requestUpdate } from '$client/pwa';
+	import { playChime, primeChime } from '$client/chime';
+	import { disablePush, enablePush, type PushOutcome } from '$client/push';
 	import { ANCHOR_FOR, bottleTargetOf, typicalFor } from '$domain/targets';
 	import { ageInMonths } from '$domain/time';
 	import { EMPTY_FILTER } from '$domain/filter';
@@ -57,6 +61,11 @@
 	let appearance = $state<AppearanceOverride>('auto');
 	let feeding = $state<FeedingDefault>('breast');
 	let where = $state<Where>('nappy');
+	let chime = $state(false);
+	/** What the browser allowed, said plainly under the switch: a chime that can
+	    only sound with the app open is a different promise from one that wakes
+	    the phone, and the Member has to know which they have (ADR-0030). */
+	let chimeReach = $state<PushOutcome | null>(null);
 	let invites = $state<PendingInvite[]>([]);
 	let inviteName = $state('');
 	let inviteRole = $state<'parent' | 'caregiver'>('caregiver');
@@ -83,6 +92,7 @@
 		appearance = appearanceOverride();
 		feeding = feedingDefault();
 		where = whereDefault();
+		chime = bottleChime();
 		installed = isStandalone();
 		if (isParent) void loadInvites();
 	});
@@ -418,6 +428,46 @@
 					{/each}
 				</fieldset>
 				<small class="hint">{m.settings_where_default_hint()}</small>
+
+				<!-- Off until this phone asks for it: whether a sound is wanted is a
+				     question about this phone, not about the Household, and no Device
+				     that never asked makes a noise (ADR-0029). Switching it on plays
+				     the chime — which both says what it sounds like and is the touch
+				     that lets the browser make the sound an hour later. -->
+				<h3>{m.settings_bottle_chime()}</h3>
+				<label>
+					<input
+						type="checkbox"
+						checked={chime}
+						onchange={async (event) => {
+							chime = event.currentTarget.checked;
+							setBottleChime(chime);
+							primeChime();
+							chimeReach = null;
+							if (!chime) {
+								await disablePush();
+								return;
+							}
+							/* The switch is the tap a permission prompt has to follow, and
+							   the tap that lets this phone make a sound an hour later. */
+							playChime();
+							chimeReach = await enablePush();
+						}}
+					/>
+					{m.settings_bottle_chime_label()}
+				</label>
+				<small class="hint">{m.settings_bottle_chime_hint()}</small>
+				{#if chime && chimeReach}
+					<small class="hint">
+						{chimeReach === 'on'
+							? m.settings_bottle_chime_push_on()
+							: chimeReach === 'denied'
+								? m.settings_bottle_chime_push_denied()
+								: chimeReach === 'unsupported'
+									? m.settings_bottle_chime_push_unsupported()
+									: m.settings_bottle_chime_push_failed()}
+					</small>
+				{/if}
 
 				<label>
 					{m.settings_language()}

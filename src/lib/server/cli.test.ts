@@ -494,6 +494,17 @@ describe('babylog delete', () => {
 			`INSERT INTO claim_links (token_hash, kind, household_id, member_id, created_at, expires_at)
 			 VALUES (?,?,?,?,?,?)`
 		).run(`link-${tag}`, 'rescue', householdId, memberId, 1, 2);
+		db.prepare(
+			`INSERT INTO push_subscriptions (endpoint, household_id, member_id, device_id, p256dh, auth, created_at)
+			 VALUES (?,?,?,?,?,?,?)`
+		).run(`https://push.example.com/${tag}`, householdId, memberId, 'device', 'p', 'a', 1);
+		/* Reached through the subscription rather than by a household_id of its
+		   own, which is why the erasure names it and this seeds it. */
+		db.prepare('INSERT INTO push_sent (entry_id, endpoint, sent_at) VALUES (?,?,?)').run(
+			`entry-${tag}`,
+			`https://push.example.com/${tag}`,
+			1
+		);
 	}
 
 	const attempt = (env: NodeJS.ProcessEnv, answer: string, ...args: string[]) =>
@@ -562,6 +573,12 @@ describe('babylog delete', () => {
 			expect(after.prepare('SELECT COUNT(*) AS n FROM claim_links').get()).toEqual({ n: 1 });
 			expect(after.prepare('SELECT member_id FROM sessions').get()).toEqual({ member_id: 'b-mum' });
 			expect(after.prepare('SELECT member_id FROM claim_links').get()).toEqual({ member_id: 'b-mum' });
+			/* What was pushed to those Devices goes with them — it hangs off the
+			   subscriptions, not off a household_id the sweep could find. */
+			expect(after.prepare('SELECT COUNT(*) AS n FROM push_sent').get()).toEqual({ n: 1 });
+			expect(after.prepare('SELECT endpoint FROM push_sent').get()).toEqual({
+				endpoint: 'https://push.example.com/b'
+			});
 
 			/* Household #2 still has one of everything. */
 			for (const table of tablesWithHousehold(after)) {

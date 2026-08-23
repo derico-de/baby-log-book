@@ -3,6 +3,7 @@ import { isResponse, requireMember, versionBlock } from '$server/api';
 import { cookieOptions, listDevices, revokeSession, SESSION_COOKIE } from '$server/auth';
 import { boot } from '$server/boot';
 import { currentCursor, getHousehold } from '$server/store';
+import { deleteDeviceSubscriptions } from '$server/notify';
 
 export const prerender = false;
 
@@ -35,6 +36,11 @@ export const GET: RequestHandler = async (event) => {
 export const DELETE: RequestHandler = async (event) => {
 	const { db, secret, config } = boot();
 	const token = event.cookies.get(SESSION_COOKIE);
+	/* Before the session goes, so the Member and Device are still known: a phone
+	   that has signed out must stop being told about bottles (ADR-0030). */
+	const member = event.locals.member;
+	const session = event.locals.session;
+	if (member && session) deleteDeviceSubscriptions(db, member.id, session.device_id);
 	if (token) revokeSession(db, secret, token, Date.now());
 	event.cookies.delete(SESSION_COOKIE, cookieOptions(config.secure));
 	return json({ ok: true });

@@ -6,16 +6,17 @@
    Nothing in this file materialises anything (spec §3.5). */
 
 import { EMPTY_FILTER, filterEntries, isFiltered, type Filter, type FilterContext } from '$domain/filter';
-import { bottleTargetOf, headerState, type HeaderState } from '$domain/targets';
+import { bottleTargetOf, bottlesNearingEnd, headerState, type HeaderState } from '$domain/targets';
 import { staleSleepState, type StaleState } from '$domain/sleep';
 import { addDays, dayBucketOf } from '$domain/time';
 import { DEFAULT_DAY_START } from '$domain/types';
 import type { Baby, Entry, Food, Household, MemberRecord, Target } from '$domain/types';
 import { checkReplicaSchema, getMeta, META, replica, setMeta, type ReplicaDb } from './db';
-import { deviceZone, mirrorDayStart } from './device';
+import { bottleChime, deviceZone, mirrorDayStart } from './device';
 import { SyncEngine, type SyncStatus } from './sync';
 import type { Writer } from './mutate';
 import { adoptLocale, installLocaleStrategy } from '$lib/i18n/locale.svelte';
+import { playChime } from './chime';
 
 const TICK_MS = 10_000;
 const TOAST_MS = 6000;
@@ -86,6 +87,12 @@ class AppState {
 	private db: ReplicaDb | null = null;
 	private engine: SyncEngine | null = null;
 	private toastTimer: ReturnType<typeof setTimeout> | null = null;
+	/** The bottles this Device has already chimed for, so a bottle chimes once
+	    however many ticks fall inside its last ten minutes. In memory and not in
+	    the replica: it is not a fact about the Baby, and a Device that is
+	    relaunched inside that window is a Device someone has just picked up —
+	    hearing it again there is right rather than wrong (ADR-0029). */
+	private chimed = new Set<string>();
 
 	/* --- derived ------------------------------------------------------ */
 
@@ -479,10 +486,40 @@ class AppState {
 		if (typeof window === 'undefined') return;
 		setInterval(() => {
 			this.now = Date.now();
+			this.checkBottleChime();
 		}, TICK_MS);
 		document.addEventListener('visibilitychange', () => {
-			if (!document.hidden) this.now = Date.now();
+			if (!document.hidden) {
+				this.now = Date.now();
+				this.checkBottleChime();
+			}
 		});
+	}
+
+	/** The Bottle Chime (ADR-0029), ridden on the tick that already runs: a
+	    bottle nears its end by time passing alone, so there is nothing else to
+	    watch and no second timer to keep.
+
+	    The setting is read here rather than mirrored into state — it is a
+	    localStorage string, read at most once every ten seconds, and reading it
+	    at the moment of use means switching it off in Settings silences the very
+	    next tick. */
+	private checkBottleChime(): void {
+		/* Silent means silent: a Device with the setting off keeps no record of
+		   the bottles it did not chime for, so switching it on is answered by the
+		   next tick rather than by a bottle it decided about while quiet. */
+		if (!bottleChime()) {
+			this.chimed.clear();
+			return;
+		}
+		const nearing = bottlesNearingEnd(this.entries, this.targets, this.now);
+		/* Forget the bottles that have gone: the Set holds ids of open bottles
+		   only, so it cannot grow with the log. */
+		for (const id of this.chimed) if (!nearing.includes(id)) this.chimed.delete(id);
+		const fresh = nearing.filter((id) => !this.chimed.has(id));
+		if (fresh.length === 0) return;
+		for (const id of fresh) this.chimed.add(id);
+		playChime();
 	}
 
 	syncNow(): void {
