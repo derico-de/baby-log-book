@@ -104,13 +104,15 @@ describe('the sticky header', () => {
 		expect(text).toContain('Feeding');
 		expect(text).toContain('since last feed');
 		expect(text).toContain('2h10');
-		expect(text).toContain('50m');
+		/* The due line is a countdown against the clock face it lands on. */
+		expect(text).toContain('due -50m at 16:50');
+		expect(host.querySelector('.live-at')?.textContent).toBe('16:50');
 	});
 
 	it('says nothing about a due instant before anything has been logged', () => {
 		const text = draw(LiveHeader, { onFilter: () => {} });
 		expect(text).toContain('no feed logged yet');
-		expect(text).not.toContain('due');
+		expect(host.querySelector('.live-sub')).toBeNull();
 	});
 
 	it('shows asleep instead of a Wake Window while a Sleep runs', () => {
@@ -123,7 +125,10 @@ describe('the sticky header', () => {
 		expect(text).toContain('1h05');
 		expect(text).toContain('since 14:55');
 		expect(text).not.toContain('awake');
-		expect(text).not.toContain('nap due');
+		/* No Wake Window while she sleeps: the sleep column carries no due
+		   instant, only the feed column does. */
+		expect(host.querySelector('.live-cell[data-t="sleep"] .live-at')).toBeNull();
+		expect(host.querySelector('.live-cell[data-t="feed"] .live-at')?.textContent).toBe('18:00');
 	});
 
 	it('shows the awake time and when the nap is due once she is up', () => {
@@ -133,7 +138,7 @@ describe('the sticky header', () => {
 		const text = draw(LiveHeader, { onFilter: () => {} });
 		expect(text).toContain('awake');
 		expect(text).toContain('30m');
-		expect(text).toContain('nap due in 1h30');
+		expect(text).toContain('due -1h30 at 17:30');
 	});
 
 	it('counts today s nappies and states the last poop', () => {
@@ -167,14 +172,26 @@ describe('the sticky header', () => {
 		expect(host.querySelectorAll('.live-cell[data-live="1"]')).toHaveLength(2);
 	});
 
-	it('lets both columns fall back once their sessions carry an end', () => {
+	it('hands the marker to the column that is next due once no session runs', () => {
+		/* Feed due at 18:00, nap due at 17:30 — the nearer instant wins. */
 		app.entries = [
 			entry({ type: 'bottle_feed', occurred_at: NOW - 3600_000, ended_at: NOW - 50 * 60_000 }),
 			entry({ type: 'sleep', occurred_at: NOW - 3 * 3600_000, ended_at: NOW - 30 * 60_000 })
 		];
 		draw(LiveHeader, { onFilter: () => {} });
-		expect(host.querySelectorAll('.live-cell[data-live="1"]')).toHaveLength(0);
-		expect(host.querySelectorAll('.live-cell[data-live="0"]')).toHaveLength(2);
+		expect(host.querySelector('.live-cell[data-t="sleep"]')?.getAttribute('data-live')).toBe('1');
+		expect(host.querySelector('.live-cell[data-t="feed"]')?.getAttribute('data-live')).toBe('0');
+	});
+
+	it('moves the marker to Feeding when the feed is the closer of the two', () => {
+		/* Feed due at 16:20, nap due at 17:00. */
+		app.entries = [
+			entry({ type: 'bottle_feed', occurred_at: NOW - 2 * 3600_000 - 40 * 60_000, ended_at: NOW - 2 * 3600_000 }),
+			entry({ type: 'sleep', occurred_at: NOW - 2 * 3600_000, ended_at: NOW - 3600_000 })
+		];
+		draw(LiveHeader, { onFilter: () => {} });
+		expect(host.querySelector('.live-cell[data-t="feed"]')?.getAttribute('data-live')).toBe('1');
+		expect(host.querySelector('.live-cell[data-t="sleep"]')?.getAttribute('data-live')).toBe('0');
 	});
 });
 

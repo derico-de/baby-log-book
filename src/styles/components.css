@@ -215,9 +215,10 @@
 		align-items: stretch;
 	}
 	/* Each column closes with a 5px bar above the nappy line — the live
-	   marker's track. Quiet hairline grey while idle; the running column's
-	   bar takes the live colour, the overdue line's one-shift grammar with
-	   no badge and no extra word. Text never moves or resizes for it. */
+	   marker's track. Quiet hairline grey while idle; the column to watch —
+	   a running session, or whichever column is next due — takes the live
+	   colour, the overdue line's one-shift grammar with no badge and no extra
+	   word. Text never moves or resizes for it. */
 	.live-cell {
 		padding-bottom: var(--sp-2);
 		border-bottom: 5px solid var(--line);
@@ -261,6 +262,16 @@
 	.live-sub[data-over='1'] {
 		color: var(--warn);
 		font-weight: var(--fw-medium);
+	}
+	/* `-1h19 at 21:18` — the clock face is the half people plan against, so it
+	   is the bold one and keeps the full ink; the countdown beside it stays
+	   quiet. Both sit on tabular figures, so neither jitters as they tick. */
+	.live-at {
+		font-weight: var(--fw-bold);
+		color: var(--ink);
+	}
+	.live-sub[data-over='1'] .live-at {
+		color: inherit;
 	}
 	/* The quiet line mirrors the grid's columns, so the last-poop fact starts
 	   exactly where the Feeding column does. */
