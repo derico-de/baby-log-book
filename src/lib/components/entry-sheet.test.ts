@@ -15,7 +15,7 @@ import { landed } from './test-wait';
 const BERLIN = 'Europe/Berlin';
 const NOW = Date.parse('2026-08-17T14:00:00Z');
 
-const household: Household = { id: 'h1', name: 'Zuhause', day_start: '05:00', zone: BERLIN, feed_notice_s: 0, sleep_notice_s: 0 };
+const household: Household = { id: 'h1', name: 'Zuhause', day_start: '05:00', zone: BERLIN, night_start: null, feed_notice_s: 0, sleep_notice_s: 0 };
 const baby: Baby = { id: 'b1', household_id: 'h1', name: 'Lina', birth_date: '2026-02-17', deleted_at: null };
 const mum: MemberRecord = {
 	id: 'mum',

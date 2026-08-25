@@ -16,6 +16,7 @@
 		setFeedNotice,
 		setHouseholdName,
 		setHouseholdZone,
+		setNightStart,
 		setSleepNotice,
 		setMemberLocale,
 		setMemberRole,
@@ -298,6 +299,26 @@
 					</label>
 					<!-- Changing it re-buckets the past, and this says so before saving. -->
 					<small class="hint">{m.settings_day_start_hint()}</small>
+
+					<!-- The Night Period, which ends at the Day Start above — so this
+					     is one hour and not a pair (ADR-0032). Empty means the
+					     Household keeps none, which is what every Household has until
+					     a Parent states an hour. -->
+					<label>
+						{m.settings_night_start()}
+						<input
+							type="time"
+							value={household.night_start ?? ''}
+							disabled={!isParent}
+							onchange={(event) =>
+								void app.edit((w) => setNightStart(w, event.currentTarget.value || null))}
+						/>
+					</label>
+					<small class="hint">
+						{household.night_start
+							? m.settings_night_hint({ start: household.night_start, end: household.day_start })
+							: m.settings_night_hint_off()}
+					</small>
 
 					<label>
 						{m.settings_zone()}

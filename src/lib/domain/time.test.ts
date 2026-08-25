@@ -7,11 +7,13 @@ import {
 	elapsed,
 	instantOnDate,
 	offsetMinutes,
+	pastNight,
 	splitDuration,
 	wallPartsOf,
 	wallTimeAtOrAfter,
 	wallTimeAtOrBefore,
-	wallToInstant
+	wallToInstant,
+	withinNight
 } from './time';
 
 const BERLIN = 'Europe/Berlin';
@@ -207,5 +209,62 @@ describe('wallPartsOf and addDays', () => {
 		expect(addDays('2026-02-28', 1)).toBe('2026-03-01');
 		expect(addDays('2026-01-01', -1)).toBe('2025-12-31');
 		expect(addDays('2024-02-28', 1)).toBe('2024-02-29');
+	});
+});
+
+describe('the Night Period', () => {
+	// The shape a Household states: the night begins at 21:00 and ends at the
+	// Day Start, which is 07:00 here (ADR-0032).
+	const NIGHT = { start: '21:00', end: '07:00' };
+	const at = (d: number, h: number, mi = 0) =>
+		wallToInstant({ y: 2026, m: 8, d, h, mi }, BERLIN);
+
+	it('reads the clock face, and wraps past midnight', () => {
+		expect(withinNight(at(17, 20, 59), NIGHT, BERLIN)).toBe(false);
+		expect(withinNight(at(17, 21), NIGHT, BERLIN)).toBe(true);
+		expect(withinNight(at(18, 1, 30), NIGHT, BERLIN)).toBe(true);
+		expect(withinNight(at(18, 6, 59), NIGHT, BERLIN)).toBe(true);
+		// Open at the end: an instant that lands on the Day Start is morning.
+		expect(withinNight(at(18, 7), NIGHT, BERLIN)).toBe(false);
+		expect(withinNight(at(18, 12), NIGHT, BERLIN)).toBe(false);
+	});
+
+	it('holds a night that does not wrap, for a Household that states one', () => {
+		const early = { start: '01:00', end: '07:00' };
+		expect(withinNight(at(17, 23), early, BERLIN)).toBe(false);
+		expect(withinNight(at(18, 2), early, BERLIN)).toBe(true);
+	});
+
+	it('is no Night at all when its two hours are the same', () => {
+		expect(withinNight(at(18, 2), { start: '07:00', end: '07:00' }, BERLIN)).toBe(false);
+	});
+
+	it('moves an instant inside it to the Day Start, and only forward', () => {
+		// The case the setting exists for: a 21:00 feed on a three-hour interval
+		// would come due at midnight, and comes due at 07:00 instead.
+		expect(pastNight(at(18, 0), NIGHT, BERLIN)).toBe(at(18, 7));
+		// Late evening, so the morning it lands on is the next one.
+		expect(pastNight(at(17, 23), NIGHT, BERLIN)).toBe(at(18, 7));
+		// A 03:00 waking's next feed is still the morning of the same night.
+		expect(pastNight(at(18, 6), NIGHT, BERLIN)).toBe(at(18, 7));
+	});
+
+	it('leaves a daytime instant exactly where it is', () => {
+		expect(pastNight(at(18, 12), NIGHT, BERLIN)).toBe(at(18, 12));
+		expect(pastNight(at(18, 7), NIGHT, BERLIN)).toBe(at(18, 7));
+	});
+
+	it('does nothing at all for a Household that keeps no Night Period', () => {
+		expect(pastNight(at(18, 1), null, BERLIN)).toBe(at(18, 1));
+	});
+
+	it('lands on the wall clock across a DST boundary, not on a fixed offset', () => {
+		// Berlin goes back an hour in the small hours of 25 October 2026, so the
+		// eight hours the clock reads are nine real ones. The Day Start is the
+		// hour, always.
+		const night = wallToInstant({ y: 2026, m: 10, d: 24, h: 23, mi: 0 }, BERLIN);
+		const morning = wallToInstant({ y: 2026, m: 10, d: 25, h: 7, mi: 0 }, BERLIN);
+		expect(pastNight(night, NIGHT, BERLIN)).toBe(morning);
+		expect(morning - night).toBe(9 * 3_600_000);
 	});
 });

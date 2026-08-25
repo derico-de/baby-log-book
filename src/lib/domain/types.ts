@@ -191,6 +191,13 @@ export interface Household {
 	/** One IANA zone id — the single lens for bucketing, timeline, stats and
 	    export (spec §7.3). */
 	zone: string;
+	/** The hour the Night Period begins, `HH:MM`, or `null` when this
+	    Household keeps none. Its *end* is the Day Start — one boundary rather
+	    than a fourth hour to keep in step (ADR-0032).
+
+	    What it changes is one thing: a Feed that would fall due inside it falls
+	    due at the Day Start instead. */
+	night_start: string | null;
 	/** Seconds *before* the Feed Interval is up that the Feed Notice is sent;
 	    `null` never sends it. A Household setting rather than a Device one,
 	    because the server is what holds the timer and how much warning is
@@ -243,6 +250,10 @@ export const SHARED_ENTRY_FIELDS = [
 ] as const;
 
 export const DEFAULT_DAY_START = '05:00';
+
+/** No Night Period until a Household states one: the app must not invent an
+    hour at which it stops expecting anyone to feed her (ADR-0032). */
+export const DEFAULT_NIGHT_START = null;
 
 /** Both Notices land on the due instant until a Household says otherwise: an
     offset nobody has thought about yet should not be a guess the app made

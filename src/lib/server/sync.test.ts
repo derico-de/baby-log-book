@@ -206,6 +206,25 @@ describe('roles', () => {
 		expect(getHousehold(db, 'h1')).toMatchObject({ day_start: '06:00', feed_notice_s: null });
 	});
 
+	/* The Night Period travels the same way, and its `null` is a value too:
+	   *this Household keeps no Night Period* (ADR-0032). */
+	it('let a Parent state a Night Start and clear it again', () => {
+		expect(getHousehold(db, 'h1')).toMatchObject({ night_start: null });
+
+		asMember([rev({ kind: 'household', entity_id: 'h1', fields: { night_start: '21:00' } })]);
+		expect(getHousehold(db, 'h1')).toMatchObject({ night_start: '21:00' });
+
+		asMember([
+			rev({ kind: 'household', entity_id: 'h1', merge_at: NOW + 1000, fields: { day_start: '07:00' } })
+		]);
+		expect(getHousehold(db, 'h1')).toMatchObject({ day_start: '07:00', night_start: '21:00' });
+
+		asMember([
+			rev({ kind: 'household', entity_id: 'h1', merge_at: NOW + 2000, fields: { night_start: null } })
+		]);
+		expect(getHousehold(db, 'h1')).toMatchObject({ night_start: null });
+	});
+
 	it('let a Caregiver add a Food, because logging a Meal grows the catalogue', () => {
 		const result = asMember([rev({ kind: 'food', entity_id: 'f1', fields: { name: 'Brokkoli' } })], 'caregiver', 'oma');
 		expect(result.accepted).toHaveLength(1);

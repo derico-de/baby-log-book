@@ -100,6 +100,13 @@ describe('validateFields', () => {
 		expect(validateFields('household', { day_start: 1_700_000_000_000 }).ok).toBe(false);
 	});
 
+	it('takes a Night Start as an hour, and `null` for no Night Period', () => {
+		expect(validateFields('household', { night_start: '21:00' }).ok).toBe(true);
+		expect(validateFields('household', { night_start: null }).ok).toBe(true);
+		expect(validateFields('household', { night_start: '9:00' }).ok).toBe(false);
+		expect(validateFields('household', { night_start: '' }).ok).toBe(false);
+	});
+
 	it('will not let anything authenticating ride on a member revision', () => {
 		expect(validateFields('member', { display_name: 'Oma', role: 'caregiver', token: 'x' })).toEqual({
 			ok: true,

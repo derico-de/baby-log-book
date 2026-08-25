@@ -161,6 +161,14 @@ function hourMinute(value: string): { h: number; mi: number } | null {
 	return { h, mi };
 }
 
+/** Minutes since midnight of an `HH:MM` value, or null when it is not a time.
+    The one shape a wall-clock *hour* — as against an instant — can be compared
+    in. */
+export function minutesOfDay(value: string): number | null {
+	const t = hourMinute(value);
+	return t == null ? null : t.h * 60 + t.mi;
+}
+
 /** The instant a wall time names on a named calendar date.
 
     A time alone cannot cross midnight, and that is the whole problem it causes:
@@ -223,10 +231,47 @@ export function splitDuration(ms: number): { hours: number; minutes: number } {
 }
 
 /** A Sleep is a Night Sleep when it crosses the Day Start. One boundary
-    settles both ends of the night, so no Night Start setting has to exist
-    (spec §7.2). */
+    settles both ends of the night, so a Sleep needs no Night Period to be
+    classified — and the Night Period below ends at that same boundary, so
+    there is still only one hour to keep in step (spec §7.2, ADR-0032). */
 export function crossesDayStart(from: number, to: number, dayStart: string, zone: string): boolean {
 	return dayBucketOf(from, dayStart, zone) !== dayBucketOf(to, dayStart, zone);
+}
+
+/** Two hours on the clock, read in the Household Zone. The end is the Day
+    Start, always — see `nightPeriodOf` in `$domain/targets`, which is the only
+    thing that builds one. */
+export interface NightPeriod {
+	start: string;
+	end: string;
+}
+
+/** Whether an instant's clock face falls inside the Night.
+
+    Minutes of the day rather than instants, because a Night Period is two
+    hours and not two moments: `21:00 → 07:00` wraps midnight, and on the day
+    the clocks go back it still means the same two hours. */
+export function withinNight(instant: number, night: NightPeriod, zone: string): boolean {
+	const start = minutesOfDay(night.start);
+	const end = minutesOfDay(night.end);
+	if (start == null || end == null || start === end) return false;
+	const p = wallPartsOf(instant, zone);
+	const at = p.h * 60 + p.mi;
+	/* Open at the end: an instant that lands *on* the Day Start is morning. */
+	return start < end ? at >= start && at < end : at >= start || at < end;
+}
+
+/** The first instant at or after this one that is not inside the Night — the
+    instant itself when the Household keeps no Night Period, or when its clock
+    face already reads morning.
+
+    This is the whole of what a Night Period does: it moves an instant, and
+    only forward. Everything that computes a due time for a Feed passes through
+    here, so the sticky header and the notifier can only ever agree
+    (ADR-0032). */
+export function pastNight(instant: number, night: NightPeriod | null, zone: string): number {
+	if (!night || !withinNight(instant, night, zone)) return instant;
+	return wallTimeAtOrAfter(night.end, instant, zone) ?? instant;
 }
 
 /** Past a day, an elapsed figure has stopped being a number anyone reads, and

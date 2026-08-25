@@ -54,8 +54,15 @@ describe('the boot-time migration runner', () => {
 			'0002-founding-label',
 			'0003-operator-label',
 			'0004-push-subscriptions',
-			'0005-notice-offsets'
+			'0005-notice-offsets',
+			'0006-night-period'
 		]);
+		/* Nothing about anybody's due times changes until a Parent states an
+		   hour: the column arrives NULL, which is *this Household keeps no Night
+		   Period* (ADR-0032). */
+		expect(db.prepare('SELECT night_start FROM households WHERE id = ?').get('h1')).toEqual({
+			night_start: null
+		});
 		expect(
 			db.prepare('SELECT display_name, household_label FROM claim_links WHERE token_hash = ?').get('hash')
 		).toEqual({ display_name: 'Oma', household_label: null });

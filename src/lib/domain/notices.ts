@@ -18,7 +18,8 @@
        minutes ago, and it is re-checked in the worker before anything is
        shown. A late notification is not a notification, it is a lie. */
 
-import { bottleTargetOf, bottlesNearingEnd, dueInstant, anchorEntry } from './targets';
+import { bottleTargetOf, bottlesNearingEnd, dueInstant, feedDueInstant, nightPeriodOf, anchorEntry } from './targets';
+import type { NightPeriod } from './time';
 import { MAX_NOTICE_OFFSET_S, type Entry, type Target } from './types';
 
 export const NOTICE_KINDS = ['bottle', 'feed', 'sleep'] as const;
@@ -64,6 +65,18 @@ export interface NoticeOffsets {
 	feed_notice_s: number | null;
 	/** After the Wake Window is up. */
 	sleep_notice_s: number | null;
+}
+
+/** Everything about the Household this fold reads: the two offsets, and the
+    hours a Feed's due instant is computed against.
+
+    The whole Household row satisfies it, which is what the notifier passes —
+    so the Night Period cannot be applied on the phone and forgotten on the
+    server (ADR-0032). */
+export interface NoticeHousehold extends NoticeOffsets {
+	night_start: string | null;
+	day_start: string;
+	zone: string;
 }
 
 export { MAX_NOTICE_OFFSET_S };
@@ -133,7 +146,14 @@ function bottleNotices(entries: Entry[], targets: Target[], now: number): Notice
     Life ends it, so this covers the whole of a Combined Feed too. Anchored to
     the previous Feed — the same Entry the header measures from — so the next
     Feed logged replaces the anchor and the Notice comes round again. */
-function feedNotices(entries: Entry[], targets: Target[], leadS: number | null, now: number): Notice[] {
+function feedNotices(
+	entries: Entry[],
+	targets: Target[],
+	leadS: number | null,
+	night: NightPeriod | null,
+	zone: string,
+	now: number
+): Notice[] {
 	if (leadS == null) return [];
 	const lead = Math.max(0, leadS) * 1000;
 	const notices: Notice[] = [];
@@ -148,7 +168,9 @@ function feedNotices(entries: Entry[], targets: Target[], leadS: number | null, 
 		/* Clamped to half the interval, exactly as the Bottle Chime's lead is: a
 		   Household that typed a short interval and a long lead is asking to be
 		   told a Feed is due while she is still on the last one. */
-		const at = dueInstant(target, anchor.occurred_at) - Math.min(lead, (target.duration_s * 1000) / 2);
+		const at =
+			feedDueInstant(target, anchor.occurred_at, night, zone) -
+			Math.min(lead, (target.duration_s * 1000) / 2);
 		if (now < at || now >= at + NOTICE_WINDOW_MS) continue;
 		notices.push({
 			kind: 'feed',
@@ -199,12 +221,19 @@ function sleepNotices(entries: Entry[], targets: Target[], graceS: number | null
 export function liveNotices(
 	entries: Entry[],
 	targets: Target[],
-	offsets: NoticeOffsets,
+	household: NoticeHousehold,
 	now: number
 ): Notice[] {
 	return [
 		...bottleNotices(entries, targets, now),
-		...feedNotices(entries, targets, offsets.feed_notice_s, now),
-		...sleepNotices(entries, targets, offsets.sleep_notice_s, now)
+		...feedNotices(
+			entries,
+			targets,
+			household.feed_notice_s,
+			nightPeriodOf(household),
+			household.zone,
+			now
+		),
+		...sleepNotices(entries, targets, household.sleep_notice_s, now)
 	];
 }

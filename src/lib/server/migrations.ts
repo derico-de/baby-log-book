@@ -295,6 +295,22 @@ export const MIGRATIONS: Migration[] = [
 				SELECT entry_id, 'bottle', endpoint, sent_at FROM push_sent_old;
 			DROP TABLE push_sent_old;
 		`
+	},
+	{
+		name: '0006-night-period',
+		sql: `
+			/* The hour the Night Period begins (ADR-0032). An hour, not an
+			   instant, and the Night's *end* is the Day Start — so this is one
+			   column rather than two, and there is no second boundary that could
+			   drift out of step with the one that already cuts the days.
+
+			   NULL on every existing row, and NULL is the value that means the
+			   Household keeps no Night Period: nothing about anybody's due times
+			   changes until a Parent states an hour. An hour the migration
+			   invented would be a guess, and the whole point of the setting is
+			   that the app does not know when this Household's night is. */
+			ALTER TABLE households ADD COLUMN night_start TEXT;
+		`
 	}
 ];
 

@@ -344,6 +344,15 @@ export function setDayStart(w: Writer, dayStart: string): Promise<string> {
 	return write(w, 'household', w.householdId, { day_start: dayStart });
 }
 
+/** The hour this Household's night begins, or `null` to keep none. Its end is
+    the Day Start above, so this is one hour and not a pair (ADR-0032).
+
+    What it changes is the Feed Interval's due instant and nothing else: a Feed
+    that would come due inside the night comes due at the Day Start instead. */
+export function setNightStart(w: Writer, nightStart: string | null): Promise<string> {
+	return write(w, 'household', w.householdId, { night_start: nightStart });
+}
+
 /** One value, not a history. Changing it re-reads the whole past through the new
     lens; the Day Start hour is untouched (spec §7.3). */
 export function setHouseholdZone(w: Writer, zone: string): Promise<string> {

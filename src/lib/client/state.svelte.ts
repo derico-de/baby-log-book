@@ -6,9 +6,15 @@
    Nothing in this file materialises anything (spec §3.5). */
 
 import { EMPTY_FILTER, filterEntries, isFiltered, type Filter, type FilterContext } from '$domain/filter';
-import { bottleTargetOf, bottlesNearingEnd, headerState, type HeaderState } from '$domain/targets';
+import {
+	bottleTargetOf,
+	bottlesNearingEnd,
+	headerState,
+	nightPeriodOf,
+	type HeaderState
+} from '$domain/targets';
 import { staleSleepState, type StaleState } from '$domain/sleep';
-import { addDays, dayBucketOf } from '$domain/time';
+import { addDays, dayBucketOf, type NightPeriod } from '$domain/time';
 import { DEFAULT_DAY_START } from '$domain/types';
 import type { Baby, Entry, Food, Household, MemberRecord, Target } from '$domain/types';
 import { checkReplicaSchema, getMeta, META, replica, setMeta, type ReplicaDb } from './db';
@@ -100,6 +106,13 @@ class AppState {
 		return this.household?.day_start ?? DEFAULT_DAY_START;
 	}
 
+	/** The Household's Night Period, or null when it keeps none. Folded here so
+	    the header reads it through the same function the notifier does
+	    (ADR-0032). */
+	get night(): NightPeriod | null {
+		return nightPeriodOf(this.household);
+	}
+
 	/** The single lens: one configured Household Zone for bucketing, the
 	    timeline, stats and export (spec §7.3). */
 	get zone(): string {
@@ -187,6 +200,7 @@ class AppState {
 			now: this.now,
 			dayStart: this.dayStart,
 			zone: this.zone,
+			night: this.night,
 			babyId: baby.id
 		});
 	}

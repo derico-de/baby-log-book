@@ -145,10 +145,18 @@ const isNoticeOffset: Check = (v) =>
 	v === null ||
 	(isFiniteNumber(v) && Number.isInteger(v) && (v as number) >= 0 && (v as number) <= MAX_NOTICE_OFFSET_S);
 
+/** An hour, not an instant (spec §7.4). Exported because the Night Period's
+    normaliser at each storage edge has to agree with the sync edge's check
+    about what an hour is. */
+export const isHour: Check = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+
 const HOUSEHOLD_FIELD_CHECKS: Record<string, Check> = {
 	name: isText(MAX_NAME),
-	/** An hour, not an instant (spec §7.4). */
-	day_start: (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v),
+	day_start: isHour,
+	/** The hour the Night Period begins, or `null` for *this Household keeps
+	    none* — a value a Member chose, so the check has to admit it, exactly as
+	    a Notice Offset's null is admitted (ADR-0032). */
+	night_start: (v) => v === null || isHour(v),
 	zone: isZone,
 	feed_notice_s: isNoticeOffset,
 	sleep_notice_s: isNoticeOffset

@@ -8,10 +8,14 @@ import {
 	dueInstant,
 	pastBottleRevision,
 	headerState,
+	nightPeriodOf,
+	nightStartValue,
 	planPastBottles,
 	seedTargets,
-	typicalFor
+	typicalFor,
+	MS
 } from './targets';
+import { wallToInstant } from './time';
 import type { Entry, Target } from './types';
 
 const BERLIN = 'Europe/Berlin';
@@ -280,6 +284,9 @@ describe('headerState', () => {
 		now,
 		dayStart: '05:00',
 		zone: BERLIN,
+		/* No Night Period unless a case states one: the header must read the
+		   same as it did before the setting existed (ADR-0032). */
+		night: null,
 		babyId: 'b1',
 		targets: [feedTarget, sleepTarget]
 	};
@@ -476,5 +483,114 @@ describe('headerState', () => {
 		other.baby_id = 'b2';
 		const h = headerState({ ...base, entries: [other] });
 		expect(h.feed.lastAt).toBeNull();
+	});
+});
+
+describe('a Feed due inside the Night Period', () => {
+	// The Household states 21:00, and the Night ends at its Day Start — 07:00
+	// here, not the 05:00 the rest of this file uses, because the pair is one
+	// setting and the end is the Day Start (ADR-0032).
+	const night = { start: '21:00', end: '07:00' };
+	const at = (d: number, h: number, mi = 0) =>
+		wallToInstant({ y: 2026, m: 8, d, h, mi }, BERLIN);
+	const base = {
+		dayStart: '07:00',
+		zone: BERLIN,
+		night,
+		babyId: 'b1',
+		targets: [feedTarget, sleepTarget]
+	};
+
+	it('comes due at the Day Start instead — the whole of what the setting does', () => {
+		// Fed at 21:00 on a three-hour interval: midnight, and nobody has stated
+		// an interval they mean to keep to at midnight.
+		const h = headerState({
+			...base,
+			now: at(17, 22),
+			entries: [entry({ type: 'breast_feed', occurred_at: at(17, 21) })]
+		});
+		expect(h.feed.dueAt).toBe(at(18, 7));
+		expect(h.feed.remainingMs).toBe(9 * MS.hour);
+		expect(h.feed.overdue).toBe(false);
+	});
+
+	it('moves a night waking to the same morning', () => {
+		const h = headerState({
+			...base,
+			now: at(18, 3, 30),
+			entries: [entry({ type: 'bottle_feed', occurred_at: at(18, 3) })]
+		});
+		expect(h.feed.dueAt).toBe(at(18, 7));
+	});
+
+	it('leaves a daytime Feed to its own interval', () => {
+		const h = headerState({
+			...base,
+			now: at(18, 13),
+			entries: [entry({ type: 'breast_feed', occurred_at: at(18, 12) })]
+		});
+		expect(h.feed.dueAt).toBe(at(18, 15));
+	});
+
+	it('is still overdue past the Day Start, and says how long by', () => {
+		const h = headerState({
+			...base,
+			now: at(18, 7, 20),
+			entries: [entry({ type: 'breast_feed', occurred_at: at(17, 21) })]
+		});
+		expect(h.feed.overdue).toBe(true);
+		expect(h.feed.overdueMs).toBe(20 * MS.minute);
+	});
+
+	it('does not touch the Wake Window — a night is not a reason to stay asleep', () => {
+		// The Sleep Target is two hours and the Sleep ended at 23:00, so the next
+		// one is due at 01:00 whatever the Night Period says (ADR-0032).
+		const h = headerState({
+			...base,
+			now: at(17, 23, 30),
+			entries: [
+				entry({ type: 'sleep', occurred_at: at(17, 21), ended_at: at(17, 23) })
+			]
+		});
+		expect(h.sleep.dueAt).toBe(at(18, 1));
+	});
+
+	it('does not touch a Bottle Life — milk does not keep longer in the dark', () => {
+		const started = at(17, 22);
+		const open = entry({ type: 'bottle_feed', occurred_at: started });
+		expect(bottleLife(open, bottleTarget, at(17, 22, 30))?.dueAt).toBe(at(17, 23));
+	});
+});
+
+describe('nightPeriodOf', () => {
+	it('pairs the stated hour with the Day Start', () => {
+		expect(nightPeriodOf({ night_start: '21:00', day_start: '07:00' })).toEqual({
+			start: '21:00',
+			end: '07:00'
+		});
+	});
+
+	it('is none until a Household states one', () => {
+		expect(nightPeriodOf({ night_start: null, day_start: '07:00' })).toBeNull();
+		expect(nightPeriodOf(null)).toBeNull();
+	});
+
+	it('is none when the two hours are the same — an empty Night is no Night', () => {
+		expect(nightPeriodOf({ night_start: '07:00', day_start: '07:00' })).toBeNull();
+	});
+});
+
+describe('a stated Night Start', () => {
+	it('takes an hour and nothing else', () => {
+		expect(nightStartValue('21:00')).toBe('21:00');
+		expect(nightStartValue('07:30')).toBe('07:30');
+	});
+
+	it('reads anything that is not an hour as no Night Period', () => {
+		expect(nightStartValue(null)).toBeNull();
+		expect(nightStartValue('')).toBeNull();
+		expect(nightStartValue('9:00')).toBeNull();
+		expect(nightStartValue('24:00')).toBeNull();
+		expect(nightStartValue(2100)).toBeNull();
 	});
 });

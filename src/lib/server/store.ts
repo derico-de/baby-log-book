@@ -8,6 +8,7 @@
 
 import { coercePayload } from '$domain/entries';
 import { noticeOffset } from '$domain/notices';
+import { nightStartValue } from '$domain/targets';
 import { compareRevisions, foldEntity, foldEntry, splitFields } from '$domain/revisions';
 import type {
 	Baby,
@@ -283,16 +284,17 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 			   a household-kind entity_id with it before this is ever reached, so
 			   "a Parent of A renames B" is unwritable rather than merely rejected
 			   (hosted spec §5.2). */
-			/* The two Notice offsets are the only Household fields whose *null* is
-			   a value a Member chose — it is how a Household says "never say this
-			   one" — so COALESCE cannot carry them: it would read the choice as
-			   "unchanged". The presence flag beside each is what the fold already
-			   knows and SQL cannot see. */
+			/* The two Notice offsets and the Night Start are the Household fields
+			   whose *null* is a value a Member chose — "never say this one",
+			   "keep no Night Period" — so COALESCE cannot carry them: it would
+			   read the choice as "unchanged". The presence flag beside each is
+			   what the fold already knows and SQL cannot see. */
 			db.prepare(
 				`UPDATE households SET
 				   name = COALESCE(?, name),
 				   day_start = COALESCE(?, day_start),
 				   zone = COALESCE(?, zone),
+				   night_start    = CASE WHEN ? THEN ? ELSE night_start    END,
 				   feed_notice_s  = CASE WHEN ? THEN ? ELSE feed_notice_s  END,
 				   sleep_notice_s = CASE WHEN ? THEN ? ELSE sleep_notice_s END
 				 WHERE id = ?`
@@ -300,6 +302,8 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 				state.name == null ? null : String(state.name),
 				state.day_start == null ? null : String(state.day_start),
 				state.zone == null ? null : String(state.zone),
+				'night_start' in state ? 1 : 0,
+				nightStartValue(state.night_start),
 				'feed_notice_s' in state ? 1 : 0,
 				noticeOffset(state.feed_notice_s),
 				'sleep_notice_s' in state ? 1 : 0,
@@ -421,7 +425,9 @@ export function getEntry(db: Db, householdId: string, id: string): Entry | null 
     household in the file" (ADR-0020). */
 export function getHousehold(db: Db, householdId: string): Household | null {
 	const row = db
-		.prepare('SELECT id, name, day_start, zone, feed_notice_s, sleep_notice_s FROM households WHERE id = ?')
+		.prepare(
+			'SELECT id, name, day_start, zone, night_start, feed_notice_s, sleep_notice_s FROM households WHERE id = ?'
+		)
 		.get(householdId) as Household | undefined;
 	return row ?? null;
 }

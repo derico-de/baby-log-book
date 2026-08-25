@@ -7,9 +7,11 @@
 
 import { coercePayload } from '$domain/entries';
 import { noticeOffset } from '$domain/notices';
+import { nightStartValue } from '$domain/targets';
 import { foldEntity, foldEntry, splitFields } from '$domain/revisions';
 import {
 	DEFAULT_DAY_START,
+	DEFAULT_NIGHT_START,
 	DEFAULT_FEED_NOTICE_S,
 	DEFAULT_SLEEP_NOTICE_S,
 	type Baby,
@@ -99,6 +101,13 @@ async function materialise(db: ReplicaDb, householdId: string, kind: RevisionKin
 				/* Until the log says otherwise, this Device's own zone is the least
 				   wrong lens available. */
 				zone: str(state.zone, existing?.zone ?? deviceZone()),
+				/* Same shape, and for the same reason: a stated `null` is *this
+				   Household keeps no Night Period*, and a replica that predates
+				   the field has none either (ADR-0032). */
+				night_start:
+					'night_start' in state
+						? nightStartValue(state.night_start)
+						: (existing?.night_start ?? DEFAULT_NIGHT_START),
 				/* A stated `null` is a choice — *never say this one* — so the fold
 				   has to tell "absent" from "cleared", exactly as the server's does.
 				   A replica that predates the field reads the default rather than

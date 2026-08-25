@@ -9,9 +9,9 @@
    reimplementing it, which is the whole reason push notifications need no
    schema change (spec §2). */
 
-import { dayBucketOf, ageInMonths, withinLastDay, MS } from './time';
-import type { Activity, Entry, NappyPayload, PendingRevision, Target } from './types';
-import { isFeed } from './entries';
+import { dayBucketOf, ageInMonths, pastNight, withinLastDay, MS, type NightPeriod } from './time';
+import type { Activity, Entry, Household, NappyPayload, PendingRevision, Target } from './types';
+import { isFeed, isHour } from './entries';
 
 /** The age table (spec §6.5) — seeds only, never re-applied. After twelve
     months solids take over and a feed target stops meaning anything. */
@@ -74,6 +74,47 @@ export function seedTargets(birthDate: string, at: number, zone: string): Array<
     revisions, every Device computes the *same* instant without coordinating. */
 export function dueInstant(target: Target, anchorAt: number): number {
 	return anchorAt + target.duration_s * 1000;
+}
+
+/** A stated Night Start, read from anywhere: a Revision field, a form input, a
+    column. Anything that is not an hour is `null` — *this Household keeps no
+    Night Period* — which is the quiet side, and the side an older or newer
+    client should land on (ADR-0032). */
+export function nightStartValue(value: unknown): string | null {
+	return isHour(value) ? (value as string) : null;
+}
+
+/** The Night Period a Household keeps, or null.
+
+    Built here and nowhere else, because the pair is not two settings: the
+    Household states when the Night *begins*, and it ends at the Day Start —
+    the boundary that already settles both ends of the night (ADR-0032). A
+    Night that begins at the hour it ends is no Night at all, which is how a
+    Household turns it off by hand rather than by clearing a field. */
+export function nightPeriodOf(
+	household: Pick<Household, 'night_start' | 'day_start'> | null | undefined
+): NightPeriod | null {
+	const start = household?.night_start;
+	if (!start || start === household?.day_start) return null;
+	return { start, end: household.day_start };
+}
+
+/** The due instant of a **Feed**, which is the one Target the Night Period
+    moves: a Feed that would come due at 01:00 comes due at the Day Start
+    instead, because nobody has stated an interval they mean to keep to at 1am
+    (ADR-0032).
+
+    Only the Feed. A Wake Window is *how long she is comfortably awake* and
+    says nothing about the hour; a Bottle Life is how long milk stays good, and
+    milk does not keep longer because it is dark. Both would be a different
+    claim, so both keep `dueInstant` unchanged. */
+export function feedDueInstant(
+	target: Target,
+	anchorAt: number,
+	night: NightPeriod | null,
+	zone: string
+): number {
+	return pastNight(dueInstant(target, anchorAt), night, zone);
 }
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
@@ -307,6 +348,9 @@ export interface HeaderInput {
 	now: number;
 	dayStart: string;
 	zone: string;
+	/** The Household's Night Period, or null when it keeps none. Passed rather
+	    than derived so the header reads the same setting the notifier does. */
+	night: NightPeriod | null;
 	/** Required, and not defaulted: multi-baby is in the data model from day
 	    one, and a header that guessed which Baby it was about would report a
 	    sibling's Feed as this one's. */
@@ -320,7 +364,7 @@ function targetFor(targets: Target[], activity: Activity): Target | null {
 /** Everything the sticky header prints, computed from the replica on every
     paint. Nothing here is stored and nothing here is written. */
 export function headerState(input: HeaderInput): HeaderState {
-	const { now, dayStart, zone, babyId } = input;
+	const { now, dayStart, zone, night, babyId } = input;
 	const mine = input.entries.filter((e) => live(e) && e.baby_id === babyId);
 
 	const feedTarget = targetFor(input.targets, 'feed');
@@ -343,7 +387,7 @@ export function headerState(input: HeaderInput): HeaderState {
 		overdueMs: null
 	};
 	if (lastFeedAt != null && feedTarget) {
-		feed.dueAt = dueInstant(feedTarget, lastFeedAt);
+		feed.dueAt = feedDueInstant(feedTarget, lastFeedAt, night, zone);
 		const remaining = feed.dueAt - now;
 		feed.remainingMs = Math.max(0, remaining);
 		feed.overdue = remaining < 0;

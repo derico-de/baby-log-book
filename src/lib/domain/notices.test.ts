@@ -10,7 +10,7 @@ import {
 	noticeOffset,
 	NOTICE_WINDOW_MS,
 	MAX_NOTICE_OFFSET_S,
-	type NoticeOffsets
+	type NoticeHousehold
 } from './notices';
 import type { Entry, Target } from './types';
 
@@ -49,11 +49,15 @@ const sleepTarget: Target = { ...feedTarget, id: 't2', activity: 'sleep', durati
 const bottleTarget: Target = { ...feedTarget, id: 't3', activity: 'bottle', duration_s: 3600, anchor: 'bottle_start' };
 const TARGETS = [feedTarget, sleepTarget, bottleTarget];
 
-/** Both Notices on, landing on the due instant itself. */
-const ON: NoticeOffsets = { feed_notice_s: 0, sleep_notice_s: 0 };
-const OFF: NoticeOffsets = { feed_notice_s: null, sleep_notice_s: null };
+/** The hours every case below is read against: no Night Period, so a due
+    instant is the Target's own arithmetic and nothing else. */
+const HOURS = { night_start: null, day_start: '05:00', zone: BERLIN };
 
-const kinds = (entries: Entry[], now: number, offsets: NoticeOffsets = ON) =>
+/** Both Notices on, landing on the due instant itself. */
+const ON: NoticeHousehold = { ...HOURS, feed_notice_s: 0, sleep_notice_s: 0 };
+const OFF: NoticeHousehold = { ...HOURS, feed_notice_s: null, sleep_notice_s: null };
+
+const kinds = (entries: Entry[], now: number, offsets: NoticeHousehold = ON) =>
 	liveNotices(entries, TARGETS, offsets, now).map((n) => n.kind);
 
 describe('a stated offset', () => {
@@ -127,6 +131,33 @@ describe('a Feed coming due', () => {
 		const at = iso('2026-08-17T10:15:00Z');
 		const notices = liveNotices([fed], [short], { ...ON, feed_notice_s: 25 * 60 }, at);
 		expect(notices.map((n) => [n.kind, n.offset_minutes])).toEqual([['feed', 15]]);
+	});
+
+	/* The Household states a Night from 21:00 to its Day Start, which is 07:00
+	   (ADR-0032). Berlin is two hours ahead of UTC in August, so 19:00Z is
+	   21:00 on the clock and 05:00Z is 07:00. */
+	const NIGHT: NoticeHousehold = { ...ON, night_start: '21:00', day_start: '07:00' };
+
+	it('waits for the Day Start when the interval is up in the night', () => {
+		// Fed at 21:00 local, so the interval is up at midnight — and the Notice
+		// is not said then. It is said at 07:00, the instant the Feed is due.
+		const evening = entry({ id: 'f4', type: 'breast_feed', occurred_at: iso('2026-08-17T19:00:00Z'), ended_at: iso('2026-08-17T19:20:00Z') });
+		expect(kinds([evening], iso('2026-08-17T22:00:00Z'), NIGHT)).toEqual([]);
+		expect(kinds([evening], iso('2026-08-18T02:00:00Z'), NIGHT)).toEqual([]);
+		const notices = liveNotices([evening], TARGETS, NIGHT, iso('2026-08-18T05:00:00Z'));
+		expect(notices).toEqual([
+			{ kind: 'feed', baby_id: 'b1', entry_id: 'f4', offset_minutes: 0, until: iso('2026-08-18T05:15:00Z') }
+		]);
+	});
+
+	it('still takes its head start from the moved instant', () => {
+		const evening = entry({ id: 'f4', type: 'breast_feed', occurred_at: iso('2026-08-17T19:00:00Z'), ended_at: iso('2026-08-17T19:20:00Z') });
+		const notices = liveNotices([evening], TARGETS, { ...NIGHT, feed_notice_s: 15 * 60 }, iso('2026-08-18T04:45:00Z'));
+		expect(notices.map((n) => [n.kind, n.offset_minutes])).toEqual([['feed', 15]]);
+	});
+
+	it('leaves a daytime Feed exactly where the interval put it', () => {
+		expect(kinds([fed], iso('2026-08-17T13:00:00Z'), NIGHT)).toEqual(['feed']);
 	});
 
 	it('needs a Target: a Baby with none is a Baby with nothing due', () => {
