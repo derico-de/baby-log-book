@@ -25,6 +25,7 @@
        drops rows the app still holds is lying about being complete. */
 
 import { classifySleep } from './sleep';
+import { nightPeriodOf } from './targets';
 import { intakeMl } from './entries';
 import { firstExposure } from './filter';
 import { offsetMinutes, wallPartsOf } from './time';
@@ -155,7 +156,7 @@ export function buildExport(input: ExportInput): ExportFiles {
 		minutes(e.occurred_at, e.ended_at),
 		/* Night versus Nap is derived, and derivable only because §7.2 settled
 		   which is which. A running Sleep is classified against the export. */
-		classifySleep(e, { dayStart: input.household.day_start, zone }, input.exportedAt)
+		classifySleep(e, { dayStart: input.household.day_start, zone, night: nightPeriodOf(input.household) }, input.exportedAt)
 	]));
 
 	files['breast_feeds.csv'] = toCsv([...SHARED_HEADERS, 'ended_at', 'duration_minutes', 'side'], ofType('breast_feed').map((e) => [

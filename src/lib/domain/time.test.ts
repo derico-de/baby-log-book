@@ -8,6 +8,7 @@ import {
 	instantOnDate,
 	offsetMinutes,
 	pastNight,
+	reachesNight,
 	splitDuration,
 	wallPartsOf,
 	wallTimeAtOrAfter,
@@ -237,6 +238,22 @@ describe('the Night Period', () => {
 
 	it('is no Night at all when its two hours are the same', () => {
 		expect(withinNight(at(18, 2), { start: '07:00', end: '07:00' }, BERLIN)).toBe(false);
+	});
+
+	it('is reached by a span with either end inside it, and by one that steps over its start', () => {
+		// The bedtime that collapses: 19:00 to 23:00, into the night and not out
+		// the other side (ADR-0033).
+		expect(reachesNight(at(17, 19), at(17, 23), NIGHT, BERLIN)).toBe(true);
+		// Ends in the morning, having begun in the night.
+		expect(reachesNight(at(18, 3), at(18, 9), NIGHT, BERLIN)).toBe(true);
+		// The afternoon nap.
+		expect(reachesNight(at(17, 14), at(17, 15, 30), NIGHT, BERLIN)).toBe(false);
+		// Neither instant reads as night, and the night is in between.
+		expect(reachesNight(at(17, 19), at(18, 9), NIGHT, BERLIN)).toBe(true);
+	});
+
+	it('is reached by nothing at all when the Household keeps no Night Period', () => {
+		expect(reachesNight(at(17, 19), at(17, 23), null, BERLIN)).toBe(false);
 	});
 
 	it('moves an instant inside it to the Day Start, and only forward', () => {

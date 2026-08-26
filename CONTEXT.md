@@ -145,15 +145,15 @@ The hour at which a new day begins for this Household, and the hour a Night Peri
 _Avoid_: Cutoff, day boundary, reset time
 
 **Night Period**:
-The stretch of the clock a Household does not expect to keep to its Feed Interval in. Stated as the hour the night begins; it ends at the Day Start, so it is one hour and not a pair. A Feed that would come due inside it comes due at the Day Start instead — fed at 21:00, next due at 07:00. Nothing else reads it: not the Wake Window, not the Bottle Life, not which day an Entry belongs to. Optional, and no Household has one until a Parent states it.
+The stretch of the clock a Household does not expect to keep to its Feed Interval in. Stated as the hour the night begins; it ends at the Day Start, so it is one hour and not a pair. A Feed that would come due inside it comes due at the Day Start instead — fed at 21:00, next due at 07:00. It is also the evening end of a Night Sleep. Nothing else reads it: no other Target — not the Wake Window, not the Bottle Life — and not which day an Entry belongs to. Optional, and no Household has one until a Parent states it.
 _Avoid_: Quiet hours, night mode, do not disturb, sleep window
 
 **Night Sleep**:
-The Sleep that crosses the Day Start. One boundary settles both ends of the night, so nothing about it is recorded.
+The Sleep that crosses the Day Start, or that reaches into the Household's Night Period. The crossing settles the morning end; the stated hour settles the evening one, so the bedtime that collapses at 23:00 is a Night Sleep rather than a Nap. Derived on every read and never recorded, so moving either hour re-reads the whole log.
 _Avoid_: Overnight, bedtime sleep, main sleep
 
 **Nap**:
-Any Sleep that does not cross the Day Start.
+Any Sleep that neither crosses the Day Start nor reaches the Night Period.
 _Avoid_: Daytime sleep, rest
 
 **Target**:

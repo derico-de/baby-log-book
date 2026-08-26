@@ -261,6 +261,26 @@ export function withinNight(instant: number, night: NightPeriod, zone: string): 
 	return start < end ? at >= start && at < end : at >= start || at < end;
 }
 
+/** Whether a span of time reaches into the Night — the test that makes a
+    bedtime a Night Sleep rather than a Nap (ADR-0033).
+
+    Either end inside the Night is enough, and a span that steps over the hour
+    the night begins counts too: a Sleep can enter the Night and leave it again
+    without either of its own instants reading as night. False for a Household
+    that keeps no Night Period, which is what leaves such a Household reading
+    exactly as it did. */
+export function reachesNight(
+	from: number,
+	to: number,
+	night: NightPeriod | null,
+	zone: string
+): boolean {
+	if (!night) return false;
+	if (withinNight(from, night, zone) || withinNight(to, night, zone)) return true;
+	const began = wallTimeAtOrBefore(night.start, to, zone);
+	return began != null && began > from && began <= to;
+}
+
 /** The first instant at or after this one that is not inside the Night — the
     instant itself when the Household keeps no Night Period, or when its clock
     face already reads morning.

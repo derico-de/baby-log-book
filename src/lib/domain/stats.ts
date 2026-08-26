@@ -16,6 +16,7 @@
    entries and under 2 MB, which folds in milliseconds. */
 
 import { addDays, dayBucketOf, MS } from './time';
+import type { NightPeriod } from './time';
 import { classifySleep } from './sleep';
 import type { BottleFeedPayload, Entry, MealPayload, NappyPayload } from './types';
 import { isFeed, intakeMl } from './entries';
@@ -88,6 +89,9 @@ export interface StatsInput {
 	now: number;
 	dayStart: string;
 	zone: string;
+	/** The Household's Night Period, or null — read for one thing only, the
+	    Night-versus-Nap split on the Sleep card (ADR-0033). */
+	night: NightPeriod | null;
 }
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
@@ -117,7 +121,7 @@ function mean(values: number[]): number {
     age-appropriateness free: a newborn's screen has no Solids card, and no age
     logic exists anywhere. */
 export function statsFor(input: StatsInput): StatsCard[] {
-	const { babyId, now, dayStart, zone } = input;
+	const { babyId, now, dayStart, zone, night } = input;
 	const today = dayBucketOf(now, dayStart, zone);
 	const windowKeys = [...dayKeys(today, WINDOW_DAYS, 1), today];
 	const previousKeys = dayKeys(today, WINDOW_DAYS, WINDOW_DAYS + 1);
@@ -195,7 +199,7 @@ export function statsFor(input: StatsInput): StatsCard[] {
 					if (ms > longestMs) longestMs = ms;
 					/* The whole window, today included: this is the truth so far, and
 					   only the delta excludes today. */
-					if (classifySleep(e, { dayStart, zone }, now) === 'night') nightMs += ms;
+					if (classifySleep(e, { dayStart, zone, night }, now) === 'night') nightMs += ms;
 					else napMs += ms;
 				}
 				break;

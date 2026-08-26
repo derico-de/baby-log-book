@@ -527,7 +527,7 @@ describe('a stats card', () => {
 			entry({ type: 'nappy', occurred_at: NOW - 86_400_000, payload: { pee: true, poop: false, consistency: null, where: null } }),
 			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: true, consistency: null, where: null } })
 		];
-		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN, night: null });
 		const text = draw(StatCard, { card });
 		expect(text).toContain('Pee & poop');
 		expect(text).toContain('1 pee · 1 poop');
@@ -541,7 +541,7 @@ describe('a stats card', () => {
 			entry({ type: 'nappy', occurred_at: NOW - 7200_000, payload: { pee: true, poop: false, consistency: null, where: null } }),
 			entry({ type: 'nappy', occurred_at: NOW - 10_800_000, payload: { pee: true, poop: false, consistency: null, where: null } })
 		];
-		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN, night: null });
 		draw(StatCard, { card });
 		/* Three nappies today: the ceiling rounds up to 4 so the half tick is
 		   a whole number. */
@@ -554,7 +554,7 @@ describe('a stats card', () => {
 			entry({ type: 'nappy', occurred_at: NOW - 86_400_000, payload: { pee: true, poop: false, consistency: null, where: null } }),
 			entry({ type: 'nappy', occurred_at: NOW - 3600_000, payload: { pee: true, poop: true, consistency: null, where: null } })
 		];
-		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN, night: null });
 		draw(StatCard, { card });
 		const hits = host.querySelectorAll<HTMLButtonElement>('.bar-hit');
 		expect(hits).toHaveLength(8);
@@ -579,7 +579,7 @@ describe('a stats card', () => {
 				payload: { volume_ml: 90, leftover_ml: null, contents: 'formula' }
 			})
 		];
-		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN });
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN, night: null });
 		draw(StatCard, { card });
 		flushSync(() => host.querySelectorAll<HTMLButtonElement>('.bar-hit')[7]?.click()); /* today */
 		expect(host.querySelector('.bar-detail')?.textContent).toBe('Today: 2 · 210 ml');

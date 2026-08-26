@@ -9,23 +9,39 @@
    Nothing here writes anything. The app never synthesises an end time for a
    session nobody stopped; it reports, and the parent judges. */
 
-import { ageInMonths, crossesDayStart, dateKey, dayBucketOf, dayStartInstant, addDays, wallPartsOf, wallToInstant, MS } from './time';
+import { ageInMonths, crossesDayStart, dateKey, dayBucketOf, dayStartInstant, addDays, reachesNight, wallPartsOf, wallToInstant, withinNight, MS } from './time';
+import type { NightPeriod } from './time';
 import type { Entry } from './types';
 import { isFeed } from './entries';
 
 export interface HouseholdLens {
 	dayStart: string;
 	zone: string;
+	/** The Night Period this Household keeps, or null when it keeps none. Built
+	    by `nightPeriodOf` and passed in rather than derived here, so the hour
+	    that classifies a Sleep is the same hour that moves a Feed's due
+	    instant. */
+	night: NightPeriod | null;
 }
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
 
-/** The Night Sleep is the one that crosses the Day Start; every other Sleep is
-    a Nap (spec §7.2). A running Sleep is classified against `now`, so a stats
-    bar can grow live. */
+/** The Night Sleep is the one that crosses the Day Start, or the one that
+    reaches into the Night Period a Household states; every other Sleep is a Nap
+    (spec §7.2, ADR-0033).
+
+    Two rules over one night, and they do not disagree: the Night Period ends at
+    the Day Start, so the second only ever adds the evening the first could not
+    see — the 19:00 bedtime that collapses at 23:00, which used to be filed as a
+    Nap. A Household that states no Night Period keeps the first rule alone.
+
+    A running Sleep is classified against `now`, so a stats bar can grow live —
+    and so a bedtime becomes a Night Sleep as the evening reaches the hour the
+    Household named. */
 export function classifySleep(sleep: Entry, hh: HouseholdLens, now: number): 'night' | 'nap' {
 	const end = sleep.ended_at ?? now;
-	return crossesDayStart(sleep.occurred_at, end, hh.dayStart, hh.zone) ? 'night' : 'nap';
+	if (crossesDayStart(sleep.occurred_at, end, hh.dayStart, hh.zone)) return 'night';
+	return reachesNight(sleep.occurred_at, end, hh.night, hh.zone) ? 'night' : 'nap';
 }
 
 /** A Sleep Feed is a Feed overlapping a Sleep — derived from the overlap, never
@@ -115,6 +131,11 @@ function recentNightWakes(sleep: Entry, entries: Entry[], hh: HouseholdLens, now
 		if (e.id === sleep.id || e.type !== 'sleep' || !live(e) || e.ended_at == null) continue;
 		if (e.baby_id !== sleep.baby_id || e.ended_at < cutoff) continue;
 		if (classifySleep(e, hh, now) !== 'night') continue;
+		/* A Night Sleep that *ended* in the Night is a bedtime that collapsed,
+		   not a morning: she woke at 23:00 and the night went on. Counting that
+		   hour would drag the median away from the wake time this picker exists
+		   to open on (ADR-0033). */
+		if (hh.night && withinNight(e.ended_at, hh.night, hh.zone)) continue;
 		const p = wallPartsOf(e.ended_at, hh.zone);
 		wakes.push({ at: e.ended_at, minutes: p.h * 60 + p.mi });
 	}

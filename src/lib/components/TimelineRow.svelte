@@ -53,7 +53,7 @@
 		const who = app.memberName(entry.logged_by);
 		if (who) parts.push(who);
 		if (entry.type === 'sleep') {
-			parts.push(classifySleep(entry, { dayStart: app.dayStart, zone }, app.now) === 'night' ? m.row_night_sleep() : m.row_nap());
+			parts.push(classifySleep(entry, { dayStart: app.dayStart, zone, night: app.night }, app.now) === 'night' ? m.row_night_sleep() : m.row_nap());
 		}
 		if ((entry.type === 'breast_feed' || entry.type === 'bottle_feed') && isSleepFeed(entry, app.babyEntries)) {
 			parts.push(m.row_sleep_feed());

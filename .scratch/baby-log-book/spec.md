@@ -155,7 +155,7 @@ A recurring pattern worth naming, because it is the reason several things have n
 | Concept | Derived from |
 |---|---|
 | First exposure | Earliest Meal containing that Food for that Baby |
-| **Nap vs Night Sleep** | Whether the Sleep crosses the Day Start (§6.5) |
+| **Nap vs Night Sleep** | Whether the Sleep crosses the Day Start, or reaches the Night Period (§7.2, ADR-0033) |
 | **Sleep Feed** | A Feed overlapping a running Sleep |
 | Day bucket | Day Start resolved in the Household Zone, at display time |
 | Milestone Name suggestions | The Milestones themselves |
@@ -440,7 +440,7 @@ A Stale Session also **stops counting as a running Live Session** for the purpos
 
 `CONTEXT.md` originally claimed nap-vs-night follows from the Day Start, but **a single hour cannot classify both ends of a night** — a 20:00 Sleep is after the Day Start and no rule over one boundary separates it from a 14:00 nap.
 
-**The Night Sleep is the one that crosses the Day Start; every other Sleep is a Nap.** It matches how people talk ("she slept through" means through the boundary) and avoids a Night Start setting nobody wants to configure. **The accepted cost**: a 19:00 bedtime that collapses at 23:00 is recorded as a Nap.
+**The Night Sleep is the one that crosses the Day Start; every other Sleep is a Nap.** It matches how people talk ("she slept through" means through the boundary) and avoids a Night Start setting nobody wants to configure. ~~**The accepted cost**: a 19:00 bedtime that collapses at 23:00 is recorded as a Nap.~~ **The cost is no longer accepted — [ADR-0033](../../docs/adr/0033-a-sleep-that-reaches-the-night-is-a-night-sleep.md).** A Sleep that **reaches into the Household's [Night Period](../../docs/adr/0032-the-night-period-ends-at-the-day-start.md)** is a Night Sleep too, so the collapsed bedtime is one. The hour arrived for the Feed Interval and is already stated; the crossing rule still settles the morning end, and a Household that states no Night Period reads exactly as this paragraph describes.
 
 ### 7.3 Instants and zones
 

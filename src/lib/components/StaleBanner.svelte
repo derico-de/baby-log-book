@@ -33,7 +33,7 @@
 
 	const zone = $derived(app.zone);
 	const suggested = $derived(
-		usualWakeInstant(sleep, app.babyEntries, app.now, { dayStart: app.dayStart, zone })
+		usualWakeInstant(sleep, app.babyEntries, app.now, { dayStart: app.dayStart, zone, night: app.night })
 	);
 	let woke = $state('');
 

@@ -4,7 +4,7 @@ import type { Entry } from './types';
 
 const BERLIN = 'Europe/Berlin';
 const iso = (s: string) => Date.parse(s);
-const HOUSEHOLD = { dayStart: '05:00', zone: BERLIN };
+const HOUSEHOLD = { dayStart: '05:00', zone: BERLIN, night: null };
 
 function entry(p: Partial<Entry> & { type: Entry['type']; occurred_at: number }): Entry {
 	return {
@@ -48,6 +48,48 @@ describe('classifySleep', () => {
 		const running = entry({ type: 'sleep', occurred_at: iso('2026-08-17T19:00:00Z') });
 		expect(classifySleep(running, HOUSEHOLD, iso('2026-08-17T21:00:00Z'))).toBe('nap');
 		expect(classifySleep(running, HOUSEHOLD, iso('2026-08-18T04:00:00Z'))).toBe('night');
+	});
+
+	// The Household states when its night begins; it ends at the Day Start
+	// (ADR-0032, ADR-0033).
+	const KEEPS_NIGHT = { ...HOUSEHOLD, night: { start: '20:00', end: '05:00' } };
+
+	it('calls the bedtime that collapses a Night Sleep, once the Household states a Night', () => {
+		// 19:00 to 23:00 Berlin: it never reaches the Day Start, and used to be
+		// filed as a Nap.
+		const bedtime = entry({
+			type: 'sleep',
+			occurred_at: iso('2026-08-17T17:00:00Z'),
+			ended_at: iso('2026-08-17T21:00:00Z')
+		});
+		expect(classifySleep(bedtime, HOUSEHOLD, iso('2026-08-17T22:00:00Z'))).toBe('nap');
+		expect(classifySleep(bedtime, KEEPS_NIGHT, iso('2026-08-17T22:00:00Z'))).toBe('night');
+	});
+
+	it('leaves the afternoon Nap a Nap', () => {
+		const nap = entry({
+			type: 'sleep',
+			occurred_at: iso('2026-08-17T12:00:00Z') /* 14:00 Berlin */,
+			ended_at: iso('2026-08-17T13:30:00Z')
+		});
+		expect(classifySleep(nap, KEEPS_NIGHT, iso('2026-08-17T14:00:00Z'))).toBe('nap');
+	});
+
+	it('turns a running bedtime as the evening reaches the stated hour', () => {
+		const running = entry({ type: 'sleep', occurred_at: iso('2026-08-17T17:00:00Z') /* 19:00 */ });
+		expect(classifySleep(running, KEEPS_NIGHT, iso('2026-08-17T17:30:00Z'))).toBe('nap');
+		expect(classifySleep(running, KEEPS_NIGHT, iso('2026-08-17T18:00:00Z') /* 20:00 */)).toBe('night');
+	});
+
+	it('calls the small-hours stretch a Night Sleep too', () => {
+		// She went back down at 01:00 and was up again at 03:00: inside the
+		// night from end to end, and never near the Day Start.
+		const stretch = entry({
+			type: 'sleep',
+			occurred_at: iso('2026-08-17T23:00:00Z'),
+			ended_at: iso('2026-08-18T01:00:00Z')
+		});
+		expect(classifySleep(stretch, KEEPS_NIGHT, iso('2026-08-18T06:00:00Z'))).toBe('night');
 	});
 });
 
@@ -226,6 +268,35 @@ describe('usualWakeInstant', () => {
 		const running = entry({ type: 'sleep', occurred_at: iso('2026-08-17T19:00:00Z') });
 		const at = usualWakeInstant(running, [running], iso('2026-08-18T09:00:00Z'), HOUSEHOLD);
 		expect(at).toBe(iso('2026-08-18T05:00:00Z')); /* 07:00 Berlin */
+	});
+
+	it('reads past a bedtime that collapsed, which is not a morning', () => {
+		// Two evening Sleeps now count as Night Sleeps (ADR-0033). Letting their
+		// 22:00 ends into the median would open the picker on last night rather
+		// than on the hour she actually wakes.
+		const night = { start: '20:00', end: '05:00' };
+		const collapsed = (day: number) =>
+			entry({
+				type: 'sleep',
+				id: `collapsed-${day}`,
+				occurred_at: iso(`2026-08-${day}T17:00:00Z`) /* 19:00 Berlin */,
+				ended_at: iso(`2026-08-${day}T20:00:00Z`) /* 22:00 Berlin */
+			});
+		const history = [
+			collapsed(15),
+			collapsed(16),
+			entry({
+				type: 'sleep',
+				occurred_at: iso('2026-08-16T19:00:00Z'),
+				ended_at: iso('2026-08-17T04:15:00Z') /* 06:15 Berlin */
+			})
+		];
+		const running = entry({ type: 'sleep', occurred_at: iso('2026-08-17T19:00:00Z') });
+		const at = usualWakeInstant(running, [...history, running], iso('2026-08-18T09:00:00Z'), {
+			...HOUSEHOLD,
+			night
+		});
+		expect(at).toBe(iso('2026-08-18T04:15:00Z')); /* 06:15 Berlin */
 	});
 
 	it('never proposes a wake time before the Sleep started', () => {

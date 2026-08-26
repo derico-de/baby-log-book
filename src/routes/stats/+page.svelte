@@ -229,7 +229,8 @@
 			babyId: baby.id,
 			now: app.now,
 			dayStart: app.dayStart,
-			zone: app.zone
+			zone: app.zone,
+			night: app.night
 		});
 	});
 </script>

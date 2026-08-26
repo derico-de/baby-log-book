@@ -11,7 +11,7 @@ import type { Entry } from './types';
 const BERLIN = 'Europe/Berlin';
 const iso = (s: string) => Date.parse(s);
 const NOW = iso('2026-08-17T14:00:00Z'); /* 16:00 Berlin, day bucket 2026-08-17 */
-const LENS = { dayStart: '05:00', zone: BERLIN, babyId: 'b1', now: NOW };
+const LENS = { dayStart: '05:00', zone: BERLIN, night: null, babyId: 'b1', now: NOW };
 
 let n = 0;
 function entry(p: Partial<Entry> & { type: Entry['type']; occurred_at: number }): Entry {
@@ -190,6 +190,23 @@ describe('the Sleep card', () => {
 		expect(s.nightMs).toBe(10 * 3600_000);
 		expect(s.napMs).toBe(90 * 60_000);
 		expect(s.longestMs).toBe(10 * 3600_000);
+	});
+
+	it('counts the bedtime that collapsed as Night Sleep, for a Household that states a Night', () => {
+		// 19:00 to 22:00 Berlin: a Nap under the Day Start alone, and Night
+		// Sleep once the Household says its night begins at 20:00 (ADR-0033).
+		const entries = [sleep('2026-08-16T17:00:00Z', '2026-08-16T20:00:00Z')];
+		const asNap = statsFor({ ...LENS, entries })[0].secondary as SleepSecondary;
+		expect(asNap.napMs).toBe(3 * 3600_000);
+		expect(asNap.nightMs).toBe(0);
+
+		const asNight = statsFor({
+			...LENS,
+			night: { start: '20:00', end: '05:00' },
+			entries
+		})[0].secondary as SleepSecondary;
+		expect(asNight.nightMs).toBe(3 * 3600_000);
+		expect(asNight.napMs).toBe(0);
 	});
 });
 
