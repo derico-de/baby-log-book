@@ -2,12 +2,16 @@
 	/* The FAB fan. Spec §8.5.
 
 	   One FAB, bottom-right in thumb reach. Tapping it expands it in place into a
-	   stack of six direct actions, expanding upward — so the first item is the one
-	   nearest the thumb.
+	   fan of direct actions that curves up and around the button — so the first
+	   item is the one nearest the thumb.
 
-	   One row per entry type, and the Nappy row opens a form like the rest of
-	   them (ADR-0028): Pee and Poop are two facts about one nappy rather than
-	   two rows that write two Entries. Everything else opens a
+	   **A row is a form, not an entry type** (ADR-0035). There are eight entry
+	   types and six rows: breast, bottle and meal all sit behind the single
+	   *Feed* row, and the Nappy row opens a form like the rest of them
+	   (ADR-0028) because Pee and Poop are two facts about one nappy rather than
+	   two rows that write two Entries. A new entry type folds into an existing
+	   form before it may claim a row, which is why the fan has absorbed two new
+	   types at a cost of one row. Everything else opens a
 	   sheet — Feeds, Measurements and Milestones because they carry real data,
 	   Sleep, *She's awake* and starting tummy time only a one-field time sheet
 	   prefilled with now. *Off her tummy* writes straight through, because the
@@ -49,6 +53,31 @@
 	let props: Props = $props();
 
 	let open = $state(false);
+
+	/* The fan curves around the FAB instead of stacking straight above it
+	   (issue 27). The row nearest the thumb sits *beside* the button and each
+	   row above it swings back toward the right edge along a quarter circle,
+	   which reclaims the 74px the stack used to spend clearing the FAB. With
+	   Pico's inherited 16px button margin deleted alongside it, a 360x780
+	   phone goes from six rows to eight — and none of it costs the pill: the
+	   label, the sub-line and the type colour all survive, which a grid of
+	   tiles could not promise.
+
+	   The rows share one width (the fan is `align-items: stretch`), because
+	   with auto widths both edges go ragged and six pills read as a scatter
+	   rather than a curve.
+
+	   Cosine rather than a true circle: sqrt(1 - t²) leaves the top row
+	   snapping back 44px while its neighbours move 15, and the kink reads as a
+	   mistake. cos(t·π/2) opens smoothly all the way up. */
+	const ARC = 74;
+
+	/** Signed x-offset for the row `fromBottom` places above the FAB, in px:
+	    negative is leftward, and the top row settles on a clean 0. */
+	function arcOffset(fromBottom: number, count: number): number {
+		if (count < 2) return -ARC;
+		return -Math.round(ARC * Math.cos((fromBottom / (count - 1)) * (Math.PI / 2)));
+	}
 
 	/* Rendered top-to-bottom, so the array is reversed on screen: the first
 	   action in the list ends up closest to the FAB. */
@@ -113,11 +142,11 @@
 				type="button"
 				role="menuitem"
 				data-t={action.t}
-				style={`animation-delay:${index * 22}ms`}
+				style={`--dx:${arcOffset(actions.length - 1 - index, actions.length)}px;animation-delay:${index * 22}ms`}
 				onclick={() => pick(action)}
 			>
 				<span class="fan-glyph"><Icon name={action.icon} /></span>
-				<span>
+				<span class="fan-text">
 					<span class="fan-main">{action.label}</span>
 					{#if action.sub}<span class="fan-sub">{action.sub}</span>{/if}
 				</span>

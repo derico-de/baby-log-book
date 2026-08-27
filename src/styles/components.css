@@ -613,14 +613,19 @@
 		}
 	}
 
+	/* The fan starts in the FAB's own height band rather than 74px above it,
+	   and curves: each row carries a `--dx` set by Fan.svelte that swings the
+	   bottom row clear of the button and lets the rows above it settle back
+	   against the right edge (issue 27). The 74px the stack used to spend
+	   clearing the FAB becomes a whole extra row. */
 	.fan {
 		position: fixed;
 		right: 18px;
-		bottom: calc(var(--fab-bottom) + 74px);
+		bottom: var(--fab-bottom);
 		z-index: var(--z-fab);
 		display: flex;
 		flex-direction: column;
-		align-items: flex-end;
+		align-items: stretch;
 		gap: var(--sp-2);
 	}
 	.fan button {
@@ -629,6 +634,10 @@
 		gap: var(--sp-3);
 		min-height: 54px;
 		padding: 0 var(--sp-4);
+		/* Pico gives every button a 16px bottom margin (DESIGN.md), which the
+		   fan had been paying six times over — 80px of dead space in the one
+		   control that is short of room. The gap is the gap. */
+		margin: 0;
 		border-radius: var(--r-3);
 		border: 1px solid var(--line);
 		background: var(--surface);
@@ -636,13 +645,27 @@
 		cursor: pointer;
 		box-shadow: var(--shadow);
 		text-align: left;
+		/* A transform, so the curve costs no layout and the rows keep their
+		   54px pitch — the ceiling test's whole premise. */
+		transform: translate(var(--dx, 0px), 0) scale(1);
+		/* The row swung furthest left has the least width to print in. The
+		   longest string in three languages clears this by ~45px; the ellipsis
+		   is a safety net, because a label off the left edge is unreadable in
+		   a way a shortened one is not. */
+		max-width: calc(100vw + var(--dx, 0px) - 18px - var(--sp-3));
 		animation: rise var(--dur-3) var(--ease) backwards;
 	}
 	.fan button .fan-glyph {
 		width: 26px;
+		flex: none;
 		display: grid;
 		place-items: center;
 		color: var(--ink-2);
+	}
+	/* min-width:0 is what lets the label ellipsis rather than force the pill
+	   wider than its row allows. */
+	.fan-text {
+		min-width: 0;
 	}
 	.fan button .fan-glyph svg {
 		width: 19px;
@@ -658,6 +681,15 @@
 		color: var(--ink-3);
 		font-weight: var(--fw-normal);
 	}
+	/* Never wrap: a second line would grow the row past 54px and break the
+	   pitch the ceiling is counted in. */
+	.fan-main,
+	.fan-sub {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 	/* A fan pill wears its type's fill end to end — the other recognition
 	   point, for the thumb that logs without reading. Pee and poop share the
 	   nappy teal and are told apart by glyph and label. */
@@ -670,10 +702,13 @@
 	.fan button[data-t] .fan-sub {
 		color: var(--t-ink);
 	}
+	/* Same function list as the settled transform, so the rows interpolate
+	   componentwise and open along the curve instead of sliding in from the
+	   right edge and then jumping onto it. */
 	@keyframes rise {
 		from {
 			opacity: 0;
-			transform: translateY(12px) scale(0.96);
+			transform: translate(var(--dx, 0px), 12px) scale(0.96);
 		}
 	}
 

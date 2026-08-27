@@ -443,10 +443,29 @@ describe('the fan', () => {
 		onTummyEnd: () => {}
 	};
 
-	it('opens into six direct actions — one per entry type', () => {
+	/* The fan's ceiling, in rows. jsdom does no layout, so this is arithmetic
+	   over the constants in components.css rather than a measurement — which
+	   is what makes it a trip-wire rather than a snapshot: it goes red when a
+	   row is added, not when a pixel moves.
+
+	   Measured in Chrome at 360x780 — a Galaxy S22, installed so there is no
+	   browser chrome, the smallest screen the fan is known to work on
+	   (issue 27):
+
+	     .head ends at y=194; the bottom row ends at y=704
+	     n * 54 + (n - 1) * 8 <= 510   ->   n <= 8, with 22px to spare
+
+	   It was 6 before, and the two things that bought the other two rows were
+	   the arc (74px, by opening in the FAB's band instead of above it) and
+	   deleting Pico's inherited 16px button margin (80px across six rows). */
+	const FAN_CEILING = 8;
+
+	it('opens into six rows — one per form, not one per entry type (ADR-0035)', () => {
 		draw(Fan, { asleep: false, tummyRunning: false, ...handlers });
 		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
 		const items = [...host.querySelectorAll('.fan button')].map((b) => b.textContent?.trim() ?? '');
+		/* Six rows carrying eight entry types: breast, bottle and meal all sit
+		   behind the one *Feed* row. */
 		expect(items).toHaveLength(6);
 		expect(items.join(' ')).toContain('Pee & poop');
 		expect(items.join(' ')).toContain('Sleep');
@@ -489,6 +508,35 @@ describe('the fan', () => {
 		   near-synonymous labels in one fan is the 3am discrimination problem. */
 		expect(labels).not.toContain('Feed');
 		expect(labels).not.toContain('Sleep');
+	});
+
+	it.each([
+		['idle', { asleep: false, tummyRunning: false }],
+		['asleep', { asleep: true, tummyRunning: false }],
+		['on her tummy', { asleep: false, tummyRunning: true }],
+		['asleep and on her tummy', { asleep: true, tummyRunning: true }]
+	])('stays inside the fan ceiling while %s', (_what, state) => {
+		draw(Fan, { ...state, ...handlers });
+		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
+		const rows = host.querySelectorAll('.fan button').length;
+		expect(rows).toBeLessThanOrEqual(FAN_CEILING);
+	});
+
+	it('curves around the FAB: the row at the thumb swings clear, the top row sits flush', () => {
+		draw(Fan, { asleep: false, tummyRunning: false, ...handlers });
+		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
+		/* DOM order is top-to-bottom, so the offsets run from flush-right down
+		   to fully swung-out — strictly, or the curve has a kink in it. */
+		const dx = [...host.querySelectorAll<HTMLElement>('.fan button')].map((b) =>
+			parseFloat(b.style.getPropertyValue('--dx'))
+		);
+		expect(dx).toHaveLength(6);
+		expect(dx[0]).toBe(0);
+		expect(dx.at(-1)).toBe(-74);
+		/* Clears the 62px button with room to spare, or the bottom row lands
+		   on top of the thing that opened it. */
+		expect(Math.abs(dx.at(-1) as number)).toBeGreaterThan(62);
+		for (let i = 1; i < dx.length; i += 1) expect(dx[i]).toBeLessThan(dx[i - 1]);
 	});
 });
 
