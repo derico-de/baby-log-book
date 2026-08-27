@@ -61,7 +61,7 @@ A Claim Link a Parent creates for someone not yet in the Household, carrying the
 _Avoid_: Invitation code, join link
 
 **Rescue Link**:
-A Claim Link minted from the server itself, re-binding a Member who exists to a new Device. For the phone that was lost when no Parent is left to send an Invite.
+A Claim Link that binds a Member who exists to another Device — the new tablet as much as the phone that was lost. Any Member mints one for themselves in Settings, a Parent mints one for any Member, and the server's terminal remains for the Household nobody is left signed in to. Claiming one says nothing about the Member's other Devices.
 _Avoid_: Recovery code, password reset, admin override
 
 **Founding Link**:
