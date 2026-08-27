@@ -19,7 +19,7 @@ A child whose life is being logged. A Household may have several.
 _Avoid_: Child, infant, kid
 
 **Member**:
-A person with access to a Household. Every Entry records the Member who logged it.
+A person with access to a Household — or a Hub standing where a person would. Every Entry records the Member who logged it. Which of the two a Member is gets stated when it is created, and never changes.
 _Avoid_: User; Parent or Caregiver as a synonym for Member — those are roles a Member holds
 
 **Parent**:
@@ -43,6 +43,10 @@ _Avoid_: Purge, wipe, offboarding, cancellation
 **Device**:
 One phone, tablet or browser holding its own replica. Access is granted to a Device rather than to a Member in the abstract, so the same person on a second phone claims again.
 _Avoid_: Client, install, session (as a synonym for Device)
+
+**Hub**:
+A Device that watches the Household from a screen on a wall — a Home Assistant instance, or whatever next takes that shape. It claims a Claim Link and writes like any Device, but holds no replica: what it reads is derived for it. It claims as its own Member, marked as a Hub's and always a Caregiver, so the members list says what it is — removing *Home Assistant* unplugs the panel, not a person.
+_Avoid_: Panel, bridge, bot, integration (as a name for the Member)
 
 **Device Setting**:
 A preference belonging to one Device alone, which never travels to the others. Distinct from the Household's settings, which every Device shares: how dark the screen is depends on the room this phone is in, and being nudged to install depends on this phone not having been. What makes it a category rather than an exception is that it is answering a question about *this* phone, not about the Household.
