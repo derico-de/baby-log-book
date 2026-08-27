@@ -1,0 +1,7 @@
+# HA runtime state — version only the config we author
+*
+!.gitignore
+!configuration.yaml
+!automations.yaml
+!scripts.yaml
+!scenes.yaml

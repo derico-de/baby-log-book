@@ -1,0 +1,31 @@
+# Dev-instance configuration. Only this file, the three include files and the
+# .gitignore are versioned — everything else HA writes into /config (auth,
+# recorder db, logs) is runtime state and stays local.
+
+default_config:
+
+homeassistant:
+  name: Baby Log Book Dev
+  country: DE
+  time_zone: Europe/Berlin
+  unit_system: metric
+  currency: EUR
+  language: de
+  latitude: 52.52
+  longitude: 13.405
+  elevation: 34
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+# One throwaway template sensor so a fresh instance has a
+# `device_class: timestamp` entity to look at before the real integration
+# exists — it sits permanently ~40 minutes in the future. The entity-model
+# ticket replaces this with the real thing.
+template:
+  - sensor:
+      - name: 'Smoke test due instant'
+        unique_id: baby_log_book_smoke_test_due
+        device_class: timestamp
+        state: '{{ (now() + timedelta(minutes=40)).isoformat() }}'

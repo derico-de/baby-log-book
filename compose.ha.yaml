@@ -1,0 +1,32 @@
+# A Home Assistant core instance for development, so the integration's entity
+# model can be looked at rather than imagined. Dev tooling only: this file is
+# self-contained (its own service, its own volume) and is never passed together
+# with compose.yaml or compose.dev.yaml — nothing here reaches the image
+# self-hosters pull.
+#
+#   docker compose -f compose.ha.yaml up -d
+#
+# The UI listens on sandbox-local port 8123, which is enough for agent-driven
+# browser sessions. The sandbox forwards only 5173 to the outside, so to put
+# the HA UI in front of a human, stop whatever owns 5173 (dev server or dev
+# container) and republish on it:
+#
+#   HA_PORT=5173 docker compose -f compose.ha.yaml up -d
+#
+# From inside the container the app is http://host.docker.internal:5173 —
+# the same address whether `pnpm dev` or the dev container owns the port.
+# See ha/README.md for the login and the rest of the story.
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.8.3
+    container_name: baby-log-book-ha
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Berlin
+    volumes:
+      - ./ha/config:/config
+    ports:
+      - '${HA_PORT:-8123}:8123'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
