@@ -19,13 +19,85 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 
-# One throwaway template sensor so a fresh instance has a
-# `device_class: timestamp` entity to look at before the real integration
-# exists — it sits permanently ~40 minutes in the future. The entity-model
-# ticket replaces this with the real thing.
+# The sixteen per-Baby entities plus the Household diagnostic that ticket 06
+# decided, mocked as template entities for one Baby "Emma" so the wall-panel
+# dashboard can be judged on stock tile cards before any Python exists.
+# Staged scene: a bottle feed started 12 minutes ago and the bottle is still
+# open; Emma is awake, her wake window closes in 20 minutes. The real
+# integration replaces all of this.
 template:
   - sensor:
-      - name: 'Smoke test due instant'
-        unique_id: baby_log_book_smoke_test_due
+      - name: 'Emma Letzte Mahlzeit'
+        unique_id: blb_emma_last_feed
         device_class: timestamp
-        state: '{{ (now() + timedelta(minutes=40)).isoformat() }}'
+        state: '{{ (now() - timedelta(minutes=12)).isoformat() }}'
+      - name: 'Emma Mahlzeit fällig'
+        unique_id: blb_emma_feed_due
+        device_class: timestamp
+        state: '{{ (now() + timedelta(hours=2, minutes=48)).isoformat() }}'
+      - name: 'Emma Schläft seit'
+        unique_id: blb_emma_asleep_since
+        device_class: timestamp
+        state: '{{ none }}'
+      - name: 'Emma Wach seit'
+        unique_id: blb_emma_awake_since
+        device_class: timestamp
+        state: '{{ (now() - timedelta(hours=1, minutes=10)).isoformat() }}'
+      - name: 'Emma Wachfenster vorbei'
+        unique_id: blb_emma_wake_window_up
+        device_class: timestamp
+        state: '{{ (now() + timedelta(minutes=20)).isoformat() }}'
+      - name: 'Emma Fläschchen läuft ab'
+        unique_id: blb_emma_bottle_runs_out
+        device_class: timestamp
+        state: '{{ (now() + timedelta(minutes=48)).isoformat() }}'
+      - name: 'Emma Letztes Kaka'
+        unique_id: blb_emma_last_poop
+        device_class: timestamp
+        state: '{{ (now() - timedelta(hours=3, minutes=10)).isoformat() }}'
+      - name: 'Emma Mahlzeiten heute'
+        unique_id: blb_emma_feeds_today
+        state: '5'
+        icon: mdi:baby-bottle-outline
+      - name: 'Emma Milch heute'
+        unique_id: blb_emma_milk_today
+        state: '340'
+        unit_of_measurement: 'ml'
+        icon: mdi:cup-water
+      - name: 'Emma Schlaf heute'
+        unique_id: blb_emma_sleep_today
+        state: '154'
+        device_class: duration
+        unit_of_measurement: 'min'
+        icon: mdi:sleep
+      - name: 'Emma Pipi heute'
+        unique_id: blb_emma_pees_today
+        state: '4'
+        icon: mdi:water
+      - name: 'Emma Kaka heute'
+        unique_id: blb_emma_poops_today
+        state: '2'
+        icon: mdi:emoticon-poop
+      - name: 'Emma Bauchzeit heute'
+        unique_id: blb_emma_tummy_today
+        state: '12'
+        device_class: duration
+        unit_of_measurement: 'min'
+        icon: mdi:baby
+      - name: 'Baby Log Book Zuletzt aktualisiert'
+        unique_id: blb_last_update
+        device_class: timestamp
+        state: '{{ now().isoformat() }}'
+  - binary_sensor:
+      - name: 'Emma Schläft'
+        unique_id: blb_emma_asleep
+        state: '{{ false }}'
+        icon: mdi:sleep
+      - name: 'Emma Trinkt'
+        unique_id: blb_emma_feeding
+        state: '{{ true }}'
+        icon: mdi:baby-bottle
+      - name: 'Emma Fläschchen offen'
+        unique_id: blb_emma_bottle_open
+        state: '{{ true }}'
+        icon: mdi:bottle-soda-outline
