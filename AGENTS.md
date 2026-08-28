@@ -3,6 +3,7 @@
 ## Project rules
 
 - keep release number in sync with docker container tags
+- every change lands with an entry under **Unreleased** in `CHANGELOG.md`; a release moves that section under its version number — no commit that changes behavior, UI, or docs ships without its changelog line
 - in this sandbox: commit only, never `git push` — the maintainer pushes from outside the sandbox, unless they explicitly say otherwise
 
 ## Tenancy
