@@ -373,6 +373,13 @@ export function setSleepNotice(w: Writer, seconds: number | null): Promise<strin
 	return write(w, 'household', w.householdId, { sleep_notice_s: noticeOffset(seconds) });
 }
 
+/** Whether the Household is caregiving right now. `false` silences every
+    reminder — both Notices and the Bottle Chime — without touching what any of
+    them is set to, so switching it back on restores the routine as it was. */
+export function setCaregiving(w: Writer, active: boolean): Promise<string> {
+	return write(w, 'household', w.householdId, { caregiving: active });
+}
+
 /** A Target is a duration plus the anchor it measures from. */
 export async function setTarget(
 	w: Writer,

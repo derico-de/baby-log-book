@@ -306,6 +306,45 @@ describe('applying a pulled page', () => {
 		expect(await db.households.get('h1')).toMatchObject({ night_start: null });
 	});
 
+	/* Caregiving folds like the offsets, except its quiet side is *on*: a
+	   replica that has never heard of the field is looking after somebody, and
+	   only a stated `false` may silence the reminders (never an absence). */
+	it('folds Caregiving, and a revision about something else leaves it off', async () => {
+		await applyRevisions(db, 'h1', [
+			revision({ id: 'r-1', seq: 1, kind: 'household', entity_id: 'h1', fields: { zone: BERLIN } })
+		]);
+		expect(await db.households.get('h1')).toMatchObject({ caregiving: true });
+
+		await applyRevisions(db, 'h1', [
+			revision({ id: 'r-2', seq: 2, kind: 'household', entity_id: 'h1', fields: { caregiving: false } })
+		]);
+		expect(await db.households.get('h1')).toMatchObject({ caregiving: false });
+
+		await applyRevisions(db, 'h1', [
+			revision({
+				id: 'r-3',
+				seq: 3,
+				kind: 'household',
+				entity_id: 'h1',
+				merge_at: NOW + 1000,
+				fields: { day_start: '06:00' }
+			})
+		]);
+		expect(await db.households.get('h1')).toMatchObject({ day_start: '06:00', caregiving: false });
+
+		await applyRevisions(db, 'h1', [
+			revision({
+				id: 'r-4',
+				seq: 4,
+				kind: 'household',
+				entity_id: 'h1',
+				merge_at: NOW + 2000,
+				fields: { caregiving: true }
+			})
+		]);
+		expect(await db.households.get('h1')).toMatchObject({ caregiving: true });
+	});
+
 	it('folds a Member, and nothing authenticating comes with it', async () => {
 		await applyRevisions(db, 'h1', [
 			revision({

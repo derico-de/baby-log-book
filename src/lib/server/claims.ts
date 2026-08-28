@@ -20,7 +20,13 @@
                    Household (ADR-0020); it never joins one that exists. */
 
 import { randomUUID } from 'node:crypto';
-import { DEFAULT_DAY_START, DEFAULT_FEED_NOTICE_S, DEFAULT_SLEEP_NOTICE_S, type Role } from '$domain/types';
+import {
+	DEFAULT_CAREGIVING,
+	DEFAULT_DAY_START,
+	DEFAULT_FEED_NOTICE_S,
+	DEFAULT_SLEEP_NOTICE_S,
+	type Role
+} from '$domain/types';
 import { seedTargets } from '$domain/targets';
 import type { Db } from './db';
 import { createSession, newToken, tokenHash } from './auth';
@@ -266,6 +272,7 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 						   default is a setting the replica cannot see (ADR-0031). */
 						feed_notice_s: DEFAULT_FEED_NOTICE_S,
 						sleep_notice_s: DEFAULT_SLEEP_NOTICE_S,
+						caregiving: DEFAULT_CAREGIVING,
 						...(label === '' ? {} : { name: label })
 					},
 					merge_at: input.now,

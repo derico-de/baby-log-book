@@ -10,6 +10,7 @@ import { noticeOffset } from '$domain/notices';
 import { nightStartValue } from '$domain/targets';
 import { foldEntity, foldEntry, splitFields } from '$domain/revisions';
 import {
+	DEFAULT_CAREGIVING,
 	DEFAULT_DAY_START,
 	DEFAULT_NIGHT_START,
 	DEFAULT_FEED_NOTICE_S,
@@ -120,7 +121,14 @@ async function materialise(db: ReplicaDb, householdId: string, kind: RevisionKin
 				sleep_notice_s:
 					'sleep_notice_s' in state
 						? noticeOffset(state.sleep_notice_s)
-						: (existing?.sleep_notice_s ?? DEFAULT_SLEEP_NOTICE_S)
+						: (existing?.sleep_notice_s ?? DEFAULT_SLEEP_NOTICE_S),
+				/* Never null, so "absent" is the only case the fallback chain has
+				   to carry: a replica that predates the field is caregiving, the
+				   same side every existing row landed on when the column arrived. */
+				caregiving:
+					typeof state.caregiving === 'boolean'
+						? state.caregiving
+						: (existing?.caregiving ?? DEFAULT_CAREGIVING)
 			} satisfies Household);
 			return;
 		}

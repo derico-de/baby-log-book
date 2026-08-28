@@ -136,6 +136,10 @@ export function planNotices(db: Db, now: number): PlannedNotice[] {
 
 		const household = getHousehold(db, householdId);
 		if (!household) continue;
+		/* Caregiving switched off is the Household saying *nobody needs waking*,
+		   and it outranks every offset and every subscription: the fold below is
+		   never run, so nothing can be owed (ADR-0031). */
+		if (!household.caregiving) continue;
 
 		const notices = liveNotices(
 			noticeEntries(db, householdId, now - LOOKBACK_MS),

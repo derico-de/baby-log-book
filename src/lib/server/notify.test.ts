@@ -113,6 +113,19 @@ describe('what is owed to whom', () => {
 		expect(planNotices(db, INSIDE)).toEqual([]);
 	});
 
+	/* The Caregiving switch outranks everything below it: the subscription is
+	   live, the bottle is inside its last ten minutes, and still nothing is
+	   owed — until the switch comes back on, when the same bottle is. */
+	it('says nothing while Caregiving is switched off, whatever else is switched on', () => {
+		openBottle('f1');
+		subscribe('https://push.example.com/1');
+		db.prepare('UPDATE households SET caregiving = 0 WHERE id = ?').run('h1');
+		expect(planNotices(db, INSIDE)).toEqual([]);
+
+		db.prepare('UPDATE households SET caregiving = 1 WHERE id = ?').run('h1');
+		expect(planNotices(db, INSIDE)).toHaveLength(1);
+	});
+
 	it('names the bottle and the Devices once its last ten minutes have begun', () => {
 		openBottle('f1');
 		subscribe('https://push.example.com/1');

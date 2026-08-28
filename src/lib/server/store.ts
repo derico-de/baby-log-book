@@ -296,7 +296,8 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 				   zone = COALESCE(?, zone),
 				   night_start    = CASE WHEN ? THEN ? ELSE night_start    END,
 				   feed_notice_s  = CASE WHEN ? THEN ? ELSE feed_notice_s  END,
-				   sleep_notice_s = CASE WHEN ? THEN ? ELSE sleep_notice_s END
+				   sleep_notice_s = CASE WHEN ? THEN ? ELSE sleep_notice_s END,
+				   caregiving = COALESCE(?, caregiving)
 				 WHERE id = ?`
 			).run(
 				state.name == null ? null : String(state.name),
@@ -308,6 +309,9 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 				noticeOffset(state.feed_notice_s),
 				'sleep_notice_s' in state ? 1 : 0,
 				noticeOffset(state.sleep_notice_s),
+				/* Never null-as-a-value: the check at the sync edge admits only a
+				   boolean, so COALESCE can carry this one. */
+				typeof state.caregiving === 'boolean' ? (state.caregiving ? 1 : 0) : null,
 				householdId
 			);
 			return;
@@ -426,10 +430,10 @@ export function getEntry(db: Db, householdId: string, id: string): Entry | null 
 export function getHousehold(db: Db, householdId: string): Household | null {
 	const row = db
 		.prepare(
-			'SELECT id, name, day_start, zone, night_start, feed_notice_s, sleep_notice_s FROM households WHERE id = ?'
+			'SELECT id, name, day_start, zone, night_start, feed_notice_s, sleep_notice_s, caregiving FROM households WHERE id = ?'
 		)
-		.get(householdId) as Household | undefined;
-	return row ?? null;
+		.get(householdId) as (Omit<Household, 'caregiving'> & { caregiving: number }) | undefined;
+	return row ? { ...row, caregiving: row.caregiving !== 0 } : null;
 }
 
 export function listMembers(db: Db, householdId: string): MemberRecord[] {

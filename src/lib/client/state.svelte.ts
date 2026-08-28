@@ -526,6 +526,13 @@ class AppState {
 			this.chimed.clear();
 			return;
 		}
+		/* Caregiving switched off silences this Device's chime the same way it
+		   silences the server's pushes: the Household said nobody needs
+		   reminding, and that outranks the Device's own switch. */
+		if (this.household && !this.household.caregiving) {
+			this.chimed.clear();
+			return;
+		}
 		const nearing = bottlesNearingEnd(this.entries, this.targets, this.now);
 		/* Forget the bottles that have gone: the Set holds ids of open bottles
 		   only, so it cannot grow with the log. */

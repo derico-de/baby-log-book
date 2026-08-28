@@ -311,6 +311,20 @@ export const MIGRATIONS: Migration[] = [
 			   that the app does not know when this Household's night is. */
 			ALTER TABLE households ADD COLUMN night_start TEXT;
 		`
+	},
+	{
+		name: '0007-caregiving',
+		sql: `
+			/* Whether the Household is caregiving right now. 0 silences every
+			   reminder without touching what any of them is set to; the offsets,
+			   the Targets and the subscriptions all keep their values, so
+			   switching it back on restores the routine as it was.
+
+			   1 on every existing row: a Household that has never been asked is
+			   logging a Baby it is looking after, and a migration that silenced
+			   its reminders would be the app deciding nobody cares. */
+			ALTER TABLE households ADD COLUMN caregiving INTEGER NOT NULL DEFAULT 1;
+		`
 	}
 ];
 

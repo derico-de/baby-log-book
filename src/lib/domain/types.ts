@@ -206,6 +206,12 @@ export interface Household {
 	/** Seconds *after* the Wake Window is up that the Sleep Notice is sent;
 	    `null` never sends it. */
 	sleep_notice_s: number | null;
+	/** Whether this Household is caregiving right now. `false` silences every
+	    reminder — the two Notices above and the Bottle Chime — without touching
+	    what they are set to, so switching it back on restores the routine as it
+	    was. One switch for the whole Household, because "she is with the
+	    grandparents this week" is a fact about the routine, not about a phone. */
+	caregiving: boolean;
 }
 
 /** A revision is immutable and names only the fields it changed (ADR-0003). */
@@ -260,6 +266,11 @@ export const DEFAULT_NIGHT_START = null;
     (ADR-0031). */
 export const DEFAULT_FEED_NOTICE_S = 0;
 export const DEFAULT_SLEEP_NOTICE_S = 0;
+
+/** Caregiving until somebody says otherwise: a Household that has never been
+    asked is logging a Baby it is looking after, and a default that silenced
+    its reminders would be the app deciding nobody cares. */
+export const DEFAULT_CAREGIVING = true;
 
 /** No Household wants to be told about a Feed a day and a half from now. Here
     rather than beside the fold, because the field validator has to reach it and

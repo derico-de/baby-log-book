@@ -159,7 +159,8 @@ const HOUSEHOLD_FIELD_CHECKS: Record<string, Check> = {
 	night_start: (v) => v === null || isHour(v),
 	zone: isZone,
 	feed_notice_s: isNoticeOffset,
-	sleep_notice_s: isNoticeOffset
+	sleep_notice_s: isNoticeOffset,
+	caregiving: (v) => typeof v === 'boolean'
 };
 
 const TARGET_FIELD_CHECKS: Record<string, Check> = {

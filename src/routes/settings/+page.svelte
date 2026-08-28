@@ -12,6 +12,7 @@
 		removeFood,
 		removeMember,
 		renameFood,
+		setCaregiving,
 		setDayStart,
 		setFeedNotice,
 		setHouseholdName,
@@ -513,6 +514,20 @@
 				     routine, so it is the same answer on every Device (ADR-0031). -->
 				{#if household}
 					<h3>{m.settings_notices()}</h3>
+					<!-- The master switch, above the two offsets it outranks: off means
+					     nothing is sent to any phone — Notices and chime alike — while
+					     every setting below keeps its value for the day she is back. -->
+					<label>
+						<input
+							type="checkbox"
+							checked={household.caregiving}
+							disabled={!isParent}
+							onchange={(event) =>
+								void app.edit((w) => setCaregiving(w, event.currentTarget.checked))}
+						/>
+						{m.settings_caregiving_label()}
+					</label>
+					<small class="hint">{m.settings_caregiving_hint()}</small>
 					<label>
 						{m.settings_feed_notice()}
 						<select

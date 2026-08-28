@@ -55,13 +55,19 @@ describe('the boot-time migration runner', () => {
 			'0003-operator-label',
 			'0004-push-subscriptions',
 			'0005-notice-offsets',
-			'0006-night-period'
+			'0006-night-period',
+			'0007-caregiving'
 		]);
 		/* Nothing about anybody's due times changes until a Parent states an
 		   hour: the column arrives NULL, which is *this Household keeps no Night
 		   Period* (ADR-0032). */
 		expect(db.prepare('SELECT night_start FROM households WHERE id = ?').get('h1')).toEqual({
 			night_start: null
+		});
+		/* Every Household that predates the switch is caregiving: a migration
+		   that silenced its reminders would be the app deciding nobody cares. */
+		expect(db.prepare('SELECT caregiving FROM households WHERE id = ?').get('h1')).toEqual({
+			caregiving: 1
 		});
 		expect(
 			db.prepare('SELECT display_name, household_label FROM claim_links WHERE token_hash = ?').get('hash')

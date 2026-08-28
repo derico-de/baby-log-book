@@ -286,6 +286,8 @@
 	"settings_bottle_chime_push_failed": "Serverul nu a putut fi contactat, deci deocamdată sună doar cu aplicația deschisă. Va încerca din nou la următoarea deschidere.",
 	"settings_notices": "Memento-uri",
 	"settings_notices_hint": "Pentru toată gospodăria, pe fiecare telefon cu semnalul pornit. Nu se trimite niciun memento cât timp mănâncă sau doarme.",
+	"settings_caregiving_label": "Îngrijirea este activă",
+	"settings_caregiving_hint": "Oprește cât timp nimeni nu are grijă de ea — nu se trimite nimic pe niciun telefon și nu sună niciun semnal până când este pornită din nou. Toate setările de mai jos rămân neschimbate.",
 	"settings_feed_notice": "Masa e la timp",
 	"settings_feed_notice_now": "Când e timpul",
 	"settings_sleep_notice": "Fereastra de veghe s-a încheiat",

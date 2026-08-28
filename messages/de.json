@@ -298,6 +298,8 @@
 	"settings_bottle_chime_push_failed": "Der Server war nicht erreichbar, daher ertönt das Signal vorerst nur bei geöffneter App. Beim nächsten Öffnen wird es erneut versucht.",
 	"settings_notices": "Erinnerungen",
 	"settings_notices_hint": "Für den ganzen Haushalt, auf jedem Handy mit eingeschaltetem Signal. Es kommt nie eine Erinnerung, während sie schon trinkt oder schon schläft.",
+	"settings_caregiving_label": "Betreuung ist aktiv",
+	"settings_caregiving_hint": "Ausschalten, solange sich niemand um sie kümmert — es wird nichts an ein Handy geschickt und kein Signal ertönt, bis es wieder eingeschaltet wird. Alles darunter behält seine Einstellung.",
 	"settings_feed_notice": "Mahlzeit fällig",
 	"settings_feed_notice_now": "Wenn sie fällig ist",
 	"settings_sleep_notice": "Wachfenster um",

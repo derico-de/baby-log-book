@@ -225,6 +225,34 @@ describe('roles', () => {
 		expect(getHousehold(db, 'h1')).toMatchObject({ night_start: null });
 	});
 
+	/* Caregiving is never null, so COALESCE can carry it — but `false` must
+	   survive the trip: a false read as "unchanged" would make the switch
+	   impossible to turn off. */
+	it('let a Parent switch Caregiving off, and a revision about something else leaves it off', () => {
+		expect(getHousehold(db, 'h1')).toMatchObject({ caregiving: true });
+
+		asMember([rev({ kind: 'household', entity_id: 'h1', fields: { caregiving: false } })]);
+		expect(getHousehold(db, 'h1')).toMatchObject({ caregiving: false });
+
+		asMember([
+			rev({ kind: 'household', entity_id: 'h1', merge_at: NOW + 1000, fields: { day_start: '06:00' } })
+		]);
+		expect(getHousehold(db, 'h1')).toMatchObject({ day_start: '06:00', caregiving: false });
+
+		asMember([
+			rev({ kind: 'household', entity_id: 'h1', merge_at: NOW + 2000, fields: { caregiving: true } })
+		]);
+		expect(getHousehold(db, 'h1')).toMatchObject({ caregiving: true });
+	});
+
+	it('reject a Caregiving value that is not a boolean', () => {
+		const result = asMember([
+			rev({ kind: 'household', entity_id: 'h1', fields: { caregiving: 'no' } })
+		]);
+		expect(result.rejected).toHaveLength(1);
+		expect(getHousehold(db, 'h1')).toMatchObject({ caregiving: true });
+	});
+
 	it('let a Caregiver add a Food, because logging a Meal grows the catalogue', () => {
 		const result = asMember([rev({ kind: 'food', entity_id: 'f1', fields: { name: 'Brokkoli' } })], 'caregiver', 'oma');
 		expect(result.accepted).toHaveLength(1);
