@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.19.1] - 2026-08-29
+
 ### Fixed
 
 - The Night Period no longer moves a Feed's due instant to the Day Start
