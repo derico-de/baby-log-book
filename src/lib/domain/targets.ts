@@ -102,7 +102,10 @@ export function nightPeriodOf(
 /** The due instant of a **Feed**, which is the one Target the Night Period
     moves: a Feed that would come due at 01:00 comes due at the Day Start
     instead, because nobody has stated an interval they mean to keep to at 1am
-    (ADR-0032).
+    (ADR-0032). Only once the night has begun, though — an afternoon Feed
+    whose interval reaches past the stated hour still has the bedtime Feed
+    ahead of it, and the morning is not the answer until the night is
+    (ADR-0040).
 
     Only the Feed. A Wake Window is *how long she is comfortably awake* and
     says nothing about the hour; a Bottle Life is how long milk stays good, and
@@ -112,9 +115,10 @@ export function feedDueInstant(
 	target: Target,
 	anchorAt: number,
 	night: NightPeriod | null,
-	zone: string
+	zone: string,
+	now: number
 ): number {
-	return pastNight(dueInstant(target, anchorAt), night, zone);
+	return pastNight(dueInstant(target, anchorAt), night, zone, now);
 }
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
@@ -387,7 +391,7 @@ export function headerState(input: HeaderInput): HeaderState {
 		overdueMs: null
 	};
 	if (lastFeedAt != null && feedTarget) {
-		feed.dueAt = feedDueInstant(feedTarget, lastFeedAt, night, zone);
+		feed.dueAt = feedDueInstant(feedTarget, lastFeedAt, night, zone, now);
 		const remaining = feed.dueAt - now;
 		feed.remainingMs = Math.max(0, remaining);
 		feed.overdue = remaining < 0;

@@ -9,6 +9,15 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Night Period no longer moves a Feed's due instant to the Day Start
+  before the night has begun: an afternoon feed whose interval reaches past
+  the stated hour keeps its due as stated — the bedtime feed is still to
+  come — and only from that hour on does the header predict the morning. The
+  Feed Notice now also gives its head start for the bedtime feed instead of
+  staying silent until dawn (ADR-0040).
+
 ## [1.19.0] - 2026-08-28
 
 ### Added

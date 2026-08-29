@@ -169,7 +169,7 @@ function feedNotices(
 		   Household that typed a short interval and a long lead is asking to be
 		   told a Feed is due while she is still on the last one. */
 		const at =
-			feedDueInstant(target, anchor.occurred_at, night, zone) -
+			feedDueInstant(target, anchor.occurred_at, night, zone, now) -
 			Math.min(lead, (target.duration_s * 1000) / 2);
 		if (now < at || now >= at + NOTICE_WINDOW_MS) continue;
 		notices.push({

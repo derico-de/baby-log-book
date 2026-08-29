@@ -259,20 +259,31 @@ describe('the Night Period', () => {
 	it('moves an instant inside it to the Day Start, and only forward', () => {
 		// The case the setting exists for: a 21:00 feed on a three-hour interval
 		// would come due at midnight, and comes due at 07:00 instead.
-		expect(pastNight(at(18, 0), NIGHT, BERLIN)).toBe(at(18, 7));
+		expect(pastNight(at(18, 0), NIGHT, BERLIN, at(17, 22))).toBe(at(18, 7));
 		// Late evening, so the morning it lands on is the next one.
-		expect(pastNight(at(17, 23), NIGHT, BERLIN)).toBe(at(18, 7));
+		expect(pastNight(at(17, 23), NIGHT, BERLIN, at(17, 21, 30))).toBe(at(18, 7));
 		// A 03:00 waking's next feed is still the morning of the same night.
-		expect(pastNight(at(18, 6), NIGHT, BERLIN)).toBe(at(18, 7));
+		expect(pastNight(at(18, 6), NIGHT, BERLIN, at(18, 3))).toBe(at(18, 7));
+	});
+
+	it('does not move it before its night has begun — the bedtime feed is still to come', () => {
+		// Fed in the afternoon, due at 22:03: read at 18:43 the due stands, and
+		// only once the clock passes 21:00 does it belong to the morning
+		// (ADR-0040).
+		expect(pastNight(at(17, 22, 3), NIGHT, BERLIN, at(17, 18, 43))).toBe(at(17, 22, 3));
+		expect(pastNight(at(17, 22, 3), NIGHT, BERLIN, at(17, 21))).toBe(at(18, 7));
+		// A due past midnight belongs to the night that began the evening
+		// before, so an evening `now` is already inside it.
+		expect(pastNight(at(18, 0, 20), NIGHT, BERLIN, at(17, 21, 5))).toBe(at(18, 7));
 	});
 
 	it('leaves a daytime instant exactly where it is', () => {
-		expect(pastNight(at(18, 12), NIGHT, BERLIN)).toBe(at(18, 12));
-		expect(pastNight(at(18, 7), NIGHT, BERLIN)).toBe(at(18, 7));
+		expect(pastNight(at(18, 12), NIGHT, BERLIN, at(18, 11))).toBe(at(18, 12));
+		expect(pastNight(at(18, 7), NIGHT, BERLIN, at(18, 6))).toBe(at(18, 7));
 	});
 
 	it('does nothing at all for a Household that keeps no Night Period', () => {
-		expect(pastNight(at(18, 1), null, BERLIN)).toBe(at(18, 1));
+		expect(pastNight(at(18, 1), null, BERLIN, at(17, 23))).toBe(at(18, 1));
 	});
 
 	it('lands on the wall clock across a DST boundary, not on a fixed offset', () => {
@@ -281,7 +292,7 @@ describe('the Night Period', () => {
 		// hour, always.
 		const night = wallToInstant({ y: 2026, m: 10, d: 24, h: 23, mi: 0 }, BERLIN);
 		const morning = wallToInstant({ y: 2026, m: 10, d: 25, h: 7, mi: 0 }, BERLIN);
-		expect(pastNight(night, NIGHT, BERLIN)).toBe(morning);
+		expect(pastNight(night, NIGHT, BERLIN, night)).toBe(morning);
 		expect(morning - night).toBe(9 * 3_600_000);
 	});
 });

@@ -149,7 +149,7 @@ The hour at which a new day begins for this Household, and the hour a Night Peri
 _Avoid_: Cutoff, day boundary, reset time
 
 **Night Period**:
-The stretch of the clock a Household does not expect to keep to its Feed Interval in. Stated as the hour the night begins; it ends at the Day Start, so it is one hour and not a pair. A Feed that would come due inside it comes due at the Day Start instead — fed at 21:00, next due at 07:00. It is also the evening end of a Night Sleep. Nothing else reads it: no other Target — not the Wake Window, not the Bottle Life — and not which day an Entry belongs to. Optional, and no Household has one until a Parent states it.
+The stretch of the clock a Household does not expect to keep to its Feed Interval in. Stated as the hour the night begins; it ends at the Day Start, so it is one hour and not a pair. A Feed that would come due inside it comes due at the Day Start instead — fed at 21:00, next due at 07:00 — but only once the night has begun: until the stated hour arrives, the bedtime Feed is still to come and the interval stands as stated. It is also the evening end of a Night Sleep. Nothing else reads it: no other Target — not the Wake Window, not the Bottle Life — and not which day an Entry belongs to. Optional, and no Household has one until a Parent states it.
 _Avoid_: Quiet hours, night mode, do not disturb, sleep window
 
 **Night Sleep**:
