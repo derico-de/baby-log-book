@@ -374,8 +374,10 @@ export function setSleepNotice(w: Writer, seconds: number | null): Promise<strin
 }
 
 /** Whether the Household is caregiving right now. `false` silences every
-    reminder — both Notices and the Bottle Chime — without touching what any of
-    them is set to, so switching it back on restores the routine as it was. */
+    reminder — both Notices and the Bottle Chime — on the Caregivers' Devices,
+    and on theirs only: a Parent is never silenced by it (ADR-0041). Nothing is
+    touched of what any reminder is set to, so switching it back on restores the
+    routine as it was. */
 export function setCaregiving(w: Writer, active: boolean): Promise<string> {
 	return write(w, 'household', w.householdId, { caregiving: active });
 }

@@ -99,6 +99,15 @@ beforeEach(() => {
 		'parent',
 		'de'
 	);
+	/* Oma looks after her some days. Same Household, same Baby, different role —
+	   which is the whole of what the Caregiving switch asks (ADR-0041). */
+	db.prepare('INSERT INTO members (id, household_id, display_name, role, locale) VALUES (?,?,?,?,?)').run(
+		'oma',
+		'h1',
+		'Oma',
+		'caregiver',
+		'de'
+	);
 	db.prepare('INSERT INTO babies (id, household_id, name, birth_date) VALUES (?,?,?,?)').run(
 		'b1',
 		'h1',
@@ -113,17 +122,51 @@ describe('what is owed to whom', () => {
 		expect(planNotices(db, INSIDE)).toEqual([]);
 	});
 
-	/* The Caregiving switch outranks everything below it: the subscription is
-	   live, the bottle is inside its last ten minutes, and still nothing is
-	   owed — until the switch comes back on, when the same bottle is. */
-	it('says nothing while Caregiving is switched off, whatever else is switched on', () => {
+	/* The Caregiving switch outranks every offset below it, but not the Parent
+	   above it: *nobody is looking after her* is a statement about who is
+	   standing in, so Oma's phone goes quiet and mum's does not (ADR-0041). */
+	it('silences the Caregivers while Caregiving is switched off, and never the Parents', () => {
 		openBottle('f1');
-		subscribe('https://push.example.com/1');
+		subscribe('https://push.example.com/mum', 'mum');
+		subscribe('https://push.example.com/oma', 'oma', 'oma-phone');
+		expect(planNotices(db, INSIDE)[0].subscriptions.map((s) => s.endpoint)).toEqual([
+			'https://push.example.com/mum',
+			'https://push.example.com/oma'
+		]);
+
+		db.prepare('UPDATE households SET caregiving = 0 WHERE id = ?').run('h1');
+		expect(planNotices(db, INSIDE)[0].subscriptions.map((s) => s.endpoint)).toEqual([
+			'https://push.example.com/mum'
+		]);
+
+		db.prepare('UPDATE households SET caregiving = 1 WHERE id = ?').run('h1');
+		expect(planNotices(db, INSIDE)[0].subscriptions).toHaveLength(2);
+	});
+
+	/* And with only Caregivers subscribed there is nothing left to say — the
+	   Household is silent, which is what switching it off is for. */
+	it('says nothing at all while Caregiving is off and no Parent is subscribed', () => {
+		openBottle('f1');
+		subscribe('https://push.example.com/oma', 'oma', 'oma-phone');
 		db.prepare('UPDATE households SET caregiving = 0 WHERE id = ?').run('h1');
 		expect(planNotices(db, INSIDE)).toEqual([]);
 
 		db.prepare('UPDATE households SET caregiving = 1 WHERE id = ?').run('h1');
 		expect(planNotices(db, INSIDE)).toHaveLength(1);
+	});
+
+	/* Read at delivery, not frozen at subscribe: Oma promoted to Parent is owed
+	   the Notice on the very next tick, with no re-subscription. */
+	it('reads the role at delivery, so a promoted Caregiver is owed the next Notice', () => {
+		openBottle('f1');
+		subscribe('https://push.example.com/oma', 'oma', 'oma-phone');
+		db.prepare('UPDATE households SET caregiving = 0 WHERE id = ?').run('h1');
+		expect(planNotices(db, INSIDE)).toEqual([]);
+
+		db.prepare("UPDATE members SET role = 'parent' WHERE id = ?").run('oma');
+		expect(planNotices(db, INSIDE)[0].subscriptions.map((s) => s.endpoint)).toEqual([
+			'https://push.example.com/oma'
+		]);
 	});
 
 	it('names the bottle and the Devices once its last ten minutes have begun', () => {

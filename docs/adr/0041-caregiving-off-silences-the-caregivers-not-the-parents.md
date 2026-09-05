@@ -1,0 +1,15 @@
+# Caregiving off silences the Caregivers, not the Parents
+
+The Caregiving switch shipped in 1.19.0 as the master switch above the two offsets [ADR-0031](0031-a-notice-is-a-target-reached-and-the-household-states-the-offset.md) states, and it silenced *every phone in the Household*. It is now **scoped by role**: with the switch off, a Caregiver's Devices go quiet — the Feed Notice, the Sleep Notice, the bottle push and the in-app Bottle Chime alike — and a **Parent keeps every reminder she has switched on**. Nothing else about a Notice moves: the two offsets, the once-per-Device record, the `until` deadline and the fifteen-minute window are all as ADR-0031 left them.
+
+The reason is what the switch actually says. *Nobody is looking after her* is a statement about **who is standing in** — she is with the grandparents, the night nanny has gone home, the Household is not being covered. It is not a statement that her mother has stopped wanting to know her Baby is due a feed. A Parent switching Caregiving off and then missing a Feed Notice she deliberately configured is the app overruling her, and a reminder she asked for is not the app's to withdraw.
+
+The alternative — a second switch, *and also silence the Parents* — buys a case nobody has. A Parent who wants her own phone quiet already has one switch that does exactly that, per Device, and it is the one ADR-0030 put the whole reach behind: the Bottle Chime. Two switches that overlap is how a Household ends up unsure which one it turned off at 3am.
+
+## Consequences
+
+- **The role is read at delivery, not at subscribe.** `listSubscriptions` carries `members.role` alongside the locale it already carried, and `planNotices` filters rather than skipping the Household. A Caregiver promoted to Parent is owed Notices on the very next tick, with no re-subscription and no stale copy of a role to invalidate — the same reason locale is read there and not frozen into the row.
+- **It stays a description, never a capability** ([ADR-0038](0038-a-hubs-member-is-marked-and-a-hub-stays-a-caregiver.md)). Nothing about *who may do what* moves: the switch is still a Parent-only setting, and role here only answers *is this Member being reminded on somebody else's behalf*.
+- **A Hub goes quiet, and that is the point.** A Hub's Member is a Caregiver by construction (ADR-0038), so the hall panel stops chiming with the rest of the cover. A wall panel announcing a feed into an empty flat is the noise the switch exists to stop.
+- **The Device that does not yet know whose it is stays quiet.** The client chime reads the signed-in Member's role; before identity is loaded there is no Parent to exempt, so the switch keeps its off meaning. Silence while unsure is the recoverable error — the next tick is ten seconds away.
+- **The copy says both halves in all three languages.** *Switch off while nobody is looking after her — the caregivers' phones go quiet until it is switched back on. Parents keep the reminders they have switched on.* A hint that only said what stops would leave a Parent expecting silence she will not get.

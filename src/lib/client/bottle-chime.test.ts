@@ -10,7 +10,7 @@ vi.mock('./chime', () => ({ playChime: () => played(), primeChime: () => {} }));
 
 const { app } = await import('./state.svelte');
 const { setBottleChime } = await import('./device');
-import type { Entry, Target } from '$domain/types';
+import type { Entry, Household, Target } from '$domain/types';
 
 const BERLIN = 'Europe/Berlin';
 const STARTED = Date.parse('2026-08-17T13:00:00Z');
@@ -24,6 +24,30 @@ const target: Target = {
 	anchor: 'bottle_start',
 	deleted_at: null
 };
+
+/** The Household as the replica holds it. Only `caregiving` matters here; the
+    rest is what a seeded Household looks like. */
+function household(caregiving: boolean): Household {
+	return {
+		id: 'h1',
+		name: 'Zuhause',
+		day_start: '05:00',
+		zone: BERLIN,
+		night_start: null,
+		feed_notice_s: 0,
+		sleep_notice_s: 0,
+		caregiving
+	};
+}
+
+function signedInAs(role: 'parent' | 'caregiver'): void {
+	app.identity = {
+		memberId: role === 'parent' ? 'mum' : 'oma',
+		householdId: 'h1',
+		role,
+		displayName: role === 'parent' ? 'Mama' : 'Oma'
+	};
+}
 
 function bottle(id: string, occurred_at = STARTED): Entry {
 	return {
@@ -60,6 +84,8 @@ describe('the Bottle Chime', () => {
 		   already-chimed bottles outlives a test. A tick with the setting off is
 		   what clears it — which is the behaviour a Device gets too. */
 		app.entries = [];
+		app.household = household(true);
+		signedInAs('parent');
 		tick(STARTED);
 		app.entries = [bottle('f1')];
 		played.mockClear();
@@ -101,6 +127,38 @@ describe('the Bottle Chime', () => {
 		app.entries = [bottle('f2', Date.parse('2026-08-17T14:00:00Z'))];
 		tick(Date.parse('2026-08-17T14:51:00Z'));
 		expect(played).toHaveBeenCalledTimes(1);
+	});
+
+	/* Caregiving off says *nobody is looking after her* — which is a statement
+	   about the Caregivers, so Oma's phone goes quiet and mum's does not
+	   (ADR-0041). */
+	it('is silenced on a Caregiver\'s Device while Caregiving is switched off', () => {
+		setBottleChime(true);
+		signedInAs('caregiver');
+		app.household = household(false);
+		tick(Date.parse('2026-08-17T13:51:00Z'));
+		expect(played).not.toHaveBeenCalled();
+
+		app.household = household(true);
+		tick(Date.parse('2026-08-17T13:52:00Z'));
+		expect(played).toHaveBeenCalledTimes(1);
+	});
+
+	it('still sounds on a Parent\'s Device while Caregiving is switched off', () => {
+		setBottleChime(true);
+		app.household = household(false);
+		tick(Date.parse('2026-08-17T13:51:00Z'));
+		expect(played).toHaveBeenCalledTimes(1);
+	});
+
+	/* Silence while unsure: before identity is loaded there is no Parent to
+	   exempt, and the next tick is ten seconds away. */
+	it('stays quiet while Caregiving is off and the Device does not yet know whose it is', () => {
+		setBottleChime(true);
+		app.identity = null;
+		app.household = household(false);
+		tick(Date.parse('2026-08-17T13:51:00Z'));
+		expect(played).not.toHaveBeenCalled();
 	});
 
 	it('says nothing about a bottle whose Feed has already been stopped', () => {

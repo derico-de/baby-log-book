@@ -515,8 +515,9 @@
 				{#if household}
 					<h3>{m.settings_notices()}</h3>
 					<!-- The master switch, above the two offsets it outranks: off means
-					     nothing is sent to any phone — Notices and chime alike — while
-					     every setting below keeps its value for the day she is back. -->
+					     the Caregivers' phones go quiet — Notices and chime alike —
+					     while the Parents keep theirs and every setting below keeps its
+					     value for the day she is back (ADR-0041). -->
 					<label>
 						<input
 							type="checkbox"

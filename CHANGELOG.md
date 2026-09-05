@@ -9,6 +9,15 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Caregiving switch no longer silences the Parents. Switching it off says
+  *nobody is looking after her*, which is a statement about who is standing
+  in — so the Caregivers' phones go quiet (Feed and Sleep Notices, the bottle
+  push and the in-app Bottle Chime alike) and a Parent keeps every reminder
+  she has switched on. A Hub is a Caregiver, so a wall panel goes quiet with
+  the rest of the cover (ADR-0041).
+
 ## [1.19.1] - 2026-08-29
 
 ### Fixed

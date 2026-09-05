@@ -14,6 +14,7 @@
    a queued push from arriving after it has stopped being true. */
 
 import { liveNotices, type Notice, type NoticeKind } from '$domain/notices';
+import type { Role } from '$domain/types';
 import * as m from '$lib/paraglide/messages';
 import type { Db } from './db';
 import { getHousehold, listTargets, noticeEntries } from './store';
@@ -33,6 +34,10 @@ export interface StoredSubscription extends PushSubscription {
 	member_id: string;
 	device_id: string;
 	locale: string | null;
+	/** Whose Device this is. Only the notifier reads it, and only to answer the
+	    one question Caregiving asks: is this Member being reminded on somebody
+	    else's behalf, or is she the one whose Baby it is (ADR-0041)? */
+	role: Role;
 }
 
 export interface SubscriptionInput {
@@ -96,15 +101,19 @@ export function deleteMemberSubscriptions(db: Db, memberId: string): number {
 }
 
 export function listSubscriptions(db: Db, householdId: string): StoredSubscription[] {
-	return db
+	const rows = db
 		.prepare(
-			`SELECT s.endpoint, s.household_id, s.member_id, s.device_id, s.p256dh, s.auth, mem.locale
+			`SELECT s.endpoint, s.household_id, s.member_id, s.device_id, s.p256dh, s.auth,
+			        mem.locale, mem.role
 			   FROM push_subscriptions s
 			   JOIN members mem ON mem.id = s.member_id
 			  WHERE s.household_id = ? AND mem.removed_at IS NULL
 			  ORDER BY s.created_at`
 		)
-		.all(householdId) as StoredSubscription[];
+		.all(householdId) as Array<Omit<StoredSubscription, 'role'> & { role: string }>;
+	/* Narrowed the way every other reader of the column narrows it: the schema
+	   holds text, and anything that is not `parent` is a Caregiver. */
+	return rows.map((row) => ({ ...row, role: row.role === 'parent' ? 'parent' : 'caregiver' }));
 }
 
 export interface PlannedNotice {
@@ -136,10 +145,14 @@ export function planNotices(db: Db, now: number): PlannedNotice[] {
 
 		const household = getHousehold(db, householdId);
 		if (!household) continue;
-		/* Caregiving switched off is the Household saying *nobody needs waking*,
-		   and it outranks every offset and every subscription: the fold below is
-		   never run, so nothing can be owed (ADR-0031). */
-		if (!household.caregiving) continue;
+		/* Caregiving switched off is the Household saying *nobody is looking after
+		   her* — and that is a statement about the Caregivers, not about the
+		   Parents. A Parent who asked to be told stays told; every other Device
+		   goes quiet until the switch comes back on (ADR-0041). */
+		const owed = household.caregiving
+			? subscriptions
+			: subscriptions.filter((s) => s.role === 'parent');
+		if (owed.length === 0) continue;
 
 		const notices = liveNotices(
 			noticeEntries(db, householdId, now - LOOKBACK_MS),
@@ -151,7 +164,7 @@ export function planNotices(db: Db, now: number): PlannedNotice[] {
 
 		const names = babyNames(db, householdId);
 		for (const notice of notices) {
-			const unsent = subscriptions.filter((s) => !alreadySent(db, notice, s.endpoint));
+			const unsent = owed.filter((s) => !alreadySent(db, notice, s.endpoint));
 			if (unsent.length === 0) continue;
 			planned.push({ notice, babyName: names.get(notice.baby_id) ?? '', subscriptions: unsent });
 		}

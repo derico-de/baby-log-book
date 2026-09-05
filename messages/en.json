@@ -299,7 +299,7 @@
 	"settings_notices": "Reminders",
 	"settings_notices_hint": "For the whole household, on every phone that has the chime switched on. A reminder is never sent while she is already feeding or already asleep.",
 	"settings_caregiving_label": "Caregiving is active",
-	"settings_caregiving_hint": "Switch off while nobody is looking after her — nothing is sent to any phone, and no chime sounds, until it is switched back on. Everything below keeps its setting.",
+	"settings_caregiving_hint": "Switch off while nobody is looking after her — the caregivers' phones go quiet until it is switched back on. Parents keep the reminders they have switched on, and everything below keeps its setting.",
 	"settings_feed_notice": "Feed due",
 	"settings_feed_notice_now": "When it is due",
 	"settings_sleep_notice": "Wake window up",

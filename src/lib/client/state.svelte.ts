@@ -527,9 +527,12 @@ class AppState {
 			return;
 		}
 		/* Caregiving switched off silences this Device's chime the same way it
-		   silences the server's pushes: the Household said nobody needs
-		   reminding, and that outranks the Device's own switch. */
-		if (this.household && !this.household.caregiving) {
+		   silences the server's pushes — and, like them, it is a statement about
+		   the Caregivers. Nobody is looking after her *on the Parents' behalf*, so
+		   a Caregiver's phone goes quiet and a Parent's does not; a Device that
+		   does not yet know whose it is stays quiet, because the switch is off
+		   until proven otherwise (ADR-0041). */
+		if (this.household && !this.household.caregiving && !this.isParent) {
 			this.chimed.clear();
 			return;
 		}

@@ -207,10 +207,12 @@ export interface Household {
 	    `null` never sends it. */
 	sleep_notice_s: number | null;
 	/** Whether this Household is caregiving right now. `false` silences every
-	    reminder — the two Notices above and the Bottle Chime — without touching
-	    what they are set to, so switching it back on restores the routine as it
-	    was. One switch for the whole Household, because "she is with the
-	    grandparents this week" is a fact about the routine, not about a phone. */
+	    reminder — the two Notices above and the Bottle Chime — on the Caregivers'
+	    Devices, without touching what they are set to, so switching it back on
+	    restores the routine as it was. One switch for the whole Household,
+	    because "she is with the grandparents this week" is a fact about the
+	    routine, not about a phone — but it says nothing about the Parents, who
+	    keep every reminder they have switched on (ADR-0041). */
 	caregiving: boolean;
 }
 

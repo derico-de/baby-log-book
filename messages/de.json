@@ -299,7 +299,7 @@
 	"settings_notices": "Erinnerungen",
 	"settings_notices_hint": "Für den ganzen Haushalt, auf jedem Handy mit eingeschaltetem Signal. Es kommt nie eine Erinnerung, während sie schon trinkt oder schon schläft.",
 	"settings_caregiving_label": "Betreuung ist aktiv",
-	"settings_caregiving_hint": "Ausschalten, solange sich niemand um sie kümmert — es wird nichts an ein Handy geschickt und kein Signal ertönt, bis es wieder eingeschaltet wird. Alles darunter behält seine Einstellung.",
+	"settings_caregiving_hint": "Ausschalten, solange sich niemand um sie kümmert — die Handys der Betreuungspersonen bleiben still, bis es wieder eingeschaltet wird. Eltern erhalten weiterhin die Erinnerungen, die sie eingeschaltet haben, und alles darunter behält seine Einstellung.",
 	"settings_feed_notice": "Mahlzeit fällig",
 	"settings_feed_notice_now": "Wenn sie fällig ist",
 	"settings_sleep_notice": "Wachfenster um",
