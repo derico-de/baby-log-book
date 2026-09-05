@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.19.2] - 2026-09-05
+
 ### Fixed
 
 - The Caregiving switch no longer silences the Parents. Switching it off says
