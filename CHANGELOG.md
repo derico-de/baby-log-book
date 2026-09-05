@@ -9,6 +9,10 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- Claude Code's machine-local settings are ignored by Git.
+
 ## [1.19.2] - 2026-09-05
 
 ### Fixed

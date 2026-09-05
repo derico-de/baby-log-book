@@ -12,7 +12,8 @@ node_modules
 !.env.example
 .DS_Store
 
-# Claude Code's per-session resume checkpoint, rewritten on every session
+# Claude Code's machine-local settings and per-session resume checkpoint
+.claude/settings.local.json
 .claude/RESUME.md
 
 # Impeccable live helper runtime state (pid/port/token, rewritten on boot)
