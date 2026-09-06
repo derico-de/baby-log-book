@@ -9,6 +9,11 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The trend charts are twice as tall, so a day's shape is readable rather than
+  guessed at.
+
 ## [1.20.0] - 2026-09-06
 
 ### Changed
