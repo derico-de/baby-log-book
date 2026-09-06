@@ -41,8 +41,13 @@ export interface DayBar {
 
 export interface SleepSecondary {
 	longestMs: number;
-	nightMs: number;
-	napMs: number;
+	/** Night and Nap as a daily average over the complete logged days. The
+	    window totals they replaced read like one night's sleep and were seven
+	    of them; an average is the figure somebody can compare a day against.
+	    Null before a complete logged day exists — the same rule the card's
+	    average follows. */
+	nightAvgMs: number | null;
+	napAvgMs: number | null;
 }
 export interface FeedsSecondary {
 	/** Volume cannot be the primary bar: a breastfed Baby has no millilitres.
@@ -157,8 +162,10 @@ export function statsFor(input: StatsInput): StatsCard[] {
 	let hasBottle = false;
 	let hasTummy = false;
 	let longestMs = 0;
-	let nightMs = 0;
-	let napMs = 0;
+	/* Night and Nap per day, so the card can state an average rather than a
+	   seven-day total. */
+	const nightByDay = new Map<string, number>();
+	const napByDay = new Map<string, number>();
 	let peeToday = 0;
 	let poopToday = 0;
 	let tummySessionsToday = 0;
@@ -197,10 +204,12 @@ export function statsFor(input: StatsInput): StatsCard[] {
 				if (current) {
 					hasSleep = true;
 					if (ms > longestMs) longestMs = ms;
-					/* The whole window, today included: this is the truth so far, and
-					   only the delta excludes today. */
-					if (classifySleep(e, { dayStart, zone, night }, now) === 'night') nightMs += ms;
-					else napMs += ms;
+					/* Bucketed per day, today included: today is the truth so far, and
+					   the average that reads these maps leaves it out the same way the
+					   delta does. */
+					if (classifySleep(e, { dayStart, zone, night }, now) === 'night')
+						bump(nightByDay, key, ms);
+					else bump(napByDay, key, ms);
 				}
 				break;
 			}
@@ -306,7 +315,11 @@ export function statsFor(input: StatsInput): StatsCard[] {
 			today: acc.sleepMs.get(today) ?? 0,
 			average: completeAverage(acc.sleepMs),
 			delta: deltaOf(acc.sleepMs, previous.sleepMs),
-			secondary: { longestMs, nightMs, napMs } satisfies SleepSecondary
+			secondary: {
+				longestMs,
+				nightAvgMs: completeAverage(nightByDay),
+				napAvgMs: completeAverage(napByDay)
+			} satisfies SleepSecondary
 		});
 	}
 

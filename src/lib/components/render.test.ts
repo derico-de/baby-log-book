@@ -586,12 +586,17 @@ describe('a stats card', () => {
 		expect(host.querySelector('.bar[data-today="1"]')).not.toBeNull();
 	});
 
-	it('draws Feeds as what she drank once a bottle exists', () => {
+	it('draws Feeds as what she drank once a bottle exists, and averages the same', () => {
 		const entries = [
 			entry({
 				type: 'bottle_feed',
 				occurred_at: NOW - 3600_000,
 				payload: { volume_ml: 150, leftover_ml: null, contents: 'formula' }
+			}),
+			entry({
+				type: 'bottle_feed',
+				occurred_at: NOW - 86_400_000,
+				payload: { volume_ml: 100, leftover_ml: null, contents: 'formula' }
 			})
 		];
 		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN, night: null });
@@ -599,9 +604,13 @@ describe('a stats card', () => {
 		/* The axis is millilitres, not feeds: the ceiling is the next even 50 ml
 		   above the tallest day. */
 		expect(text).toContain('200 ml');
-		expect(text).toContain('100 ml');
 		const today = host.querySelector<HTMLElement>('.bar[data-today="1"]');
 		expect(today?.style.height).toBe('75%');
+		/* The average is millilitres too — how many times she fed on an average
+		   day is not a fact anybody acts on. */
+		expect(text).toContain('150 ml today · 100 ml avg');
+		expect(text).not.toContain('avg feeds');
+		expect(text).not.toContain('1 avg');
 	});
 
 	it('labels the axis with an even ceiling and its half', () => {

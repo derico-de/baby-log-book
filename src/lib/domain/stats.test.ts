@@ -178,7 +178,7 @@ describe('the Sleep card', () => {
 		expect(card.today).toBe(3600_000);
 	});
 
-	it('splits Night Sleep from Naps and reports the longest stretch', () => {
+	it('splits Night Sleep from Naps as a daily average, and reports the longest stretch', () => {
 		const [card] = statsFor({
 			...LENS,
 			entries: [
@@ -187,8 +187,8 @@ describe('the Sleep card', () => {
 			]
 		});
 		const s = card.secondary as SleepSecondary;
-		expect(s.nightMs).toBe(10 * 3600_000);
-		expect(s.napMs).toBe(90 * 60_000);
+		expect(s.nightAvgMs).toBe(10 * 3600_000);
+		expect(s.napAvgMs).toBe(90 * 60_000);
 		expect(s.longestMs).toBe(10 * 3600_000);
 	});
 
@@ -197,16 +197,16 @@ describe('the Sleep card', () => {
 		// Sleep once the Household says its night begins at 20:00 (ADR-0033).
 		const entries = [sleep('2026-08-16T17:00:00Z', '2026-08-16T20:00:00Z')];
 		const asNap = statsFor({ ...LENS, entries })[0].secondary as SleepSecondary;
-		expect(asNap.napMs).toBe(3 * 3600_000);
-		expect(asNap.nightMs).toBe(0);
+		expect(asNap.napAvgMs).toBe(3 * 3600_000);
+		expect(asNap.nightAvgMs).toBe(0);
 
 		const asNight = statsFor({
 			...LENS,
 			night: { start: '20:00', end: '05:00' },
 			entries
 		})[0].secondary as SleepSecondary;
-		expect(asNight.nightMs).toBe(3 * 3600_000);
-		expect(asNight.napMs).toBe(0);
+		expect(asNight.nightAvgMs).toBe(3 * 3600_000);
+		expect(asNight.napAvgMs).toBe(0);
 	});
 });
 

@@ -98,16 +98,29 @@
 		switch (card.kind) {
 			case 'sleep': {
 				const s = card.secondary as SleepSecondary;
+				/* The split is stated as a daily average: a night and a day of naps
+				   are what a person compares against, and there is nothing to state
+				   until a complete logged day exists. */
 				return [
 					m.stats_longest({ value: duration(s.longestMs) }),
-					m.stats_night_naps({ night: duration(s.nightMs), naps: duration(s.napMs) })
+					...(s.nightAvgMs == null || s.napAvgMs == null
+						? []
+						: [m.stats_night_naps({ night: duration(s.nightAvgMs), naps: duration(s.napAvgMs) })])
 				];
 			}
 			case 'feeds': {
 				const s = card.secondary as FeedsSecondary;
 				/* Volume cannot be the primary bar: a breastfed Baby has no
-				   millilitres. */
-				return s.volumeMlToday == null ? [] : [m.stats_volume({ value: millilitres(s.volumeMlToday) })];
+				   millilitres. Where there is volume it carries the average, because
+				   an average number of feeds answers nothing — the question is
+				   whether she is drinking as much as she was. */
+				if (s.volumeMlToday == null) return [];
+				const today = millilitres(s.volumeMlToday);
+				return [
+					s.volumeMlAverage == null
+						? m.stats_volume({ value: today })
+						: m.stats_volume_avg({ value: today, avg: millilitres(Math.round(s.volumeMlAverage)) })
+				];
 			}
 			case 'nappies': {
 				const s = card.secondary as NappiesSecondary;
@@ -172,8 +185,10 @@
 		{value(card.today)}
 		<!-- No average on the first logged day: until a complete logged day
 		     exists there is nothing to state, and a made-up zero would read as
-		     "worse than every day before". -->
-		{#if card.average != null}
+		     "worse than every day before". A Feeds week with bottles states its
+		     average in millilitres on the line below instead: how many times she
+		     fed on an average day is not a fact anybody acts on. -->
+		{#if card.average != null && !isVolume}
 			<small>{m.stats_today_avg({ avg: value(card.average) })}</small>
 		{/if}
 	</div>

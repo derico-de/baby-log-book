@@ -9,6 +9,13 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The Feeds card states its average in millilitres beside today's intake. How
+  many times she fed on an average day is not a fact anybody acts on.
+- The Sleep card's night-and-nap line is a daily average rather than a
+  seven-day total that read like one night.
+
 ## [1.20.1] - 2026-09-06
 
 ### Changed
