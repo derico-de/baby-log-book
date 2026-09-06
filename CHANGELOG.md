@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-09-06
+
 ### Changed
 
 - The Feeds bars on the Trends tab draw what she drank that day rather than how
