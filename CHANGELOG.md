@@ -11,6 +11,11 @@ release moves that section under its version number.
 
 ### Changed
 
+- The Feeds bars on the Trends tab draw what she drank that day rather than how
+  often she fed, once a bottle exists in the window; a breastfed week still
+  counts rounds.
+- A day with nothing on it draws no bar at all on the trend cards — the stub
+  that kept small days visible no longer makes an empty day look like a day.
 - Claude Code's machine-local settings are ignored by Git.
 
 ## [1.19.2] - 2026-09-05

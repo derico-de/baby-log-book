@@ -579,8 +579,29 @@ describe('a stats card', () => {
 		const text = draw(StatCard, { card });
 		expect(text).toContain('Pee & poop');
 		expect(text).toContain('1 pee · 1 poop');
-		expect(host.querySelectorAll('.bar')).toHaveLength(8);
+		/* Every day is a tap target, but only the days with something on them
+		   draw a bar: a stub on an empty day reads as a nappy she did not have. */
+		expect(host.querySelectorAll('.bar-hit')).toHaveLength(8);
+		expect(host.querySelectorAll('.bar')).toHaveLength(2);
 		expect(host.querySelector('.bar[data-today="1"]')).not.toBeNull();
+	});
+
+	it('draws Feeds as what she drank once a bottle exists', () => {
+		const entries = [
+			entry({
+				type: 'bottle_feed',
+				occurred_at: NOW - 3600_000,
+				payload: { volume_ml: 150, leftover_ml: null, contents: 'formula' }
+			})
+		];
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN, night: null });
+		const text = draw(StatCard, { card });
+		/* The axis is millilitres, not feeds: the ceiling is the next even 50 ml
+		   above the tallest day. */
+		expect(text).toContain('200 ml');
+		expect(text).toContain('100 ml');
+		const today = host.querySelector<HTMLElement>('.bar[data-today="1"]');
+		expect(today?.style.height).toBe('75%');
 	});
 
 	it('labels the axis with an even ceiling and its half', () => {

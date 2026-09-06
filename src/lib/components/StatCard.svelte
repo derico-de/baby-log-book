@@ -57,14 +57,24 @@
 
 	const isDuration = $derived(card.kind === 'sleep' || card.kind === 'tummy');
 
+	/* Feeds draw what she drank, not how often: five feeds of 40 ml and five of
+	   150 ml are the same count and a very different day. The bars only switch
+	   to millilitres once a bottle exists in the window — a breastfed week has
+	   no volume to plot, so it keeps counting rounds. */
+	const isVolume = $derived(card.kind === 'feeds' && card.bars.some((b) => b.volumeMl != null));
+	const heightOf = (bar: StatsCard['bars'][number]) => (isVolume ? (bar.volumeMl ?? 0) : bar.value);
+
 	/* The axis ceiling is the next even hour (Sleep), even quarter-hour (Tummy
-	   time) or even count above the tallest bar, so both tick labels are amounts
-	   a person would actually say — at the price of the tallest bar stopping a
-	   little short of the top line. Tummy time is measured in minutes, so an
-	   hourly axis would draw every real day as a stub. */
-	const unit = $derived(card.kind === 'sleep' ? MS.hour : card.kind === 'tummy' ? 15 * MS.minute : 1);
+	   time), even 50 ml (a Feeds week with bottles) or even count above the
+	   tallest bar, so both tick labels are amounts a person would actually say —
+	   at the price of the tallest bar stopping a little short of the top line.
+	   Tummy time is measured in minutes, so an hourly axis would draw every real
+	   day as a stub. */
+	const unit = $derived(
+		card.kind === 'sleep' ? MS.hour : card.kind === 'tummy' ? 15 * MS.minute : isVolume ? 50 : 1
+	);
 	const axisMax = $derived.by(() => {
-		const top = Math.max(unit, ...card.bars.map((b) => b.value));
+		const top = Math.max(unit, ...card.bars.map(heightOf));
 		return 2 * unit * Math.ceil(top / (2 * unit));
 	});
 
@@ -73,6 +83,8 @@
 	const selected = $derived(card.bars.find((b) => b.key === selectedKey) ?? null);
 
 	const value = (n: number) => (isDuration ? duration(n) : decimal(n, Number.isInteger(n) ? 0 : 1));
+	/* What a bar is worth, said the way its axis is labelled. */
+	const barValue = (n: number) => (isVolume ? millilitres(n) : value(n));
 
 	const delta = $derived.by(() => {
 		if (card.delta == null) return null;
@@ -173,7 +185,7 @@
 	<div class="bars">
 		{#each [1, 0.5] as tick (tick)}
 			<div class="gridline" style={`bottom:${tick * 100}%`} aria-hidden="true">
-				<span>{value(axisMax * tick)}</span>
+				<span>{barValue(axisMax * tick)}</span>
 			</div>
 		{/each}
 		{#each card.bars as bar (bar.key)}
@@ -183,15 +195,20 @@
 				type="button"
 				class="bar-hit"
 				aria-pressed={selectedKey === bar.key}
-				aria-label={`${label(bar.key, bar.isToday)}: ${value(bar.value)}`}
+				aria-label={`${label(bar.key, bar.isToday)}: ${barValue(heightOf(bar))}`}
 				onclick={() => (selectedKey = selectedKey === bar.key ? null : bar.key)}
 			>
-				<span
-					class="bar"
-					data-today={bar.isToday ? '1' : '0'}
-					data-selected={selectedKey === bar.key ? '1' : '0'}
-					style={`height:${Math.max(6, (bar.value / axisMax) * 100)}%`}
-				></span>
+				<!-- A day with nothing on it draws nothing: the six-percent floor is
+				     there to keep a small day visible, and lending it to zero says
+				     she had a nappy when she had none. -->
+				{#if heightOf(bar) > 0}
+					<span
+						class="bar"
+						data-today={bar.isToday ? '1' : '0'}
+						data-selected={selectedKey === bar.key ? '1' : '0'}
+						style={`height:${Math.max(6, (heightOf(bar) / axisMax) * 100)}%`}
+					></span>
+				{/if}
 			</button>
 		{/each}
 	</div>
