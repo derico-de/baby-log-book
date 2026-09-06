@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-09-06
+
 ### Changed
 
 - The Feeds card states its average in millilitres beside today's intake. How
