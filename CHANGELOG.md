@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-09-08
+
 ### Added
 
 - Weight and height are trend cards of their own: a smooth line over her whole
