@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { growthFor, smoothPath } from './growth';
+import { birthMeasurementOf, growthFor, smoothPath } from './growth';
 import type { Entry } from './types';
 
 const BERLIN = 'Europe/Berlin';
@@ -99,6 +99,48 @@ describe('the growth series', () => {
 	});
 });
 
+describe('the birth measurement', () => {
+	const LENS = { babyId: 'b1', birthDate: '2026-02-17', dayStart: '05:00', zone: BERLIN };
+	/* 05:00 Berlin on the birth date — the Day Start, which is where the
+	   settings form writes it. */
+	const atBirth = '2026-02-17T04:00:00Z';
+
+	it('is the measurement on the day she was born', () => {
+		const born = measure(atBirth, 3400, 510);
+		const later = measure('2026-05-17T09:00:00Z', 6100, 620);
+		expect(birthMeasurementOf({ ...LENS, entries: [later, born] })?.id).toBe(born.id);
+	});
+
+	it('is null when nothing was measured that day', () => {
+		expect(birthMeasurementOf({ ...LENS, entries: [measure('2026-05-17T09:00:00Z', 6100)] })).toBeNull();
+	});
+
+	it('goes with the day bucket, not the calendar day', () => {
+		/* 03:00 Berlin on the 18th is still the 17th's bucket at a 05:00 Day
+		   Start — the same day every other screen in this app would call it. */
+		const born = measure('2026-02-18T02:00:00Z', 3400);
+		expect(birthMeasurementOf({ ...LENS, entries: [born] })?.id).toBe(born.id);
+	});
+
+	it('ignores a tombstone, and one belonging to another Baby', () => {
+		const gone = measure(atBirth, 3400, null, { deleted_at: 1 });
+		const theirs = measure(atBirth, 3200, null, { baby_id: 'b2' });
+		expect(birthMeasurementOf({ ...LENS, entries: [gone, theirs] })).toBeNull();
+	});
+
+	it('takes the later-logged one when a day somehow holds two', () => {
+		const first = measure(atBirth, 3400, null, { logged_at: 1 });
+		const second = measure(atBirth, 3450, null, { logged_at: 2 });
+		expect(birthMeasurementOf({ ...LENS, entries: [first, second] })?.id).toBe(second.id);
+	});
+
+	it('is the first point of the curve, so growth starts at birth', () => {
+		const series = growth([measure(atBirth, 3400), measure('2026-05-17T09:00:00Z', 6100)]);
+		expect(series[0].first.value).toBe(3400);
+		expect(series[0].points).toHaveLength(2);
+	});
+});
+
 describe('the smooth path', () => {
 	it('is nothing at all when there is nothing to draw', () => {
 		expect(smoothPath([])).toBe('');
@@ -153,6 +195,40 @@ describe('the smooth path', () => {
 		   it sit at its own height — the curve arrives flat and leaves flat. */
 		expect(d).toContain('6.667 20 10 20');
 		expect(d).toContain('C 13.333 20');
+	});
+
+	it('leaves birth on a curve rather than on a straight run-in', () => {
+		/* The end tangent is parabolic, not the end secant, so the first segment
+		   already bends the way the three points nearest it do. Three points is
+		   what a real Baby has for months, and a growth curve that is straight
+		   for its first third does not look like one. */
+		const d = smoothPath([
+			{ x: 0, y: 100 },
+			{ x: 30, y: 60 },
+			{ x: 100, y: 40 }
+		]);
+		const first = d.split('C')[1].trim().split(/\s+/).map(Number);
+		const straight = 100 + (10 * (60 - 100)) / 30; /* where the secant would put it */
+		expect(first[1]).toBeLessThan(straight);
+	});
+
+	it('never overshoots, however uneven the gaps', () => {
+		/* Birth, six days, six weeks, four months — the spacing a real check-up
+		   schedule has, and the shape a naive spline dips on. */
+		const points = [
+			{ x: 0, y: 100 },
+			{ x: 3, y: 92 },
+			{ x: 20, y: 60 },
+			{ x: 100, y: 20 }
+		];
+		const ys = smoothPath(points)
+			.replace(/[MC]/g, ' ')
+			.trim()
+			.split(/\s+/)
+			.map(Number)
+			.filter((_, i) => i % 2 === 1);
+		expect(Math.min(...ys)).toBeGreaterThanOrEqual(20);
+		expect(Math.max(...ys)).toBeLessThanOrEqual(100);
 	});
 
 	it('drops a point that would make the curve vertical', () => {

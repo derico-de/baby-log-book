@@ -9,9 +9,11 @@
 	import {
 		addBaby,
 		deleteBaby,
+		moveEntry,
 		removeFood,
 		removeMember,
 		renameFood,
+		setBirthMeasurement,
 		setCaregiving,
 		setDayStart,
 		setFeedNotice,
@@ -44,7 +46,9 @@
 	import { disablePush, enablePush, type PushOutcome } from '$client/push';
 	import { ANCHOR_FOR, bottleTargetOf, typicalFor } from '$domain/targets';
 	import { noticeOffset } from '$domain/notices';
-	import { ageInMonths } from '$domain/time';
+	import { ageInMonths, dayStartInstant } from '$domain/time';
+	import { birthMeasurementOf } from '$domain/growth';
+	import type { MeasurementPayload } from '$domain/types';
 	import { EMPTY_FILTER } from '$domain/filter';
 	import { LOCALE_NAMES, LOCALES, switchLocale } from '$lib/i18n/locale.svelte';
 	import { dateAndTime, plural, targetDuration } from '$lib/i18n/format';
@@ -81,12 +85,83 @@
 	let resetNote = $state<string | null>(null);
 	let newBabyName = $state('');
 	let newBabyBirth = $state('');
+	/* Optional on the add form, because a Baby joining this log at four months
+	   old has a birth weight somebody may not have to hand. */
+	let newBabyWeightKg = $state<number | null>(null);
+	let newBabyLengthCm = $state<number | null>(null);
 	let deletingBabyId = $state<string | null>(null);
 	let deleteBabyTyped = $state('');
 	let installed = $state(false);
 
 	const baby = $derived(app.baby);
 	const household = $derived(app.household);
+
+	/* Her weight and length on the day she was born. It is an ordinary
+	   measurement Entry dated that day — see `setBirthMeasurement` — so this
+	   form reads it back the same way the growth curve does, and the curve
+	   starts at birth the moment somebody fills it in. */
+	const birthOf = (babyId: string, birthDate: string) =>
+		birthMeasurementOf({
+			entries: app.entries,
+			babyId,
+			birthDate,
+			dayStart: app.dayStart,
+			zone: app.zone
+		});
+	const birthPayload = (babyId: string, birthDate: string) =>
+		(birthOf(babyId, birthDate)?.payload as MeasurementPayload | undefined) ?? null;
+
+	/** Grams and millimetres are what is stored; kilograms and centimetres are
+	    what a person says. Nothing rounds until the write. */
+	const birthKg = (babyId: string, birthDate: string) => {
+		const g = birthPayload(babyId, birthDate)?.weight_g;
+		return g == null ? null : g / 1000;
+	};
+	const birthCm = (babyId: string, birthDate: string) => {
+		const mm = birthPayload(babyId, birthDate)?.height_mm;
+		return mm == null ? null : mm / 10;
+	};
+
+	/** One field of the birth measurement, written through the pair. An empty
+	    input is null — cleared, not zero. */
+	function saveBirth(
+		babyId: string,
+		birthDate: string,
+		change: { weightKg?: number | null; lengthCm?: number | null }
+	) {
+		const existing = birthOf(babyId, birthDate);
+		const payload = (existing?.payload as MeasurementPayload | undefined) ?? null;
+		const weightKg = change.weightKg !== undefined ? change.weightKg : birthKg(babyId, birthDate);
+		const lengthCm = change.lengthCm !== undefined ? change.lengthCm : birthCm(babyId, birthDate);
+		void app.edit((w) =>
+			setBirthMeasurement(w, {
+				babyId,
+				existing: existing && payload ? { id: existing.id, payload } : null,
+				occurredAt: dayStartInstant(birthDate, app.dayStart, app.zone),
+				weightG: weightKg == null ? null : Math.round(weightKg * 1000),
+				heightMm: lengthCm == null ? null : Math.round(lengthCm * 10)
+			})
+		);
+	}
+
+	/** A birth date somebody corrects takes the birth measurement with it —
+	    otherwise the first point of the curve stays on a day she was not born
+	    on, and the form that wrote it stops finding it. */
+	async function saveBirthDate(babyId: string, was: string, now: string) {
+		const existing = birthOf(babyId, was);
+		await app.edit((w) => updateBaby(w, babyId, { birth_date: now }));
+		if (existing) {
+			await app.edit((w) => moveEntry(w, existing.id, dayStartInstant(now, app.dayStart, app.zone)));
+		}
+	}
+
+	/** The number an empty input reads as: nothing, rather than zero. */
+	const numberOrNull = (value: string) => {
+		const trimmed = value.trim();
+		if (trimmed.length === 0) return null;
+		const n = Number(trimmed);
+		return Number.isFinite(n) && n > 0 ? n : null;
+	};
 	const isParent = $derived(app.isParent);
 	const version = $derived(app.sync.version);
 
@@ -605,11 +680,45 @@
 								type="date"
 								value={child.birth_date}
 								disabled={!isParent}
-								onchange={(event) =>
-									void app.edit((w) => updateBaby(w, child.id, { birth_date: event.currentTarget.value }))}
+								onchange={(event) => void saveBirthDate(child.id, child.birth_date, event.currentTarget.value)}
 							/>
 						</label>
 					</div>
+					<!-- Where the growth curves start. Both optional: a Baby who joins
+					     this log at four months old has a birth weight somebody may
+					     not have to hand, and a curve that begins at the first
+					     check-up is a true curve, only a shorter one. -->
+					<div class="pair">
+						<label>
+							{m.settings_baby_birth_weight()} <small>(kg)</small>
+							<input
+								type="number"
+								inputmode="decimal"
+								step="0.01"
+								min="0"
+								max="20"
+								disabled={!isParent}
+								value={birthKg(child.id, child.birth_date) ?? ''}
+								onchange={(event) =>
+									saveBirth(child.id, child.birth_date, { weightKg: numberOrNull(event.currentTarget.value) })}
+							/>
+						</label>
+						<label>
+							{m.settings_baby_birth_length()} <small>(cm)</small>
+							<input
+								type="number"
+								inputmode="decimal"
+								step="0.1"
+								min="0"
+								max="100"
+								disabled={!isParent}
+								value={birthCm(child.id, child.birth_date) ?? ''}
+								onchange={(event) =>
+									saveBirth(child.id, child.birth_date, { lengthCm: numberOrNull(event.currentTarget.value) })}
+							/>
+						</label>
+					</div>
+					<p class="hint">{m.settings_baby_birth_hint()}</p>
 					{#if isParent}
 						{#if deletingBabyId === child.id}
 							<div class="danger" role="group" aria-label={m.settings_baby_delete_confirm({ name: child.name })}>
@@ -659,9 +768,25 @@
 						onsubmit={async (event) => {
 							event.preventDefault();
 							if (newBabyName.trim().length === 0 || newBabyBirth === '') return;
-							await app.edit((w) => addBaby(w, newBabyName.trim(), newBabyBirth));
+							const babyId = await app.edit((w) => addBaby(w, newBabyName.trim(), newBabyBirth));
+							/* The measurement is a second write, and it needs the id the
+							   first one returned — so it waits for it rather than racing
+							   a Baby that does not exist yet. */
+							if (babyId && (newBabyWeightKg != null || newBabyLengthCm != null)) {
+								await app.edit((w) =>
+									setBirthMeasurement(w, {
+										babyId,
+										existing: null,
+										occurredAt: dayStartInstant(newBabyBirth, app.dayStart, app.zone),
+										weightG: newBabyWeightKg == null ? null : Math.round(newBabyWeightKg * 1000),
+										heightMm: newBabyLengthCm == null ? null : Math.round(newBabyLengthCm * 10)
+									})
+								);
+							}
 							newBabyName = '';
 							newBabyBirth = '';
+							newBabyWeightKg = null;
+							newBabyLengthCm = null;
 						}}
 					>
 						<div class="pair">
@@ -672,6 +797,16 @@
 							<label>
 								{m.settings_baby_birth()}
 								<input type="date" bind:value={newBabyBirth} />
+							</label>
+						</div>
+						<div class="pair">
+							<label>
+								{m.settings_baby_birth_weight()} <small>(kg)</small>
+								<input type="number" inputmode="decimal" step="0.01" min="0" max="20" bind:value={newBabyWeightKg} />
+							</label>
+							<label>
+								{m.settings_baby_birth_length()} <small>(cm)</small>
+								<input type="number" inputmode="decimal" step="0.1" min="0" max="100" bind:value={newBabyLengthCm} />
 							</label>
 						</div>
 						<button type="submit" class="secondary">{m.timeline_add_baby()}</button>

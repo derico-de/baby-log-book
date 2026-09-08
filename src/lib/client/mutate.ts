@@ -22,6 +22,7 @@ import type {
 	Consistency,
 	EntryType,
 	MealFood,
+	MeasurementPayload,
 	Revision,
 	RevisionKind,
 	Role,
@@ -305,6 +306,58 @@ export function renameFood(w: Writer, foodId: string, name: string): Promise<str
 
 export function removeFood(w: Writer, foodId: string): Promise<string> {
 	return write(w, 'food', foodId, { deleted_at: w.mergeAt() });
+}
+
+/** Her weight and length on the day she was born — created, corrected or, when
+    both are cleared, removed, in one call.
+
+    Birth weight is a **measurement on a day**, not a field on the Baby: it is
+    the same fact as the one the four-month check-up records, and giving it a
+    column of its own would have put the first point of the growth curve
+    somewhere the growth curve does not read from. So the settings form is a
+    shortcut to an ordinary Entry — it appears on the timeline, in the export
+    and on the curve, because it is the same thing (`birthMeasurementOf`).
+
+    Head circumference is left alone: this form does not offer it, and a value
+    somebody entered through the sheet is not this form's to discard. */
+export async function setBirthMeasurement(
+	w: Writer,
+	target: {
+		babyId: string;
+		/** What `birthMeasurementOf` found, or null when there is none yet. */
+		existing: { id: string; payload: MeasurementPayload } | null;
+		/** Where a new one lands — the Day Start of her birth date. */
+		occurredAt: number;
+		weightG: number | null;
+		heightMm: number | null;
+	}
+): Promise<string | null> {
+	if (target.existing == null) {
+		if (target.weightG == null && target.heightMm == null) return null;
+		return logMeasurement(w, {
+			babyId: target.babyId,
+			occurredAt: target.occurredAt,
+			note: null,
+			weightG: target.weightG,
+			heightMm: target.heightMm,
+			headMm: null
+		});
+	}
+	/* Cleared to nothing at all is not an empty measurement — it is no
+	   measurement. A tombstone, so a slip at 3am is still recoverable. */
+	if (target.weightG == null && target.heightMm == null && target.existing.payload.head_mm == null) {
+		return deleteEntry(w, target.existing.id);
+	}
+	return correctEntry(w, target.existing.id, {
+		weight_g: target.weightG,
+		height_mm: target.heightMm
+	});
+}
+
+/** Where an Entry happened, corrected on its own — what a birth date somebody
+    fixes has to do to the measurement dated by it. */
+export function moveEntry(w: Writer, entryId: string, occurredAt: number): Promise<string> {
+	return correctEntry(w, entryId, { occurred_at: occurredAt });
 }
 
 /** The server seeds this Baby's Targets from the age table when it sees the

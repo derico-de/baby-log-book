@@ -18,8 +18,8 @@ Read those before changing anything structural.
 - **Light schedules**: one target per activity per baby, elapsed-vs-target in a
   sticky header. Stated, never learned.
 - **Stats**: trends first — five cards on a rolling seven days plus today, with
-  sleep split into night and naps, and weight and height as a smooth line over
-  her whole life — then a day grid: an hour axis with every entry drawn in its
+  sleep split into night and naps, and weight and height as a smooth line from
+  her birth weight onward — then a day grid: an hour axis with every entry drawn in its
   own slot and its own colour, over a week or four weeks, steppable back
   through the log.
 - **Export**: a zip of per-type CSVs. Everything, always.

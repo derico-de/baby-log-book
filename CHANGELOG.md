@@ -9,6 +9,22 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- Birth weight and birth length, on the Baby in settings beside her birth date.
+  What they write is an ordinary measurement dated the day she was born — the
+  same fact a check-up records — so the growth curves start at birth. Both are
+  optional, and a birth date somebody corrects takes the measurement with it.
+
+### Changed
+
+- The growth curve reads as a curve on the handful of points a real Baby has:
+  the interior tangents are weighted by the gaps either side, so unevenly
+  spaced check-ups no longer put a kink at every point, and the two ends carry
+  a parabolic tangent, so a series leaves birth on a bend rather than on a
+  straight run-in. Still monotone — it cannot invent a dip between two rising
+  measurements. Two measurements are still drawn as the straight line they are.
+
 ## [1.22.0] - 2026-09-08
 
 ### Added

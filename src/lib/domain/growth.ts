@@ -20,6 +20,7 @@
 
    Pure: entries in, points and an SVG path string out. */
 
+import { dayBucketOf } from './time';
 import type { Entry, MeasurementPayload } from './types';
 
 export type GrowthKind = 'weight' | 'height';
@@ -92,19 +93,68 @@ export function growthFor(input: GrowthInput): GrowthSeries[] {
 	return out;
 }
 
+export interface BirthMeasurementInput {
+	entries: Entry[];
+	babyId: string;
+	/** `YYYY-MM-DD`, the Baby's own. */
+	birthDate: string;
+	dayStart: string;
+	zone: string;
+}
+
+/** The measurement taken on the day she was born, or null.
+
+    Birth weight is not a new kind of thing and gets no field of its own: it is
+    a measurement, on a day, exactly like the one taken at the four-month
+    check-up. Which one it is falls out of the Baby's birth date — derived, like
+    first exposure and the Night-versus-Nap split, so it cannot drift out of
+    step with a birth date somebody corrects.
+
+    Later-logged wins when a day somehow holds two, which is the fold's own
+    rule and the same one `growthFor` applies to a shared instant. */
+export function birthMeasurementOf(input: BirthMeasurementInput): Entry | null {
+	let found: Entry | null = null;
+	for (const e of input.entries) {
+		if (e.type !== 'measurement' || !live(e) || e.baby_id !== input.babyId) continue;
+		if (dayBucketOf(e.occurred_at, input.dayStart, input.zone) !== input.birthDate) continue;
+		if (found == null || e.logged_at >= found.logged_at) found = e;
+	}
+	return found;
+}
+
 export interface PlotPoint {
 	x: number;
 	y: number;
 }
 
+const sign = (x: number) => (x < 0 ? -1 : 1);
+
 /** A smooth curve through the points, and never past them.
 
-    Monotone cubic interpolation (Fritsch–Carlson), not the Catmull–Rom spline
-    that is the usual one line of code: Catmull–Rom overshoots around an uneven
-    gap, so a Baby weighed at 4.1 kg and then 4.2 kg would be drawn dipping to
-    4.05 in between. On a growth chart an invented dip is not a rendering
-    artefact — it is the app saying she lost weight. This one cannot overshoot:
-    between two points the curve stays between their two values.
+    Monotone cubic interpolation, not the Catmull–Rom spline that is the usual
+    one line of code: Catmull–Rom overshoots around an uneven gap, so a Baby
+    weighed at 4.1 kg and then 4.2 kg would be drawn dipping to 4.05 in
+    between. On a growth chart an invented dip is not a rendering artefact — it
+    is the app saying she lost weight. This one cannot overshoot: between two
+    points the curve stays between their two values.
+
+    Two details are what make it read as a curve rather than as a bent
+    polyline, which matters most on the handful of points a real Baby has:
+
+      - **The interior tangent is the weighted harmonic-style limit**, not the
+        mean of the two secants. Check-ups are unevenly spaced — birth, six
+        days, six weeks, four months — and a plain mean lets the short gap
+        speak as loudly as the long one, which puts a visible kink at every
+        point where the spacing changes.
+      - **The two ends carry a parabolic tangent** rather than their own
+        secant: the end segment bends the way the three points nearest it do,
+        so a series starting at birth leaves birth on a curve instead of on a
+        straight run-in. Still monotone — the formula cannot exceed three times
+        the end secant, which is the condition that guarantees it.
+
+    Two points are drawn as the straight line they are. Nothing is knowable
+    about the shape between two measurements, and a curve invented there would
+    be the one lie this function exists to avoid.
 
     Points must be ascending in x; equal x values are dropped, since a curve
     cannot be vertical. */
@@ -116,38 +166,28 @@ export function smoothPath(points: PlotPoint[]): string {
 	if (p.length === 1) return move;
 
 	const n = p.length;
-	/* Secant slopes, then a tangent per point, then each tangent limited so no
-	   segment can leave the box its two ends make. */
-	const slope: number[] = [];
-	for (let i = 0; i < n - 1; i++) slope.push((p[i + 1].y - p[i].y) / (p[i + 1].x - p[i].x));
+	const gap = (i: number) => p[i + 1].x - p[i].x;
+	const secant = (i: number) => (p[i + 1].y - p[i].y) / gap(i);
 
 	const tangent: number[] = new Array(n);
-	tangent[0] = slope[0];
-	tangent[n - 1] = slope[n - 2];
 	for (let i = 1; i < n - 1; i++) {
-		/* A turning point gets a flat tangent — that is what stops the curve
-		   sailing past a peak or a trough. */
-		tangent[i] = slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2;
+		const before = secant(i - 1);
+		const after = secant(i);
+		/* Weighted by the *opposite* gap, so the shorter interval — the one that
+		   knows more about the slope here — carries more of the tangent. */
+		const weighted = (before * gap(i) + after * gap(i - 1)) / (gap(i - 1) + gap(i));
+		/* A turning point, or a flat secant either side, gives a flat tangent:
+		   that is what stops the curve sailing past a peak or a trough. */
+		tangent[i] =
+			(sign(before) + sign(after)) *
+				Math.min(Math.abs(before), Math.abs(after), Math.abs(weighted) / 2) || 0;
 	}
-	for (let i = 0; i < n - 1; i++) {
-		if (slope[i] === 0) {
-			tangent[i] = 0;
-			tangent[i + 1] = 0;
-			continue;
-		}
-		const a = tangent[i] / slope[i];
-		const b = tangent[i + 1] / slope[i];
-		const s = a * a + b * b;
-		if (s > 9) {
-			const t = 3 / Math.sqrt(s);
-			tangent[i] = t * a * slope[i];
-			tangent[i + 1] = t * b * slope[i];
-		}
-	}
+	tangent[0] = n === 2 ? secant(0) : (3 * secant(0) - tangent[1]) / 2;
+	tangent[n - 1] = n === 2 ? secant(0) : (3 * secant(n - 2) - tangent[n - 2]) / 2;
 
 	const parts = [move];
 	for (let i = 0; i < n - 1; i++) {
-		const dx = (p[i + 1].x - p[i].x) / 3;
+		const dx = gap(i) / 3;
 		parts.push(
 			`C ${round(p[i].x + dx)} ${round(p[i].y + tangent[i] * dx)}` +
 				` ${round(p[i + 1].x - dx)} ${round(p[i + 1].y - tangent[i + 1] * dx)}` +
