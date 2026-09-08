@@ -9,6 +9,34 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- Weight and height are trend cards of their own: a smooth line over her whole
+  life rather than seven bars, because a Baby is weighed at a check-up and a
+  rolling week of measurements is one column and six gaps. The curve is
+  monotone, so it can never dip between two rising measurements.
+- A month view on the stats grid — four whole weeks, so stepping it keeps every
+  weekday in the same column.
+
+### Changed
+
+- Night Sleep and Naps are drawn in two colours, on the grid and on the Sleep
+  card, and the card states both figures: the same eleven hours as one night
+  and as six naps are not the same day. Both are named in words beside the
+  colours, and in every column's hidden list.
+- Trends is the first tab and the one the stats screen opens on. *Is this
+  getting better* is the question somebody arrives with.
+- The Day view is gone. What one day held is the timeline's question, answered
+  better on the home screen; the grid's own job starts at seven columns.
+- Measurements are off the day grid. A weight is a fact about a Baby and not
+  about a time of day, so a disc at 14:20 on a Tuesday said nothing — it has a
+  card in Trends instead.
+
+### Fixed
+
+- Turning off every legend chip on the grid drew every type again instead of
+  none.
+
 ## [1.21.0] - 2026-09-06
 
 ### Changed

@@ -1,80 +1,83 @@
 <script lang="ts">
-	/* Stats — the shape of a day, and then the trend.
+	/* Stats — the trend, and then the shape of a day.
 
 	   Spec §9.1 built this screen as five rolling-seven-day cards and stopped
-	   there: *is this getting better*, reassurance rather than reporting. The
-	   cards still answer that and are untouched below the fold. What they could
-	   never answer is *when* — whether the long sleep is drifting earlier,
-	   whether the feeds cluster, what 3am actually looks like across a week. So
-	   the grid goes on top: an hour axis, one column per day, every Entry in its
-	   own slot and its own colour.
+	   there: *is this getting better*, reassurance rather than reporting. Ticket
+	   28 put a grid on top of them — an hour axis, one column per day, every
+	   Entry in its own slot and its own colour — to answer the question the cards
+	   never could: *when*. Whether the long sleep is drifting earlier, whether
+	   the feeds cluster, what 3am actually looks like across a week.
 
-	   Two rules of §9.1 are deliberately overturned, both recorded in the
-	   ticket:
+	   Three rules of §9.1 are deliberately overturned, all recorded in the
+	   tickets:
 
 	     - **"No navigation to earlier weeks in v1."** A grid you cannot step is
-	       a grid you can only ever check once, and the ask was explicitly to
-	       switch days. Weeks step too, for symmetry. Nothing is remembered
-	       across a cold start — the window opens on today, always, because
-	       nothing this app remembers overnight may surprise anyone at 3am.
-	     - **"A trend screen and only that."** It is now a trend screen *and* a
+	       a grid you can only ever check once. Nothing is remembered across a
+	       cold start — the window opens on today, always, because nothing this
+	       app remembers overnight may surprise anyone at 3am.
+	     - **"A trend screen and only that."** It is a trend screen *and* a
 	       pattern screen. The cards keep the trend job; the grid takes the new
 	       one.
+	     - **The cards were a scroll below the grid.** They are the first tab now
+	       and the one this screen opens on: *is this getting better* is the
+	       question somebody arrives with, and the pattern is what they step out
+	       to when the answer is surprising.
 
-	   Ticket 28 put those two down one scroll and ruled out a switcher between
-	   them. That is reversed here, on the evidence of the screen it shipped: the
-	   grid is a full 24 hours tall, so the cards began a screen and a half below
-	   the fold with nothing to say they were there, and they read as missing.
-	   Trends is a third tab beside Week and Day, and the cards live in it —
-	   moved, not copied. The two questions are still not alternatives; the
-	   *stepping* is what makes them separate tabs, since a rolling seven days
-	   ending today cannot be paged and the grid is nothing but paging.
+	   The three tabs are Trends, Week and Month. There is no Day: what a single
+	   day held is the timeline's question, answered better on the home screen,
+	   and the grid's own job — a pattern you can only see by putting days beside
+	   each other — starts at seven columns.
 
-	   Rolling seven days rather than a calendar week, exactly as the cards do it
-	   — calendar weeks start Monday in DE and RO, and a stats screen that
-	   disagrees with itself across languages is an endless bug. */
+	   Rolling windows rather than calendar ones, exactly as the cards do it —
+	   calendar weeks start Monday in DE and RO, and a stats screen that
+	   disagrees with itself across languages is an endless bug. A "month" is
+	   therefore four whole weeks: stepping it keeps every weekday in the same
+	   column, so a Saturday stays comparable with a Saturday. */
 	import { app } from '$client/state.svelte';
 	import { statsFor, WINDOW_DAYS } from '$domain/stats';
+	import { growthFor } from '$domain/growth';
 	import { facetsPresent } from '$domain/grid';
 	import { FACET_KEYS, type FacetKey } from '$domain/filter';
 	import { addDays, dayStartInstant } from '$domain/time';
-	import { dateWithWeekday, dayRange } from '$lib/i18n/format';
-	import type { Entry } from '$domain/types';
+	import { dayRange } from '$lib/i18n/format';
 	import * as m from '$lib/paraglide/messages';
 	import DayGrid from '$lib/components/DayGrid.svelte';
-	import EntrySheet from '$lib/components/EntrySheet.svelte';
+	import GrowthCard from '$lib/components/GrowthCard.svelte';
 	import Icon, { type IconName } from '$lib/components/Icon.svelte';
 	import Notices from '$lib/components/Notices.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 
 	const WEEK = 7;
+	/** Four whole weeks. Calling it a month is the honest short word for it —
+	    the heading states the exact range either way — and 28 columns is what
+	    keeps the weekday columns aligned when the window steps. */
+	const MONTH = 28;
 
-	type Tab = 'week' | 'day' | 'trends';
+	type Tab = 'trends' | 'week' | 'month';
 
-	/* Today, on the first tab: the screen opens on the day it is, and stepping
-	   out to the week is a deliberate second tap. */
-	let tab = $state<Tab>('day');
+	/* Trends first, and the tab this screen opens on. */
+	let tab = $state<Tab>('trends');
 	/* The grid view the Trends tab suspends, so coming back lands on the one you
 	   left rather than resetting. */
-	let view = $state<'week' | 'day'>('day');
-	/* Two anchors rather than one offset: stepping a week and stepping a day are
-	   different journeys, and tapping a column in the week view must not throw
-	   the week away. */
+	let view = $state<'week' | 'month'>('week');
+	/* Two anchors rather than one offset: stepping a week and stepping four of
+	   them are different journeys, and one should not throw the other away. */
 	let weekEndKey = $state(app.todayKey);
-	let dayKey = $state(app.todayKey);
+	let monthEndKey = $state(app.todayKey);
 	/* Session-scoped and never persisted, like the timeline's filter. */
 	let hidden = $state<FacetKey[]>([]);
-	let openEntry = $state<Entry | null>(null);
 
 	let scrollEl = $state<HTMLElement | null>(null);
 
 	const todayKey = $derived(app.todayKey);
 	const babies = $derived(app.liveBabies);
 
+	const days = $derived(view === 'week' ? WEEK : MONTH);
+	const endKey = $derived(view === 'week' ? weekEndKey : monthEndKey);
+
 	const keys = $derived.by(() => {
-		if (view === 'day') return [dayKey];
 		const out: string[] = [];
-		for (let i = WEEK - 1; i >= 0; i--) out.push(addDays(weekEndKey, -i));
+		for (let i = days - 1; i >= 0; i--) out.push(addDays(endKey, -i));
 		return out;
 	});
 
@@ -92,7 +95,8 @@
 			dayStart: app.dayStart,
 			zone: app.zone,
 			now: app.now
-		});
+			/* Measurements are not on this grid — see the legend below. */
+		}).filter((f) => f !== 'measure');
 	});
 	const shown = $derived(present.filter((f) => !hidden.includes(f)));
 
@@ -120,58 +124,40 @@
 	const periodLabel = $derived.by(() => {
 		/* The cards are eight bars ending today and there is nothing to page, so
 		   the heading states that window instead of offering to step it. */
-		if (tab === 'trends') {
-			const from = dayStartInstant(addDays(todayKey, -WINDOW_DAYS), app.dayStart, app.zone);
-			return dayRange(from, dayStartInstant(todayKey, app.dayStart, app.zone), app.zone);
-		}
-		if (view === 'day') return dateWithWeekday(dayStartInstant(dayKey, app.dayStart, app.zone), app.zone);
-		const from = dayStartInstant(keys[0], app.dayStart, app.zone);
-		const to = dayStartInstant(keys.at(-1)!, app.dayStart, app.zone);
-		return dayRange(from, to, app.zone);
+		const from = tab === 'trends' ? addDays(todayKey, -WINDOW_DAYS) : keys[0];
+		const to = tab === 'trends' ? todayKey : keys.at(-1)!;
+		return dayRange(
+			dayStartInstant(from, app.dayStart, app.zone),
+			dayStartInstant(to, app.dayStart, app.zone),
+			app.zone
+		);
 	});
 
 	function step(by: number) {
-		if (view === 'day') {
-			const next = addDays(dayKey, by);
-			dayKey = next > todayKey ? todayKey : next;
-		} else {
-			const next = addDays(weekEndKey, by * WEEK);
-			weekEndKey = next > todayKey ? todayKey : next;
-		}
+		const next = addDays(endKey, by * days);
+		const capped = next > todayKey ? todayKey : next;
+		if (view === 'week') weekEndKey = capped;
+		else monthEndKey = capped;
 		focusSoon();
 	}
 
 	function jumpToday() {
 		weekEndKey = todayKey;
-		dayKey = todayKey;
+		monthEndKey = todayKey;
 		focusSoon();
 	}
 
 	function setTab(next: Tab) {
 		if (next === tab) return;
-		if (next === 'trends') {
-			tab = 'trends';
-			return;
-		}
 		tab = next;
-		setView(next);
-	}
-
-	function setView(next: 'week' | 'day') {
-		if (next === view) return;
-		/* Coming back to the week, land on the week that holds the day you were
-		   looking at rather than wherever the week anchor was left. */
-		if (next === 'week' && (dayKey > weekEndKey || dayKey < addDays(weekEndKey, -(WEEK - 1)))) {
-			weekEndKey = dayKey;
+		if (next === 'trends') return;
+		/* Coming back to the other window, land on the one that holds the day you
+		   were looking at rather than wherever its anchor was left. */
+		if (next === 'week' && (monthEndKey < weekEndKey || addDays(monthEndKey, -(MONTH - 1)) > weekEndKey)) {
+			weekEndKey = monthEndKey;
 		}
+		if (next === 'month' && monthEndKey < weekEndKey) monthEndKey = weekEndKey;
 		view = next;
-		focusSoon();
-	}
-
-	function pickDay(key: string) {
-		dayKey = key;
-		view = 'day';
-		tab = 'day';
 		focusSoon();
 	}
 
@@ -233,20 +219,28 @@
 			night: app.night
 		});
 	});
+
+	/* Growth is the whole log, not the window: a Baby is weighed at a check-up,
+	   so a rolling week of measurements is one column and six gaps. */
+	const growth = $derived.by(() => {
+		const baby = app.baby;
+		if (!baby) return [];
+		return growthFor({ entries: app.babyEntries, babyId: baby.id });
+	});
 </script>
 
 <section class="screen">
 	<header class="head">
 		<div class="head-top">
 			<div class="seg seg-view" role="tablist" aria-label={m.stats_view_label()}>
-				<button type="button" role="tab" aria-selected={tab === 'day'} onclick={() => setTab('day')}>
-					{m.stats_view_day()}
+				<button type="button" role="tab" aria-selected={tab === 'trends'} onclick={() => setTab('trends')}>
+					{m.stats_trends()}
 				</button>
 				<button type="button" role="tab" aria-selected={tab === 'week'} onclick={() => setTab('week')}>
 					{m.stats_view_week()}
 				</button>
-				<button type="button" role="tab" aria-selected={tab === 'trends'} onclick={() => setTab('trends')}>
-					{m.stats_trends()}
+				<button type="button" role="tab" aria-selected={tab === 'month'} onclick={() => setTab('month')}>
+					{m.stats_view_month()}
 				</button>
 			</div>
 			{#if babies.length > 1}
@@ -270,7 +264,7 @@
 				<button
 					class="icon-btn"
 					type="button"
-					aria-label={view === 'day' ? m.stats_prev_day() : m.stats_prev_week()}
+					aria-label={view === 'week' ? m.stats_prev_week() : m.stats_prev_month()}
 					onclick={() => step(-1)}
 				>
 					<Icon name="back" />
@@ -281,7 +275,7 @@
 				<button
 					class="icon-btn"
 					type="button"
-					aria-label={view === 'day' ? m.stats_next_day() : m.stats_next_week()}
+					aria-label={view === 'week' ? m.stats_next_week() : m.stats_next_month()}
 					disabled={atLatest}
 					onclick={() => step(1)}
 				>
@@ -299,17 +293,20 @@
 	<div class="scroll" bind:this={scrollEl}>
 		{#if tab === 'trends'}
 			<!-- The other question: the grid says what her day looks like, the cards
-			     say whether it is getting better. They live here now rather than
-			     under a 24-hour axis nobody scrolls past. -->
-			{#if cards.length > 0}
+			     say whether it is getting better. Growth comes last, because it is
+			     the one card nobody is checking at 3am. -->
+			{#if cards.length > 0 || growth.length > 0}
 				<div class="cards">
 					{#each cards as card (card.kind)}
 						<StatCard {card} />
 					{/each}
+					{#each growth as series (series.kind)}
+						<GrowthCard {series} />
+					{/each}
 				</div>
 			{:else}
-				<!-- A card appears only where its type has data in the window, so an
-				     empty tab means an empty week rather than a screen to fix. -->
+				<!-- A card appears only where its type has data, so an empty tab
+				     means an empty week rather than a screen to fix. -->
 				<div class="empty">
 					<b>{m.stats_none()}</b>
 					{m.stats_none_hint()}
@@ -321,7 +318,13 @@
 				     which is what keeps colour a scanning aid rather than the only
 				     channel — and turning one off isolates a type. Only facets with
 				     something in the window appear, the same admission test the cards
-				     use, so nothing here is an empty category. -->
+				     use, so nothing here is an empty category.
+
+				     Measurements are not on it and not on the grid: a weight is a
+				     fact about a Baby and not about a time of day, so a disc at
+				     14:20 on a Tuesday says nothing this screen exists to say. It
+				     has its own card in Trends, where it is a line over her whole
+				     life. -->
 				<div class="chips daygrid-legend" role="group" aria-label={m.stats_legend()}>
 					{#each FACET_KEYS.filter((f) => present.includes(f)) as facet (facet)}
 						<button
@@ -336,18 +339,25 @@
 						</button>
 					{/each}
 				</div>
+				{#if present.includes('sleep')}
+					<!-- Sleep is the one type drawn in two colours, so the two are
+					     named here. It is a key and not a filter: a Night Sleep and a
+					     Nap are one type wearing two faces (ADR-0033), and a chip
+					     that turned one of them off would be inventing a category
+					     the rest of the app does not have. -->
+					<div class="bar-key daygrid-key">
+						<span data-t="sleep"><i></i>{m.stats_night_label()}</span>
+						<span data-t="nap"><i></i>{m.stats_naps_label()}</span>
+					</div>
+				{/if}
 			{/if}
 
 			{#key `${view}:${keys[0]}`}
 				<div class="daygrid-swap">
-					<DayGrid {keys} {view} facets={shown} onpick={pickDay} onopen={(e) => (openEntry = e)} />
+					<DayGrid {keys} {view} facets={shown} />
 				</div>
 			{/key}
 		{/if}
 		<div class="pad-bottom"></div>
 	</div>
 </section>
-
-{#if openEntry}
-	<EntrySheet entry={openEntry} onclose={() => (openEntry = null)} />
-{/if}

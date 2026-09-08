@@ -6,51 +6,53 @@
 	   responsible for on its own:
 
 	     - **The hour rows are the page.** There is no inner scroller: the hours
-	       flow down the same scroll the trend cards are in, so a phone never has
-	       to hit a 30px target between two scroll regions. Only the weekday row
-	       is sticky.
+	       flow down the same scroll the screen is in, so a phone never has to
+	       hit a 30px target between two scroll regions. Only the weekday row is
+	       sticky.
 	     - **Colour is the scanning channel, never the only one.** A week column
 	       is 46px wide and a fifteen-minute feed is 11px tall, which is too
 	       small for a glyph — so every column carries a visually-hidden list of
 	       what is in it, in order, with times and durations. The legend names
-	       every hue, and the day view writes the labels out. Nothing on this
-	       screen is knowable *only* by its colour.
+	       every hue. Nothing on this screen is knowable *only* by its colour.
 	     - **Every Entry takes the whole column, and layering does the rest.**
 	       Sleep is the ground, sessions with a duration lie over it, instants
 	       lie over both — so a Sleep Feed is drawn as a band *inside* its
 	       Sleep (spec §3.4) rather than as a column beside it. A ring in the
 	       ground colour keeps the upper layers reading as objects on top of a
-	       Sleep rather than as slices cut out of it. */
+	       Sleep rather than as slices cut out of it.
+
+	   Two views, both patterns: a week and four weeks. There is no day view —
+	   what one day held is the timeline's job, and it was the only view here
+	   that answered a question another screen already answers better. A month is
+	   the same drawing with the hour rows compressed: at that width no block can
+	   carry a label, which is exactly why the hidden list per column is not an
+	   accessibility afterthought but the readable version of this screen.
+
+	   Sleep is drawn in two colours, because it is two things: the Night Sleep
+	   that crosses the Day Start and the Naps around it (ADR-0033). Which one a
+	   block is comes from `classifySleep`, the same function the Sleep card
+	   counts with, so the grid and the card can never disagree about what a
+	   night is. */
 	import { app } from '$client/state.svelte';
 	import { buildGrid, type BlockMember, type GridBlock, type GridColumn, type GridMark } from '$domain/grid';
+	import { classifySleep } from '$domain/sleep';
 	import type { FacetKey } from '$domain/filter';
 	import { clockTime, dateWithWeekday, duration, hourLabel, weekdayShort } from '$lib/i18n/format';
-	import { entryTitle, feedRunTitle, GLYPH_OF } from '$lib/i18n/entry-label';
+	import { entryTitle, feedRunTitle } from '$lib/i18n/entry-label';
 	import { wallPartsOf } from '$domain/time';
 	import type { Entry } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
-	import Icon from './Icon.svelte';
 
 	interface Props {
-		/** Day keys, ascending. Seven for the week view, one for the day view. */
+		/** Day keys, ascending. Seven for the week view, twenty-eight for the
+		    month view. */
 		keys: string[];
-		view: 'week' | 'day';
-		facets: FacetKey[];
-		/** Week view only: the day column headers are buttons into the day view. */
-		onpick: (key: string) => void;
-		/** Day view only: a block or a mark opens its Entry. */
-		onopen: (entry: Entry) => void;
+		view: 'week' | 'month';
+		/** Which types to draw. Undefined draws them all; an empty list — every
+		    legend chip turned off — draws none. */
+		facets?: FacetKey[];
 	}
-	let { keys, view, facets, onpick, onopen }: Props = $props();
-
-	const isDay = $derived(view === 'day');
-
-	/* A mark needs about as much room as one row of type. Below that two
-	   Entries ten minutes apart would be drawn on top of each other, so in the
-	   day view they take lanes side by side — at their true times, never nudged
-	   to a time they did not happen at. A week column has no width to spare, so
-	   it passes no slot and lets them stack. */
-	const markSlotMs = $derived(isDay ? 26 * 60_000 : 0);
+	let { keys, view, facets }: Props = $props();
 
 	const columns = $derived.by(() => {
 		const baby = app.baby;
@@ -62,8 +64,7 @@
 			dayStart: app.dayStart,
 			zone: app.zone,
 			now: app.now,
-			facets,
-			markSlotMs
+			facets
 		});
 	});
 
@@ -71,10 +72,23 @@
 
 	const title = (e: Entry) => entryTitle(e, (id) => app.foodName(id));
 
-	/** An Entry as one sentence: what it is, when it was, how long it ran.
-	    This is the block's accessible name and the day view's own label. */
+	/** Night or Nap — the Sleep hue's two faces, and the one thing on this grid
+	    that colour alone would carry. It is in the column's hidden list too, so
+	    it never is. */
+	const sleepKind = (e: Entry) =>
+		classifySleep(e, { dayStart: app.dayStart, zone: app.zone, night: app.night }, app.now);
+
+	/** What a block is painted as: its facet, except a Sleep, which is a Night
+	    Sleep or a Nap. */
+	const paintOf = (b: GridBlock) =>
+		b.entry.type === 'sleep' ? (sleepKind(b.entry) === 'night' ? 'sleep' : 'nap') : b.facet;
+
+	const isSessionEntry = (e: Entry) =>
+		e.type === 'sleep' || e.type === 'tummy_time' || e.type === 'breast_feed' || e.type === 'bottle_feed';
+
+	/** An Entry as one sentence: what it is, when it was, how long it ran. */
 	function sentence(e: Entry): string {
-		const parts = [title(e)];
+		const parts = [sentenceHead(e)];
 		if (e.type === 'milestone') {
 			/* A Milestone shows no clock time anywhere — its precision is dropped
 			   at display, not in storage (spec §3.6). */
@@ -91,14 +105,13 @@
 		return parts.join(' · ');
 	}
 
-	const isSessionEntry = (e: Entry) =>
-		e.type === 'sleep' || e.type === 'tummy_time' || e.type === 'breast_feed' || e.type === 'bottle_feed';
-
-	function blockName(b: GridBlock): string {
-		const parts = [sentence(b.entry)];
-		if (b.clippedStart || b.clippedEnd) parts.push(m.stats_continues());
-		return parts.join(' · ');
-	}
+	/** What a Sleep block calls itself, before the clock times: a Sleep is a
+	    Night Sleep or a Nap, and on this grid that is the difference the two
+	    colours carry. */
+	const sentenceHead = (e: Entry) =>
+		e.type === 'sleep'
+			? `${title(e)} · ${sleepKind(e) === 'night' ? m.stats_night_label() : m.stats_nap_label()}`
+			: title(e);
 
 	/** The members of a block, split into the runs of same-content Feeds
 	    `grid.ts` found. Two bottles of the same formula are one run and read as
@@ -136,31 +149,52 @@
 			.join(' + ');
 	}
 
+	/** A block as one sentence, for the hidden list. A Combined Feed is one
+	    sentence and not several: it is one answer to *has she eaten*, and the
+	    list is the readable version of the drawing — where it is also one
+	    block. */
+	function blockName(b: GridBlock): string {
+		const last = b.members[b.members.length - 1].entry;
+		const parts = [b.members.length > 1 ? combinedTitle(b) : sentenceHead(b.entry)];
+		const from = clockTime(b.entry.occurred_at, app.zone);
+		if (last.ended_at != null) {
+			parts.push(
+				`${from}–${clockTime(last.ended_at, app.zone)}`,
+				duration(last.ended_at - b.entry.occurred_at)
+			);
+		} else {
+			parts.push(from, m.stats_running());
+		}
+		if (b.clippedStart || b.clippedEnd) parts.push(m.stats_continues());
+		return parts.join(' · ');
+	}
+
+	/** Everything touching a column, in the order it happened — the linear read
+	    a screen reader gets, and the reason no Entry can hide behind another. */
+	function readout(col: GridColumn): Array<{ id: string; text: string }> {
+		return [
+			...col.blocks.map((b) => ({ id: b.entry.id, at: b.from, text: blockName(b) })),
+			...col.marks.map((mk: GridMark) => ({ id: mk.entry.id, at: mk.at, text: sentence(mk.entry) }))
+		]
+			.sort((a, b) => a.at - b.at)
+			.map(({ id, text }) => ({ id, text }));
+	}
+
 	/* Percentages, computed once per block rather than in the template — the
-	   week view can hold a couple of hundred of them. */
+	   month view can hold a thousand of them. */
 	const top = (v: number) => `${(v * 100).toFixed(4)}%`;
 	const height = (b: GridBlock) => `${Math.max(0, (b.to - b.from) * 100).toFixed(4)}%`;
-	const span = (part: { from: number; to: number }) => `${Math.max(0, (part.to - part.from) * 100).toFixed(4)}%`;
 
 	/** Foreground blocks share the inset track; ground blocks take the column. */
 	function across(b: GridBlock): string {
 		const width = 100 / b.lanes;
 		return `left:${(b.lane * width).toFixed(4)}%;width:${width.toFixed(4)}%`;
 	}
-	/** A lone instant takes the whole column, like everything else. A cluster —
-	    two Entries too close to draw at the same trailing edge — packs against
-	    that edge instead of spreading across the column, because a disc adrift
-	    in the middle of a Feed's label is worse than a tight row of discs. */
-	function markAcross(mk: GridMark): string {
-		if (mk.lanes === 1) return 'left:0;right:0';
-		return `left:auto;right:${mk.lane * 28}px`;
-	}
-
 	/* One gutter serves every column, so on the two days a year a column is 23
 	   or 25 hours long the labels can only be right for one length. They come
-	   from whichever length most of the week has; the hour *lines* are drawn per
-	   column from that column's own ticks, so the geometry never lies even on
-	   the day the labels do. A single-day view has one column and is exact. */
+	   from whichever length most of the window has; the hour *lines* are drawn
+	   per column from that column's own ticks, so the geometry never lies even
+	   on the day the labels do. */
 	const axisTicks = $derived.by(() => {
 		if (columns.length === 0) return [];
 		const tally = new Map<number, number>();
@@ -175,22 +209,24 @@
 </script>
 
 <div class="daygrid" data-view={view} style={`--cols:${keys.length}`}>
-	<!-- The weekday strip. Sticky, and every cell is the way into that day —
-	     pick the odd-looking column, land in it. Hidden in the day view, where
-	     the heading above the grid already names the day. -->
+	<!-- The weekday strip. Sticky, and the only thing above the hours that
+	     names which day a column is. A month drops the weekday name: at that
+	     width the number is all that fits, and the columns are four whole weeks
+	     so every row of the strip lines up with the same weekday. -->
 	<div class="daygrid-days">
 		<div class="daygrid-gutter-head" aria-hidden="true"></div>
-		{#each columns as col (col.key)}
-			<button
-				class="daygrid-day"
-				type="button"
-				data-today={col.isToday ? '1' : '0'}
-				aria-label={m.stats_open_day({ day: columnLabel(col) })}
-				onclick={() => onpick(col.key)}
-			>
+		{#each columns as col, index (col.key)}
+			<div class="daygrid-day" data-today={col.isToday ? '1' : '0'} aria-label={columnLabel(col)}>
 				<span class="daygrid-day-name">{weekdayShort(col.start, app.zone)}</span>
-				<span class="daygrid-day-num">{dayNumber(col)}</span>
-			</button>
+				<!-- A month column is eleven pixels wide and twenty-eight dates in a
+				     row come out as one long number. It is four whole weeks, so a
+				     date every seventh column is a weekly ruler and the rest are
+				     counted off it — plus today, which always says which day it is.
+				     Every column still names itself in full to a screen reader. -->
+				{#if view === 'week' || index % 7 === 0 || col.isToday}
+					<span class="daygrid-day-num">{dayNumber(col)}</span>
+				{/if}
+			</div>
 		{/each}
 	</div>
 
@@ -206,16 +242,13 @@
 		{#each columns as col (col.key)}
 			<section class="daygrid-col" aria-label={columnLabel(col)}>
 				<!-- Every Entry in the column, in order, for anyone who cannot see
-				     an 11px block — and the reason colour is never the only
-				     channel here. Written once per column in the week view; the
-				     day view labels its blocks directly, so it is skipped there. -->
-				{#if !isDay}
-					<ul class="sr-only">
-						{#each col.ordered as e (e.id)}
-							<li>{sentence(e)}</li>
-						{/each}
-					</ul>
-				{/if}
+				     an 11px block — and the reason colour is never the only channel
+				     here. A Combined Feed is one line, exactly as it is one block. -->
+				<ul class="sr-only">
+					{#each readout(col) as item (item.id)}
+						<li>{item.text}</li>
+					{/each}
+				</ul>
 
 				<div class="daygrid-lines" aria-hidden="true">
 					{#each col.ticks as tick (tick.instant)}
@@ -223,55 +256,26 @@
 					{/each}
 				</div>
 
-				<!-- Sleep, the ground layer: the full width of the column. -->
-				<div class="daygrid-ground" aria-hidden={!isDay} data-t="sleep">
+				<!-- Sleep, the ground layer: the full width of the column, and in
+				     one of its two colours. -->
+				<div class="daygrid-ground" aria-hidden="true" data-t="sleep">
 					{#each col.blocks.filter((b) => b.ground) as b (b.entry.id)}
-						{#if isDay}
-							<button
-								class="block"
-								type="button"
-								data-clip-start={b.clippedStart ? '1' : '0'}
-								data-clip-end={b.clippedEnd ? '1' : '0'}
-								data-running={b.running ? '1' : '0'}
-								style={`top:${top(b.from)};height:${height(b)};${across(b)}`}
-								aria-label={blockName(b)}
-								onclick={() => onopen(b.entry)}
-							>
-								<!-- Glyph and duration, and no clock time: the block already
-								     sits on an hour axis that states where it begins and ends,
-								     and the word "Sleep" is said twice over by the glyph and
-								     the legend. What is left is the fact worth reading — how
-								     long. It also keeps the label inside the narrow strip the
-								     feed track never covers, so it cannot be half-hidden by a
-								     Sleep Feed drawn on top of it. -->
-								<span class="block-label">
-									<Icon name={GLYPH_OF[b.entry.type]} />
-									<span class="block-text"
-										>{b.entry.ended_at != null
-											? duration(b.entry.ended_at - b.entry.occurred_at)
-											: m.stats_running()}</span
-									>
-								</span>
-							</button>
-						{:else}
-							<span
-								class="block"
-								data-clip-start={b.clippedStart ? '1' : '0'}
-								data-clip-end={b.clippedEnd ? '1' : '0'}
-								data-running={b.running ? '1' : '0'}
-								style={`top:${top(b.from)};height:${height(b)};${across(b)}`}
-							></span>
-						{/if}
+						<span
+							class="block"
+							data-t={paintOf(b)}
+							data-clip-start={b.clippedStart ? '1' : '0'}
+							data-clip-end={b.clippedEnd ? '1' : '0'}
+							data-running={b.running ? '1' : '0'}
+							style={`top:${top(b.from)};height:${height(b)};${across(b)}`}
+						></span>
 					{/each}
 				</div>
 
 				<!-- Feeds and tummy time, over the Sleep ground, so a Sleep Feed
 				     reads as a band lying across its Sleep rather than fighting it.
-				     A Combined Feed is one envelope carrying both sources' values,
-				     divided where one source handed over to the next — each still
-				     its own tap target and its own accessible name, because a
-				     sitting is one thing to read and two things to correct. -->
-				<div class="daygrid-over" aria-hidden={!isDay}>
+				     A Combined Feed is one envelope with a hairline where one source
+				     handed over to the next. -->
+				<div class="daygrid-over" aria-hidden="true">
 					{#each col.blocks.filter((b) => !b.ground) as b (b.entry.id)}
 						<div
 							class="block"
@@ -281,59 +285,19 @@
 							data-running={b.running ? '1' : '0'}
 							style={`top:${top(b.from)};height:${height(b)};${across(b)}`}
 						>
-							{#if isDay}
-								<span class="block-label" aria-hidden="true">
-									<Icon name={GLYPH_OF[b.entry.type]} />
-									<span class="block-text">{combinedTitle(b)}</span>
-								</span>
-								{#each b.members as part (part.entry.id)}
-									<button
-										class="block-part"
-										type="button"
-										style={`top:${top(part.from)};height:${span(part)}`}
-										aria-label={sentence(part.entry)}
-										onclick={() => onopen(part.entry)}
-									></button>
-								{/each}
-							{:else}
-								<!-- The seam where one source handed over to the next. A week
-								     column has no room for a label, so the hairline is all
-								     there is to say the sitting had two sources; in the day
-								     view the label says it in words, and a line drawn at the
-								     handover would cut straight through them. -->
-								{#each b.members.slice(1).filter((part, i) => part.run !== b.members[i].run) as part (part.entry.id)}
-									<span class="block-seam" style={`top:${top(part.from)}`}></span>
-								{/each}
-							{/if}
+							{#each b.members.slice(1).filter((part, i) => part.run !== b.members[i].run) as part (part.entry.id)}
+								<span class="block-seam" style={`top:${top(part.from)}`}></span>
+							{/each}
 						</div>
 					{/each}
 				</div>
 
-				<!-- The instants — a nappy, a meal, a measurement, a milestone.
-				     They have one time and no duration, so they get a rail of
-				     their own rather than a block pretending to have a length. -->
-				<div class="daygrid-marks" aria-hidden={!isDay}>
+				<!-- The instants — a nappy, a meal, a milestone. They have one time
+				     and no duration, so they get a rail of their own rather than a
+				     block pretending to have a length. -->
+				<div class="daygrid-marks" aria-hidden="true">
 					{#each col.marks as mk (mk.entry.id)}
-						{#if isDay}
-							<button
-								class="mark"
-								type="button"
-								data-t={mk.facet}
-								style={`top:${top(mk.at)};${markAcross(mk)}`}
-								aria-label={sentence(mk.entry)}
-								onclick={() => onopen(mk.entry)}
-							>
-								<span class="mark-disc"><Icon name={GLYPH_OF[mk.entry.type]} /></span>
-								{#if mk.lanes === 1}
-									<!-- Two Entries within half an hour take lanes side by side, and
-									     half a rail cannot hold a word. The disc keeps the glyph and
-									     the hue; the accessible name keeps the sentence. -->
-									<span class="mark-text">{title(mk.entry)}</span>
-								{/if}
-							</button>
-						{:else}
-							<span class="mark" data-t={mk.facet} style={`top:${top(mk.at)};${markAcross(mk)}`}></span>
-						{/if}
+						<span class="mark" data-t={mk.facet} style={`top:${top(mk.at)}`}></span>
 					{/each}
 				</div>
 
@@ -350,6 +314,6 @@
 	{#if empty}
 		<!-- The axis is still drawn underneath: an outlined grid teaches what the
 		     screen is far better than a blank page with a sentence on it. -->
-		<p class="daygrid-empty">{isDay ? m.stats_day_empty() : m.stats_week_empty()}</p>
+		<p class="daygrid-empty">{view === 'week' ? m.stats_week_empty() : m.stats_month_empty()}</p>
 	{/if}
 </div>

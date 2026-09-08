@@ -192,6 +192,28 @@ describe('the Sleep card', () => {
 		expect(s.longestMs).toBe(10 * 3600_000);
 	});
 
+	it('gives every bar its own night-and-nap split, so the column can be drawn as two', () => {
+		const [card] = statsFor({
+			...LENS,
+			entries: [
+				sleep('2026-08-16T18:00:00Z', '2026-08-17T04:00:00Z') /* night, 10h */,
+				sleep('2026-08-16T11:00:00Z', '2026-08-16T12:30:00Z') /* nap, 1h30 */
+			]
+		});
+		const bar = card.bars.find((b) => b.key === '2026-08-16');
+		expect(bar?.nightMs).toBe(10 * 3600_000);
+		expect(bar?.napMs).toBe(90 * 60_000);
+		/* The two halves are the whole column and nothing more. */
+		expect((bar?.nightMs ?? 0) + (bar?.napMs ?? 0)).toBe(bar?.value);
+	});
+
+	it('states today\'s split as well as the average — the truth so far', () => {
+		const [card] = statsFor({ ...LENS, entries: [sleep('2026-08-17T13:00:00Z', null)] });
+		const s = card.secondary as SleepSecondary;
+		expect(s.napTodayMs).toBe(3600_000);
+		expect(s.nightTodayMs).toBe(0);
+	});
+
 	it('counts the bedtime that collapsed as Night Sleep, for a Household that states a Night', () => {
 		// 19:00 to 22:00 Berlin: a Nap under the Day Start alone, and Night
 		// Sleep once the Household says its night begins at 20:00 (ADR-0033).

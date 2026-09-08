@@ -85,8 +85,6 @@ export interface GridMark {
 	entry: Entry;
 	facet: FacetKey;
 	at: number;
-	lane: number;
-	lanes: number;
 }
 
 export interface HourTick {
@@ -119,19 +117,16 @@ export interface GridColumn {
 export interface GridInput {
 	entries: Entry[];
 	babyId: string;
-	/** Day keys, ascending. One for a single day, seven for a week. */
+	/** Day keys, ascending. Seven for the week view, twenty-eight for the
+	    month view. */
 	keys: string[];
 	dayStart: string;
 	zone: string;
 	now: number;
-	/** Which types to draw. Undefined or empty means all of them. */
+	/** Which types to draw. Undefined means all of them; an empty list — every
+	    legend chip turned off — means none. An empty list used to mean *all*,
+	    which quietly drew the types the screen had just excluded. */
 	facets?: FacetKey[];
-	/** The slot an instant Entry occupies for the purpose of not being drawn
-	    on top of its neighbour. Zero leaves marks stacked, which is what a
-	    46px week column wants; a day column passes the height of one mark so
-	    two close Entries sit side by side at their true times instead of one
-	    being nudged to a time it did not happen at. */
-	markSlotMs?: number;
 }
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
@@ -226,8 +221,7 @@ function feedRounds(feeds: Entry[], now: number): Entry[][] {
 
 export function buildGrid(input: GridInput): GridColumn[] {
 	const { babyId, dayStart, zone, now, keys } = input;
-	const markSlotMs = input.markSlotMs ?? 0;
-	const wanted = input.facets && input.facets.length > 0 ? new Set(input.facets) : null;
+	const wanted = input.facets ? new Set(input.facets) : null;
 
 	const mine = input.entries.filter(
 		(e) => live(e) && e.baby_id === babyId && (wanted == null || wanted.has(FACET_OF[e.type]))
@@ -305,13 +299,7 @@ export function buildGrid(input: GridInput): GridColumn[] {
 			} else {
 				const e = first;
 				if (e.occurred_at < start || e.occurred_at >= end) continue;
-				marks.push({
-					entry: e,
-					facet,
-					at: clamp01((e.occurred_at - start) / span),
-					lane: 0,
-					lanes: 1
-				});
+				marks.push({ entry: e, facet, at: clamp01((e.occurred_at - start) / span) });
 				ordered.push(e);
 			}
 		}
@@ -321,15 +309,6 @@ export function buildGrid(input: GridInput): GridColumn[] {
 		   what stops one hiding the other. */
 		packLanes(blocks.filter((b) => b.ground));
 		packLanes(blocks.filter((b) => !b.ground));
-		if (markSlotMs > 0) {
-			const slot = markSlotMs / span;
-			const packable = marks.map((mk) => ({ from: mk.at, to: mk.at + slot, lane: 0, lanes: 1 }));
-			packLanes(packable);
-			packable.forEach((p, i) => {
-				marks[i].lane = p.lane;
-				marks[i].lanes = p.lanes;
-			});
-		}
 
 		ordered.sort((a, b) => a.occurred_at - b.occurred_at || (a.id < b.id ? -1 : 1));
 
@@ -350,8 +329,8 @@ export function buildGrid(input: GridInput): GridColumn[] {
 /** The facets with something to draw in this window — the legend's admission
     test, and the same rule the stat cards follow: a type with no data in the
     window has no chip, so nothing on the screen is an empty category. */
-export function facetsPresent(input: Omit<GridInput, 'facets' | 'markSlotMs'>): FacetKey[] {
-	const columns = buildGrid({ ...input, markSlotMs: 0 });
+export function facetsPresent(input: Omit<GridInput, 'facets'>): FacetKey[] {
+	const columns = buildGrid(input);
 	const seen = new Set<FacetKey>();
 	for (const col of columns) {
 		for (const b of col.blocks) seen.add(b.facet);

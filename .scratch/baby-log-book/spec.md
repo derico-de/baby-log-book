@@ -622,7 +622,9 @@ Free text is a substring scan over the local replica, **not an index**: the whol
 
 The home screen already answers *when did she last eat*; the timeline already answers *what happened yesterday*. Two questions are left: **what does her day look like** (the grid) and **is this getting better** (the cards). The paediatrician's "how much is she taking?" falls out of the second for free.
 
-~~The screen answers them in this order down one scroll.~~ **Three tabs: Day, Week, Trends** — the grid's two windows, then the cards. The one scroll was ticket 28's shape and it hid the cards a screen and a half under a 24-hour axis; the switcher is its 2026-08-22 amendment, along with the reason.
+~~The screen answers them in this order down one scroll.~~ ~~**Three tabs: Day, Week, Trends** — the grid's two windows, then the cards.~~ **Three tabs: Trends, Week, Month — and Trends is the first and the default.** The one scroll was ticket 28's shape and it hid the cards a screen and a half under a 24-hour axis; the switcher is its 2026-08-22 amendment. Amended again **2026-09-08**: *is this getting better* is the question somebody arrives with, so the cards go first; the Day view is dropped, because what one day held is the timeline's question and the grid's own job starts at seven columns; and a Month — four whole weeks, so stepping keeps every weekday in the same column — is where a drift too slow to see in a week shows up.
+
+**Measurements are not on the grid** (2026-09-08). A weight is a fact about a Baby and not about a time of day, so a disc at 14:20 on a Tuesday said nothing the grid exists to say. Weight and height are cards in Trends instead — a line over her whole life rather than seven bars, because a Baby is weighed at a check-up and a rolling week of measurements is one column and six gaps.
 
 **Ticket 28 overturns two of this section's rules**, both stated where they stood: stats is no longer a trend screen *and only that*, and earlier periods are navigable. Everything else below is unchanged.
 
@@ -631,7 +633,7 @@ The home screen already answers *when did she last eat*; the timeline already an
 **Four cards. A card appears only when its entry type has data in the window** — which makes age-appropriateness free: a newborn's screen has no Solids card, an older Baby's Feeds card quietly stops being the headline. No age logic, no settings, no empty states.
 
 1. **Feeds** — count per day, with total volume as a secondary number **only when bottles exist**. Volume cannot be the primary bar: a breastfed Baby has no millilitres. The volume is the recorded **Intake** ([ADR-0018](../../docs/adr/0018-a-bottle-records-the-intake.md)). **First since 2026-08-22**: it is the figure asked for most often, by the household and by the paediatrician both.
-2. **Sleep** — total per day, split Night Sleep vs Naps (computable only because §7.2 settled which is which). Longest stretch as the secondary number.
+2. **Sleep** — total per day, split Night Sleep vs Naps (computable only because §7.2 settled which is which). Longest stretch as the secondary number. **Amended 2026-09-08**: the split is *drawn*, not only stated — the column is Night at its base and Nap above it, in two shades of the Sleep hue, on the grid as well as the card, with both figures for today beside the average. The same eleven hours as one night and as six naps are not the same day, and the total hid which half moved. The two shades are named in words beside them and in every column's hidden list, so nothing is knowable from the colour alone.
 3. **Nappies** — count per day, split pee/poop.
 4. **Solids** — Meals per day, with "3 new Foods this week" as the secondary, derived from first exposure.
 

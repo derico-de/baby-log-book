@@ -57,6 +57,27 @@
 
 	const isDuration = $derived(card.kind === 'sleep' || card.kind === 'tummy');
 
+	/* Sleep is drawn as the two things it is. A single column says she slept
+	   eleven hours and hides which half moved, which is the only part anybody
+	   is watching: the same eleven hours as one night and as six naps are not
+	   the same day (ADR-0033). Night is the base of the column and Nap sits on
+	   top of it, in the Sleep hue's daytime face. */
+	const isSplit = $derived(card.kind === 'sleep');
+	const SPLIT = [
+		{ t: 'sleep' as const, name: () => m.stats_night_label() },
+		{ t: 'nap' as const, name: () => m.stats_naps_label() }
+	];
+	/* The two parts as fractions of their own column, bottom first, so the
+	   stack draws in one pass and a day with only naps has no night sliver. */
+	const parts = (bar: StatsCard['bars'][number]) => {
+		const total = (bar.nightMs ?? 0) + (bar.napMs ?? 0);
+		if (total <= 0) return [];
+		return [
+			{ t: 'sleep' as const, share: (bar.nightMs ?? 0) / total },
+			{ t: 'nap' as const, share: (bar.napMs ?? 0) / total }
+		].filter((p) => p.share > 0);
+	};
+
 	/* Feeds draw what she drank, not how often: five feeds of 40 ml and five of
 	   150 ml are the same count and a very different day. The bars only switch
 	   to millilitres once a bottle exists in the window — a breastfed week has
@@ -98,14 +119,16 @@
 		switch (card.kind) {
 			case 'sleep': {
 				const s = card.secondary as SleepSecondary;
-				/* The split is stated as a daily average: a night and a day of naps
-				   are what a person compares against, and there is nothing to state
-				   until a complete logged day exists. */
+				/* Today's split, then the same split as a daily average: today is
+				   what the last bar is, and the average is what a person compares a
+				   day against. There is no average until a complete logged day
+				   exists, so that line simply is not there on day one. */
 				return [
-					m.stats_longest({ value: duration(s.longestMs) }),
+					m.stats_night_naps_today({ night: duration(s.nightTodayMs), naps: duration(s.napTodayMs) }),
 					...(s.nightAvgMs == null || s.napAvgMs == null
 						? []
-						: [m.stats_night_naps({ night: duration(s.nightAvgMs), naps: duration(s.napAvgMs) })])
+						: [m.stats_night_naps({ night: duration(s.nightAvgMs), naps: duration(s.napAvgMs) })]),
+					m.stats_longest({ value: duration(s.longestMs) })
 				];
 			}
 			case 'feeds': {
@@ -167,8 +190,14 @@
 		const day = selected.isToday
 			? m.stats_bar_today()
 			: dateShort(dayStartInstant(selected.key, app.dayStart, app.zone), app.zone);
-		const amount =
-			selected.volumeMl == null
+		/* A tapped Sleep day states its split too — reading which half of the
+		   column is which is the whole reason it is drawn as two. */
+		const amount = isSplit
+			? `${value(selected.value)} · ${m.stats_night_naps_plain({
+					night: duration(selected.nightMs ?? 0),
+					naps: duration(selected.napMs ?? 0)
+				})}`
+			: selected.volumeMl == null
 				? value(selected.value)
 				: `${value(selected.value)} · ${millilitres(selected.volumeMl)}`;
 		return m.stats_day_detail({ day, value: amount });
@@ -210,19 +239,39 @@
 				type="button"
 				class="bar-hit"
 				aria-pressed={selectedKey === bar.key}
-				aria-label={`${label(bar.key, bar.isToday)}: ${barValue(heightOf(bar))}`}
+				aria-label={`${label(bar.key, bar.isToday)}: ${barValue(heightOf(bar))}${
+					isSplit
+						? ` · ${m.stats_night_naps_plain({
+								night: duration(bar.nightMs ?? 0),
+								naps: duration(bar.napMs ?? 0)
+							})}`
+						: ''
+				}`}
 				onclick={() => (selectedKey = selectedKey === bar.key ? null : bar.key)}
 			>
 				<!-- A day with nothing on it draws nothing: the six-percent floor is
 				     there to keep a small day visible, and lending it to zero says
 				     she had a nappy when she had none. -->
 				{#if heightOf(bar) > 0}
-					<span
-						class="bar"
-						data-today={bar.isToday ? '1' : '0'}
-						data-selected={selectedKey === bar.key ? '1' : '0'}
-						style={`height:${Math.max(6, (heightOf(bar) / axisMax) * 100)}%`}
-					></span>
+					{#if isSplit}
+						<span
+							class="bar bar-stack"
+							data-today={bar.isToday ? '1' : '0'}
+							data-selected={selectedKey === bar.key ? '1' : '0'}
+							style={`height:${Math.max(6, (heightOf(bar) / axisMax) * 100)}%`}
+						>
+							{#each parts(bar) as part (part.t)}
+								<span class="bar-part" data-t={part.t} style={`height:${part.share * 100}%`}></span>
+							{/each}
+						</span>
+					{:else}
+						<span
+							class="bar"
+							data-today={bar.isToday ? '1' : '0'}
+							data-selected={selectedKey === bar.key ? '1' : '0'}
+							style={`height:${Math.max(6, (heightOf(bar) / axisMax) * 100)}%`}
+						></span>
+					{/if}
 				{/if}
 			</button>
 		{/each}
@@ -232,6 +281,17 @@
 			<span data-today={bar.isToday ? '1' : '0'}>{label(bar.key, bar.isToday)}</span>
 		{/each}
 	</div>
+	{#if isSplit}
+		<!-- The colour key. Two hues on one column is a second channel, so the
+		     words that name them have to be on the screen: the split is stated
+		     in text above and keyed here, and nothing about the chart is
+		     knowable from the colour alone. -->
+		<div class="bar-key">
+			{#each SPLIT as part (part.t)}
+				<span data-t={part.t}><i></i>{part.name()}</span>
+			{/each}
+		</div>
+	{/if}
 	{#if detail}
 		<div class="bar-detail">{detail}</div>
 	{/if}

@@ -16,9 +16,11 @@ import TimelineRow from './TimelineRow.svelte';
 import TimeSheet from './TimeSheet.svelte';
 import StatCard from './StatCard.svelte';
 import DayGrid from './DayGrid.svelte';
+import GrowthCard from './GrowthCard.svelte';
 import Fan from './Fan.svelte';
 import StaleBanner from './StaleBanner.svelte';
 import { statsFor } from '$domain/stats';
+import { growthFor } from '$domain/growth';
 
 const BERLIN = 'Europe/Berlin';
 const NOW = Date.parse('2026-08-17T14:00:00Z'); /* 16:00 Berlin */
@@ -644,6 +646,31 @@ describe('a stats card', () => {
 		expect(host.querySelector('.bar-detail')).toBeNull();
 	});
 
+	it('draws a Sleep day as the two things it is, and names both', () => {
+		const entries = [
+			entry({ type: 'sleep', occurred_at: NOW - 3 * 3600_000, ended_at: NOW - 3600_000 }) /* nap, 2h */
+		];
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN, night: null });
+		const text = draw(StatCard, { card });
+		/* Today's split in words, and the key that names the two hues. */
+		expect(text).toContain('0m night · 2h naps today');
+		expect(host.querySelectorAll('.bar-key span')).toHaveLength(2);
+		/* One column, drawn as its one part: an empty half draws nothing. */
+		const parts = host.querySelectorAll<HTMLElement>('.bar-stack .bar-part');
+		expect(parts).toHaveLength(1);
+		expect(parts[0].dataset.t).toBe('nap');
+	});
+
+	it('reads a tapped Sleep day back with its split', () => {
+		const entries = [
+			entry({ type: 'sleep', occurred_at: NOW - 3 * 3600_000, ended_at: NOW - 3600_000 })
+		];
+		const [card] = statsFor({ entries, babyId: 'b1', now: NOW, dayStart: '05:00', zone: BERLIN, night: null });
+		draw(StatCard, { card });
+		flushSync(() => host.querySelectorAll<HTMLButtonElement>('.bar-hit')[7]?.click()); /* today */
+		expect(host.querySelector('.bar-detail')?.textContent).toBe('Today: 2h · 0m night · 2h naps');
+	});
+
 	it('states a tapped Feeds day with what she drank', () => {
 		const entries = [
 			entry({
@@ -664,16 +691,39 @@ describe('a stats card', () => {
 	});
 });
 
-describe('the day grid', () => {
-	const noop = () => {};
-	const today = '2026-08-17';
-	const gridProps = (keys = [today]) => ({
-		keys,
-		view: 'day' as const,
-		facets: [] as never[],
-		onpick: noop,
-		onopen: noop
+describe('a growth card', () => {
+	const measure = (at: number, weight_g: number | null, height_mm: number | null = null) =>
+		entry({ type: 'measurement', occurred_at: at, payload: { weight_g, height_mm, head_mm: null } });
+
+	it('states the latest measurement, the gain, and every point behind it', () => {
+		app.entries = [
+			measure(Date.parse('2026-02-17T09:00:00Z'), 3400, 510),
+			measure(Date.parse('2026-08-10T09:00:00Z'), 8000, 690)
+		];
+		const [weightSeries, heightSeries] = growthFor({ entries: app.entries, babyId: 'b1' });
+		const text = draw(GrowthCard, { series: weightSeries });
+		expect(text).toContain('8.00 kg');
+		expect(text).toContain('+4.60 kg since');
+		/* The whole series is readable, not only the drawing. */
+		expect(host.querySelectorAll('ul.sr-only li')).toHaveLength(2);
+		expect(heightSeries.kind).toBe('height');
 	});
+
+	it('says nothing about a change when there is only one measurement', () => {
+		app.entries = [measure(Date.parse('2026-08-10T09:00:00Z'), 8000)];
+		const [series] = growthFor({ entries: app.entries, babyId: 'b1' });
+		draw(GrowthCard, { series });
+		expect(host.querySelector('.card-delta')).toBeNull();
+		expect(host.querySelectorAll('.growth-span span')).toHaveLength(1);
+	});
+});
+
+describe('the day grid', () => {
+	const today = '2026-08-17';
+	/* One key is still a legal window — the geometry does not care how many
+	   columns it draws, and a single one keeps these assertions about what a
+	   column *says* rather than about how a week lays out. */
+	const gridProps = (keys = [today]) => ({ keys, view: 'week' as const });
 	const bottle = (from: number, to: number, ml: number, contents: BottleContents = 'formula') =>
 		entry({
 			type: 'bottle_feed',
@@ -700,8 +750,6 @@ describe('the day grid', () => {
 		expect(text).not.toContain('60 ml');
 		expect(text).not.toContain('+');
 		expect(host.querySelectorAll('.daygrid-over .block')).toHaveLength(1);
-		/* Still two Entries to correct, so still two tap targets. */
-		expect(host.querySelectorAll('.daygrid-over .block-part')).toHaveLength(2);
 	});
 
 	it('says Bottle once across a stretch of bottles', () => {
@@ -769,12 +817,37 @@ describe('the day grid', () => {
 		expect(host.querySelectorAll('.daygrid-hour')).toHaveLength(24);
 	});
 
-	it('gives a week column a hidden list of everything in it', () => {
+	it('says which of its two faces a Sleep is, and paints it that way', () => {
+		/* Colour is never the only channel: the block wears the Nap hue and the
+		   column's hidden list says the word. */
+		app.entries = [entry({ type: 'sleep', occurred_at: noon, ended_at: noon + 95 * M })];
+		const text = draw(DayGrid, gridProps());
+		expect(text).toContain('nap');
+		expect(host.querySelector('.daygrid-ground .block')?.getAttribute('data-t')).toBe('nap');
+	});
+
+	it('calls the Sleep that crosses the Day Start a night', () => {
+		const night = Date.parse('2026-08-16T20:00:00Z'); /* 22:00 Berlin */
+		app.entries = [entry({ type: 'sleep', occurred_at: night, ended_at: night + 8 * 60 * M })];
+		const text = draw(DayGrid, gridProps(['2026-08-16', today]));
+		expect(text).toContain('night');
+		expect(host.querySelector('.daygrid-ground .block')?.getAttribute('data-t')).toBe('sleep');
+	});
+
+	it('leaves measurements to the caller — the grid draws what it is given', () => {
+		app.entries = [
+			entry({ type: 'measurement', occurred_at: noon, payload: { weight_g: 6400, height_mm: 645, head_mm: null } })
+		];
+		draw(DayGrid, { ...gridProps(), facets: ['feed', 'sleep', 'nappy', 'meal', 'tummy', 'milestone'] as const });
+		expect(host.querySelectorAll('.daygrid-marks .mark')).toHaveLength(0);
+	});
+
+	it('gives a column a hidden list of everything in it', () => {
 		app.entries = [
 			bottle(noon, noon + 10 * M, 60),
 			entry({ type: 'nappy', occurred_at: noon + 30 * M, payload: { pee: true, poop: false, consistency: null, where: null } })
 		];
-		draw(DayGrid, { ...gridProps(), view: 'week' as const });
+		draw(DayGrid, gridProps());
 		const list = host.querySelector('.daygrid-col ul.sr-only');
 		expect(list?.querySelectorAll('li')).toHaveLength(2);
 		expect(list?.textContent).toContain('13:00');

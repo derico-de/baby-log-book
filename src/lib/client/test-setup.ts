@@ -30,3 +30,18 @@ class MemoryStorage implements Storage {
 if (!('localStorage' in globalThis)) {
 	Object.defineProperty(globalThis, 'localStorage', { value: new MemoryStorage() });
 }
+
+/* jsdom has no ResizeObserver, and Svelte's `bind:clientWidth` — how the growth
+   chart learns how wide the card is — is built on one. A stub that never fires
+   is the honest shape for a DOM that never lays anything out: the card renders
+   its sentences, the chart waits for a width it will not get here, and the
+   curve itself is tested where it is computed. */
+if (!('ResizeObserver' in globalThis)) {
+	Object.defineProperty(globalThis, 'ResizeObserver', {
+		value: class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		}
+	});
+}

@@ -343,18 +343,12 @@ describe('a Combined Feed is drawn as the one sitting it was', () => {
 });
 
 describe('marks', () => {
-	it('stack when no slot is given — a week column has no room to spread', () => {
+	it('sit at their true times, and two close together still do', () => {
+		/* An instant takes the whole column and is never nudged: the grid draws
+		   patterns across days now, and a mark moved to a time it did not happen
+		   at is the one thing that would spoil one. */
 		const [col] = grid([nappy('2026-08-17T12:00:00Z'), meal('2026-08-17T12:05:00Z')], ['2026-08-17']);
-		expect(col.marks.every((mk) => mk.lanes === 1)).toBe(true);
-	});
-
-	it('sit side by side at their true times when a slot is given', () => {
-		const [col] = grid([nappy('2026-08-17T12:00:00Z'), meal('2026-08-17T12:05:00Z')], ['2026-08-17'], {
-			markSlotMs: 25 * 60_000
-		});
-		expect(col.marks.map((mk) => mk.lane).sort()).toEqual([0, 1]);
-		expect(col.marks.every((mk) => mk.lanes === 2)).toBe(true);
-		/* Spread sideways, never nudged to a time they did not happen at. */
+		expect(col.marks).toHaveLength(2);
 		expect(col.marks[0].at).toBeCloseTo(9 / 24, 6);
 	});
 
@@ -380,6 +374,16 @@ describe('what is drawn at all', () => {
 			facets: ['sleep']
 		});
 		expect(col.blocks).toHaveLength(1);
+		expect(col.marks).toHaveLength(0);
+	});
+
+	it('draws nothing when every facet is turned off', () => {
+		/* An empty list used to mean *all of them*, so a screen that had just
+		   excluded a type got it back. Undefined means all; empty means none. */
+		const [col] = grid([sleep('2026-08-17T12:00:00Z', '2026-08-17T13:00:00Z'), nappy('2026-08-17T12:00:00Z')], ['2026-08-17'], {
+			facets: []
+		});
+		expect(col.blocks).toHaveLength(0);
 		expect(col.marks).toHaveLength(0);
 	});
 

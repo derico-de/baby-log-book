@@ -37,6 +37,11 @@ export interface DayBar {
 	/** What she drank that day — Feeds card only, and only once a bottle
 	    exists in the window; a breastfed week has no millilitres to state. */
 	volumeMl?: number;
+	/** The day's Sleep split into its two faces — Sleep card only. They sum to
+	    `value`, so the bar can be drawn as the two parts it already is rather
+	    than as one column that hides which half moved (ADR-0033). */
+	nightMs?: number;
+	napMs?: number;
 }
 
 export interface SleepSecondary {
@@ -48,6 +53,11 @@ export interface SleepSecondary {
 	    average follows. */
 	nightAvgMs: number | null;
 	napAvgMs: number | null;
+	/** Today's split, the truth so far. Stated beside the averages because a
+	    day that is all naps and a day that is all night add up to the same
+	    hero figure and are not the same day. */
+	nightTodayMs: number;
+	napTodayMs: number;
 }
 export interface FeedsSecondary {
 	/** Volume cannot be the primary bar: a breastfed Baby has no millilitres.
@@ -311,14 +321,20 @@ export function statsFor(input: StatsInput): StatsCard[] {
 	if (hasSleep) {
 		cards.push({
 			kind: 'sleep',
-			bars: bars(acc.sleepMs),
+			bars: bars(acc.sleepMs).map((b) => ({
+				...b,
+				nightMs: nightByDay.get(b.key) ?? 0,
+				napMs: napByDay.get(b.key) ?? 0
+			})),
 			today: acc.sleepMs.get(today) ?? 0,
 			average: completeAverage(acc.sleepMs),
 			delta: deltaOf(acc.sleepMs, previous.sleepMs),
 			secondary: {
 				longestMs,
 				nightAvgMs: completeAverage(nightByDay),
-				napAvgMs: completeAverage(napByDay)
+				napAvgMs: completeAverage(napByDay),
+				nightTodayMs: nightByDay.get(today) ?? 0,
+				napTodayMs: napByDay.get(today) ?? 0
 			} satisfies SleepSecondary
 		});
 	}

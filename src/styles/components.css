@@ -34,6 +34,13 @@
 		--t-soft: var(--t-sleep-soft);
 		--t-soft-ink: var(--t-sleep-soft-ink);
 	}
+	/* The Nap: the Sleep hue's daytime face, not a sixth category (ADR-0033). */
+	[data-t='nap'] {
+		--t: var(--t-nap);
+		--t-ink: var(--t-nap-ink);
+		--t-soft: var(--t-nap-soft);
+		--t-soft-ink: var(--t-nap-soft-ink);
+	}
 	[data-t='nappy'] {
 		--t: var(--t-nappy);
 		--t-ink: var(--t-nappy-ink);
@@ -1116,17 +1123,15 @@
        couple of pixels off the screen. */
 		padding-inline-end: var(--sp-2);
 	}
-	.daygrid[data-view='day'] {
-		--gutter: 46px;
-		/* A day column is a phone wide, so it can afford the hour height that
-       makes a twenty-minute feed a block with a glyph in it rather than a
-       sliver — and a rail wide enough for a disc and the word beside it. */
-		--hour: 62px;
-		--rail: 28%;
-		/* Starts clear of the sleep block's glyph-and-duration label, and leaves
-       the feed track wide enough for "Bottle · Formula · 120 ml". The feed
-       carries far more to say than the sleep does, so it gets the width. */
-		--over-in: 18%;
+	/* Four weeks across a phone is an 11px column, which is a pattern rather
+     than a reading: the hour rows compress with it, so a month is one screen
+     and a half instead of four, and the eye is looking for drift rather than
+     for a particular feed. Everything a column holds is still in its hidden
+     list, which is the readable version of this view. */
+	.daygrid[data-view='month'] {
+		--gutter: 28px;
+		--hour: 30px;
+		padding-inline-end: var(--sp-1);
 	}
 
 	.daygrid-days,
@@ -1158,18 +1163,17 @@
 		font-size: var(--fs-0);
 		font-weight: var(--fw-medium);
 		color: var(--ink-3);
-		cursor: pointer;
 		min-width: 0;
 		border-radius: var(--r-1) var(--r-1) 0 0;
-		transition: background var(--dur-1) var(--ease);
 	}
-	/* One column, and the heading above already names the day — a second
-     "Fri, 21 Aug" under it is a word doing no work. */
-	.daygrid[data-view='day'] .daygrid-days {
+	/* A month has no width for "Mon" over an 11px column, and it does not need
+     one: it is four whole weeks, so the weekday of a column is its position. */
+	.daygrid[data-view='month'] .daygrid-day-name {
 		display: none;
 	}
-	.daygrid-day:hover {
-		background: var(--surface-2);
+	.daygrid[data-view='month'] .daygrid-day {
+		padding-inline: 0;
+		font-size: 9px;
 	}
 	.daygrid-day-num {
 		font-variant-numeric: tabular-nums lining-nums;
@@ -1269,11 +1273,6 @@
 		overflow: hidden;
 		display: block;
 	}
-	.daygrid[data-view='day'] .block {
-		min-height: 5px;
-		cursor: pointer;
-		container-type: size;
-	}
 	/* A ring in the ground colour, so a full-width Feed drawn across a Sleep
      reads as a band lying on it rather than as a gap cut out of it. */
 	.daygrid-over .block {
@@ -1289,22 +1288,6 @@
 		inset-inline: 0;
 		height: 1px;
 		background: color-mix(in oklch, var(--t-ink) 45%, transparent);
-		pointer-events: none;
-	}
-	.block-part {
-		position: absolute;
-		inset-inline: 0;
-		border: 0;
-		margin: 0;
-		padding: 0;
-		background: none;
-		cursor: pointer;
-	}
-	.block-part:focus-visible {
-		outline-offset: -2px;
-	}
-	/* Under the tap targets, so a tap lands on the source it points at. */
-	.block-label {
 		pointer-events: none;
 	}
 	/* Sleep is the ground layer, so it is quieter than what sits on it —
@@ -1335,47 +1318,11 @@
 		mask-image: linear-gradient(to bottom, #000 calc(100% - 10px), transparent);
 	}
 
-	.block-label {
-		display: flex;
-		align-items: center;
-		gap: 5px;
-		padding: 3px 6px;
-		/* Room at the trailing edge for a mark disc landing on the same minute:
-       full-width Entries mean an instant can cross a block, and the two
-       should not share a pixel. */
-		padding-inline-end: var(--sp-5);
-		font-size: var(--fs-0);
-		font-weight: var(--fw-medium);
-		line-height: 1.25;
-		min-width: 0;
-	}
-	.block-label svg {
-		width: 13px;
-		height: 13px;
-		flex: none;
-	}
-	.block-text {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	/* A ten-minute stretch is ten pixels tall and cannot hold a line of type:
-     half a clipped word is worse than the colour alone, and the block's
-     accessible name carries the whole sentence either way. Stated as a
-     container query rather than a number shared with the script, and phrased
-     so that a browser without them shows the label rather than hiding it. */
-	@container (max-height: 17px) {
-		.block-label {
-			display: none;
-		}
-	}
-
-	.daygrid-ground .block-text {
-		font-variant-numeric: tabular-nums lining-nums;
-	}
-
+	/* An instant takes the whole column, like every block does — it is drawn at
+     its true time and never nudged sideways to a lane it does not need. */
 	.mark {
 		position: absolute;
+		inset-inline: 0;
 		display: block;
 		border: 0;
 		padding: 0;
@@ -1386,54 +1333,6 @@
 		border-radius: 2px;
 		transform: translateY(-1px);
 	}
-	.daygrid[data-view='day'] .mark {
-		background: none;
-		height: auto;
-		display: flex;
-		align-items: center;
-		/* Trailing edge, because the leading edge is where every block writes
-       its own label — an instant landing on the same minute as a Sleep would
-       otherwise sit on top of the word. */
-		justify-content: flex-end;
-		gap: 6px;
-		padding-inline-end: var(--sp-2);
-		transform: translateY(-11px);
-		cursor: pointer;
-		min-width: 0;
-	}
-	.mark-disc {
-		flex: none;
-		width: 22px;
-		height: 22px;
-		border-radius: 50%;
-		background: var(--t);
-		color: var(--t-ink);
-		display: grid;
-		place-items: center;
-		/* It now crosses a Sleep's tint and may land on a Feed's solid fill. */
-		box-shadow: 0 0 0 1.5px var(--ground);
-	}
-	.mark-disc svg {
-		width: 13px;
-		height: 13px;
-	}
-	.mark-text {
-		min-width: 0;
-		font-size: var(--fs-0);
-		color: var(--ink-2);
-		text-align: right;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		/* Now that every Entry is full width, an instant can land on a Feed's
-       solid fill, where secondary ink is unreadable. The plate is the ground
-       colour, so over empty grid it is invisible and over a block it reads
-       as a chip. */
-		background: var(--ground);
-		padding: 1px 5px;
-		border-radius: var(--r-1);
-	}
-
 	/* The one accent on this screen. `--live` and `--accent` are the same
      token by design: the brand hue means *the thing happening now*, here as
      on the home screen. */
@@ -1504,6 +1403,35 @@
 	.daygrid-legend .chip[aria-pressed='true'] svg {
 		background: var(--t);
 		color: var(--t-ink);
+	}
+
+	/* The night-and-nap key. It sits under the legend on the grid and under the
+     bars on the Sleep card, and it is the same object in both places: two
+     swatches naming the two faces of one type. Not a chip — there is nothing
+     to press. */
+	.bar-key {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-3);
+		margin-top: var(--sp-2);
+		font-size: var(--fs-0);
+		color: var(--ink-2);
+	}
+	.bar-key span {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+	}
+	.bar-key i {
+		width: 9px;
+		height: 9px;
+		border-radius: 3px;
+		background: var(--t, var(--ink-3));
+	}
+	.daygrid-key {
+		padding-inline: var(--sp-4);
+		margin-top: 0;
+		padding-bottom: var(--sp-2);
 	}
 
 	/* Stepping a period or switching a view moves the grid; it is a state
@@ -1688,6 +1616,20 @@
 		opacity: 0.55;
 		min-height: 3px;
 	}
+	/* Sleep's column is the two things it is. The parts carry the colour and
+     the stack carries everything the plain bar carries — the radius, the
+     in-progress hatch, the selected state — so the two kinds of column are
+     the same object with one drawn in two pieces. */
+	.bar-stack {
+		display: flex;
+		flex-direction: column-reverse;
+		overflow: hidden;
+	}
+	.bar-part {
+		display: block;
+		width: 100%;
+		background: var(--t, var(--ink-3));
+	}
 	.bar[data-today='1'] {
 		opacity: 1;
 		background: repeating-linear-gradient(-45deg, var(--t, var(--ink-2)) 0 3px, transparent 3px 6px);
@@ -1699,6 +1641,24 @@
 	.bar[data-selected='1'] {
 		opacity: 1;
 		background: var(--t, var(--ink-2));
+		box-shadow: none;
+	}
+	/* After the two rules above, because it undoes both for a stacked column:
+     the hatch goes on the parts rather than on the stack, so each half keeps
+     its own hue through it and the ring around the column stays solid. */
+	.bar-stack[data-today='1'] {
+		background: none;
+		box-shadow: inset 0 0 0 1.5px var(--t, var(--ink-2));
+	}
+	.bar-stack[data-today='1'] .bar-part {
+		mask-image: repeating-linear-gradient(-45deg, #000 0 3px, transparent 3px 6px);
+	}
+	/* Tapped is the column at full strength, hatch and all resolved: reading a
+     day should not leave it looking like it is still happening. */
+	.bar-stack[data-selected='1'] .bar-part {
+		mask-image: none;
+	}
+	.bar-stack[data-selected='1'] {
 		box-shadow: none;
 	}
 	.bar-labels {
@@ -1715,6 +1675,49 @@
 		color: var(--ink);
 		font-weight: var(--fw-bold);
 	}
+	/* Growth: one smooth line over the whole log, on the same 124px plot the
+     bars use and with the same two dashed axis lines. The axis is the range
+     the series covers rather than zero to the top — a growth chart that
+     started at 0 kg would draw every real baby as a flat line near the
+     ceiling. */
+	.growth {
+		position: relative;
+		margin-top: var(--sp-4);
+	}
+	.growth svg {
+		position: absolute;
+		inset: 0;
+		overflow: visible;
+	}
+	.growth-line {
+		fill: none;
+		stroke: var(--t, var(--ink-3));
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	/* Every measurement is a dot, because every dot is a day somebody weighed
+     her — the line between two of them is drawn, and the dots are the part
+     that was actually entered. */
+	.growth-dot {
+		fill: var(--t, var(--ink-3));
+		stroke: var(--surface);
+		stroke-width: 1.5;
+	}
+	.growth .gridline[data-edge='top'] span {
+		top: auto;
+		bottom: 3px;
+		padding: 0 0 0 4px;
+	}
+	.growth-span {
+		display: flex;
+		justify-content: space-between;
+		margin-top: 6px;
+		font-size: 10px;
+		color: var(--ink-3);
+		font-variant-numeric: tabular-nums;
+	}
+
 	.bar-detail {
 		margin-top: var(--sp-2);
 		font-size: var(--fs-1);

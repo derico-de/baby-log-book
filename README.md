@@ -17,9 +17,11 @@ Read those before changing anything structural.
   history surface.
 - **Light schedules**: one target per activity per baby, elapsed-vs-target in a
   sticky header. Stated, never learned.
-- **Stats**: a day grid — an hour axis with every entry drawn in its own slot
-  and its own colour, in a week or a single-day view, steppable back through
-  the log — over five trend cards on a rolling seven days plus today.
+- **Stats**: trends first — five cards on a rolling seven days plus today, with
+  sleep split into night and naps, and weight and height as a smooth line over
+  her whole life — then a day grid: an hour axis with every entry drawn in its
+  own slot and its own colour, over a week or four weeks, steppable back
+  through the log.
 - **Export**: a zip of per-type CSVs. Everything, always.
 - **Offline sync** with a full local replica, a durable outbox and silent
   conflict resolution.
