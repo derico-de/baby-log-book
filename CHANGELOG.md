@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-09-08
+
 ### Added
 
 - Birth weight and birth length, on the Baby in settings beside her birth date.
