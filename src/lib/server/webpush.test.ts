@@ -149,4 +149,14 @@ describe('the VAPID header', () => {
 		expect(Buffer.from(keys.publicKey, 'base64url').length).toBe(65);
 		expect(Buffer.from(keys.privateKey, 'base64url').length).toBe(32);
 	});
+
+	/* Roughly one scalar in 256 has a leading zero byte, and the generator
+	   strips it. A short `d` is not a P-256 key: the signer throws and the loader
+	   discards the file, minting a fresh application server key that every
+	   existing subscription is a stranger to. */
+	it('always mints a full-width scalar, however many leading zeros it had', () => {
+		for (let i = 0; i < 400; i += 1) {
+			expect(Buffer.from(generateVapidKeys().privateKey, 'base64url').length).toBe(32);
+		}
+	});
 });

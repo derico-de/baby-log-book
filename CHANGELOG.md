@@ -40,6 +40,21 @@ release moves that section under its version number.
 
 ### Fixed
 
+- Settings says which rows are Hubs. A member row reads
+  `Home Assistant · Hub · caregiver`, in the same suffix grammar it already
+  used; the role toggle is gone from those rows, because the server refuses the
+  promotion and the screen must not offer what will be refused; and removing one
+  asks a different question — it unplugs the panel, which stops reading and
+  writing at once, and everything it logged stays with its name on it. The
+  invite form carries *this is for a Hub*, which locks the role to caregiver in
+  front of you. Hub stays *Hub* in English, German and Romanian alike.
+
+- One VAPID keypair in about 256 was minted with a short private scalar, because
+  the generator strips its leading zero bytes. Such a key is not a P-256 key:
+  the deployment would discard it on the next boot and mint a fresh application
+  server key, and every phone already subscribed to the Bottle Chime would be a
+  stranger to it. The scalar is padded to its full width where it is made.
+
 - A new feeding ends the Feed that was still running, whoever logged it. The
   rule lived in the feed sheet, so it held for one writer only: two phones that
   each started a Feed while offline left both running, and the day's numbers

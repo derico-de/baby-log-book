@@ -62,6 +62,9 @@
 	interface PendingInvite {
 		display_name: string;
 		role: 'parent' | 'caregiver';
+		/** What the Member will be marked as. Null on a link minted before the
+		    choice existed, which reads as a person's (ADR-0038). */
+		kind_for: 'person' | 'hub' | null;
 		created_at: number;
 		expires_at: number;
 		handle: string;
@@ -78,6 +81,10 @@
 	let invites = $state<PendingInvite[]>([]);
 	let inviteName = $state('');
 	let inviteRole = $state<'parent' | 'caregiver'>('caregiver');
+	/** *This one is for a Hub.* It locks the role to Caregiver — visibly here,
+	    and at mint time on the server, because that role is the blast radius for
+	    a credential sitting at rest on a box in a hall (ADR-0034). */
+	let inviteForHub = $state(false);
 	let mintedUrl = $state<string | null>(null);
 	let mintedName = $state('');
 	let copied = $state(false);
@@ -196,13 +203,18 @@
 		const response = await fetch('/api/invites', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ display_name: name, role: inviteRole })
+			body: JSON.stringify({
+				display_name: name,
+				role: inviteForHub ? 'caregiver' : inviteRole,
+				kind_for: inviteForHub ? 'hub' : 'person'
+			})
 		});
 		if (!response.ok) return;
 		const body = (await response.json()) as { url: string };
 		mintedUrl = body.url;
 		mintedName = name;
 		inviteName = '';
+		inviteForHub = false;
 		copied = false;
 		await loadInvites();
 	}
@@ -308,8 +320,15 @@
 		location.reload();
 	}
 
-	async function removeThem(id: string, name: string) {
-		if (!confirm(m.settings_member_remove_confirm({ name }))) return;
+	/* A Hub's row says what removing it does, because it is not the same act:
+	   removing "Home Assistant" unplugs the hall panel rather than removing a
+	   person from the Household (ADR-0038). */
+	async function removeThem(id: string, name: string, kind: 'person' | 'hub') {
+		const question =
+			kind === 'hub'
+				? m.settings_member_remove_hub_confirm({ name })
+				: m.settings_member_remove_confirm({ name });
+		if (!confirm(question)) return;
 		await app.edit((w) => removeMember(w, id));
 	}
 
@@ -822,6 +841,10 @@
 							<span>
 								{member.display_name}
 								<span class="role">
+									<!-- Kind before role, in the suffix grammar the row already uses:
+									     "Home Assistant · Hub · caregiver". Hub stays Hub in every
+									     language (ADR-0038). -->
+									{#if member.kind === 'hub'}· {m.settings_kind_hub()}{/if}
 									· {member.role === 'parent' ? m.settings_role_parent() : m.settings_role_caregiver()}
 									{#if member.removed_at != null}· {m.settings_removed()}{/if}
 									{#if member.id === app.identity?.memberId}· {m.settings_this_device()}{/if}
@@ -829,15 +852,23 @@
 							</span>
 							{#if isParent && member.removed_at == null && member.id !== app.identity?.memberId}
 								<span class="member-acts">
+									<!-- No role toggle on a Hub: the server refuses the promotion,
+									     and the UI must not offer what will be refused. -->
+									{#if member.kind !== 'hub'}
+										<button
+											type="button"
+											class="secondary"
+											onclick={() =>
+												void app.edit((w) => setMemberRole(w, member.id, member.role === 'parent' ? 'caregiver' : 'parent'))}
+										>
+											{member.role === 'parent' ? m.settings_member_demote() : m.settings_member_promote()}
+										</button>
+									{/if}
 									<button
 										type="button"
 										class="secondary"
-										onclick={() =>
-											void app.edit((w) => setMemberRole(w, member.id, member.role === 'parent' ? 'caregiver' : 'parent'))}
+										onclick={() => void removeThem(member.id, member.display_name, member.kind)}
 									>
-										{member.role === 'parent' ? m.settings_member_demote() : m.settings_member_promote()}
-									</button>
-									<button type="button" class="secondary" onclick={() => void removeThem(member.id, member.display_name)}>
 										{m.settings_member_remove()}
 									</button>
 								</span>
@@ -858,12 +889,18 @@
 							</label>
 							<label>
 								{m.settings_invite_role()}
-								<select bind:value={inviteRole}>
+								<!-- Locked, visibly, while the Invite is for a Hub. -->
+								<select bind:value={inviteRole} disabled={inviteForHub}>
 									<option value="caregiver">{m.settings_role_caregiver()}</option>
 									<option value="parent">{m.settings_role_parent()}</option>
 								</select>
 							</label>
 						</div>
+						<label>
+							<input type="checkbox" bind:checked={inviteForHub} />
+							{m.settings_invite_for_hub()}
+						</label>
+						<small class="hint">{m.settings_invite_for_hub_hint()}</small>
 						<button type="submit" class="secondary">{m.settings_invite_create()}</button>
 					</form>
 
@@ -884,7 +921,10 @@
 								<li>
 									<span>
 										{invite.display_name}
-										<span class="role">· {m.settings_invite_expires({ when: dateAndTime(invite.expires_at, app.zone) })}</span>
+										<span class="role">
+											{#if invite.kind_for === 'hub'}· {m.settings_kind_hub()}{/if}
+											· {m.settings_invite_expires({ when: dateAndTime(invite.expires_at, app.zone) })}
+										</span>
 									</span>
 									<button type="button" class="secondary" onclick={() => void revokeInvite(invite.handle)}>
 										{m.settings_invite_revoke()}

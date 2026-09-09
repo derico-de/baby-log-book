@@ -74,9 +74,20 @@ function freshKeyPair(): ECDH {
 	return ecdh;
 }
 
+/** A P-256 scalar is 32 bytes, always — but `getPrivateKey()` returns the
+    integer with its leading zeros stripped, so roughly one key in 256 comes back
+    31 bytes or shorter. A JWK `d` of the wrong length is not a P-256 key: the
+    header signer would throw, and `loadVapidKeys` below would discard the file
+    and mint a fresh pair on every boot, changing the application server key that
+    every existing subscription was minted against. Left-padded here, at the one
+    place a scalar becomes a stored string. */
+function scalar32(value: Buffer): Buffer {
+	return value.length >= 32 ? value : Buffer.concat([Buffer.alloc(32 - value.length), value]);
+}
+
 export function generateVapidKeys(): VapidKeys {
 	const ecdh = freshKeyPair();
-	return { publicKey: b64(ecdh.getPublicKey()), privateKey: b64(ecdh.getPrivateKey()) };
+	return { publicKey: b64(ecdh.getPublicKey()), privateKey: b64(scalar32(ecdh.getPrivateKey())) };
 }
 
 /** Reads the keypair, generating it on first boot — the same shape as the
