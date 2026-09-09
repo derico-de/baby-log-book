@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-09-09
+
 ### Changed
 
 - Stats counts Naps less than 30 minutes apart as one nap. She stirs, somebody
