@@ -10,6 +10,10 @@ A **locked spec plus ADRs** for the Home Assistant integration — the server's 
 
 - Domain: this repo; vocabulary is [`CONTEXT.md`](../../CONTEXT.md) — issue titles, spec and UI copy follow it word for word. **Hub** is in the glossary since [The Hub in the members list](issues/05-the-hub-in-the-members-list.md) resolved (broad boundary, per [ADR-0038](../../docs/adr/0038-a-hubs-member-is-marked-and-a-hub-stays-a-caregiver.md)).
 - Skills every session should consult: `/grilling` and `/domain-modeling` for HITL tickets; `/research` for research tickets.
+- **The integration repo exists**: `../../../../baby-log-book-homeassistant`, a sibling checkout
+  inside the mount beside `blb-sass-service` (README, AGENTS.md, LICENSE, `.gitignore`; `origin`
+  set, unpushed — the maintainer pushes from outside the sandbox). Its `AGENTS.md` points back at
+  the spec and at `CONTEXT.md`.
 - **Standing constraints** — settled while charting, do not re-litigate without saying so:
   - **[ADR-0034](../../docs/adr/0034-a-hub-is-a-device-and-its-reads-are-derived.md) is the floor.** Hub-as-Device, own Caregiver Member, one derived read shipping no rows, one write path, no CORS, no action API. A ticket that contradicts it surfaces a superseding ADR, never a quiet drift. [Ticket 29](../baby-log-book/issues/29-home-assistant-integration.md) of the first map is the long-form background.
   - **Read *and* write in v1.** *Start feeding* was the ask; the write tail (ADR-0019 into `push()`, bounded outbox, clock offset) ships with it, not in a second map.
@@ -33,10 +37,23 @@ A **locked spec plus ADRs** for the Home Assistant integration — the server's 
 - [One repo or two, and the version handshake](issues/08-one-repo-or-two.md) — [ADR-0039](../../docs/adr/0039-the-integration-gates-on-the-server-release.md): repo `derico-de/baby-log-book-homeassistant`, domain `baby_log_book` (immutable), shown everywhere as *Baby Log Book*; handshake gates on `app_version` vs a baked-in `MIN_SERVER_VERSION` (Mealie dual gate; repair issue when the integration is the old half); a wire change lands server-side first, backward-compatibly; independent semver with manifest = tag = release; AGPL-3.0-or-later on both repos, no shared code; one compatibility table in the integration README.
 - [The wire contract](issues/09-the-wire-contract.md) — `GET /api/hub/state` (glossary word, not "companion"), no parameters, epoch-ms instants, field names = the entity `unique_id` keys; strong ETag `"<cursor>-<dayKey>"` closes the Day-Start hole (opaque to the Hub, `304` empty); appear-on-first-use gated by **ever-logged**, not `statsFor`'s window `has*`; errors `401 unauthenticated` / `403 removed` / **`402 lapsed`** (checked before ETag and fold; contract-only until the hosted-service effort implements Lapsed); clock offset from every non-304 response; cadence pinned (wake→conditional read, 5 min poll floor, 60 s when SSE down, backoff base 5 s cap 5 min full jitter); store grows `liveEntries()` (unbounded — `since`-bounded would break `last_poop`), both folds unmodified. No ADR — spec content composing ADR-0034/0036/0022.
 - [The config-flow failure taxonomy](issues/11-the-config-flow-failure-taxonomy.md) — one form field (the pasted Claim Link URL; preview before claim, form errors re-paste, aborts only for identity); all four `previewLink` states distinct; `cannot_connect` vs `not_baby_log_book`; plain HTTP refused on public hosts only; claim-time Lapsed = **`402` from `POST /api/claim` before the link is spent** → form error `hosting_paused` (gates all claims; contract-only until the hosted effort); entry `unique_id` = Household id, wrong-Member rescue = `DELETE /api/session` then abort `wrong_member`; `403 removed` never re-auths (repair issue + full stop, reconnect = new Invite + new entry); `402 lapsed` at runtime = warning repair issue + unavailable entities + 5-min poll; no runtime version-check row. No ADR — spec content composing ADR-0022/0037/0038/0039.
+- [CI for the integration repo](issues/12-ci-for-the-integration-repo.md) — two workflows in the
+  server's house style: `ci.yml` (ruff + mypy strict + pytest at 95 % coverage + hassfest +
+  `hacs/action` with a *dated* `ignore: brands`) on push, PR and a **weekly** cron, and
+  `release.yml` on `v*.*.*` **enforcing** manifest = tag (never stamping it) and publishing the
+  CHANGELOG section as the release body; hassfest earns its place because its custom-integration
+  plugin set is exactly the hand-written files pytest never reads (translations, `services.yaml`,
+  `icons.json`, manifest); **one** pinned HA version, tracked weekly by Dependabot, and the
+  declared floor follows it at release time — never claim a floor you don't test, no matrix, no
+  beta job; the dev-env HA container has **no** part in CI; everything under `uv`; the CI files
+  themselves land with the build, not now.
 
 ## Not yet specified
 
-- **The README a stranger follows** — install, claim, revoke, plus the two or three copy-paste automation examples ADR-0036 committed to (chime before bottle end, announce a Feed due), one tile-card `name:` override example (long German names truncate on narrow tiles), and — from [The action surface](issues/07-the-action-surface.md) — a script example giving a one-press bottle button via `log_bottle_feed`; spec-assembly territory.
+<!-- empty: the way to the destination is clear -->
+
+Nothing. The README a stranger follows graduated into
+[Assemble the spec](issues/10-assemble-the-spec.md), which is the only ticket left.
 
 ## Out of scope
 
