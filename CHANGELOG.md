@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-09-09
+
 ### Changed
 
 - An entry's History shows the values a correction changed, not only the field
