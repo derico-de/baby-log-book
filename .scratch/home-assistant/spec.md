@@ -61,7 +61,7 @@ Two shapes follow from the product, not from the protocol:
 
 - Config flow and re-auth against a pasted Claim Link ([§6.2](#62-the-config-flow)).
 - A `DataUpdateCoordinator` on SSE-wake-plus-poll with jittered backoff ([§6.4](#64-the-coordinator)).
-- Per-Baby devices carrying **sixteen** entities each, plus a Household device carrying **two** ([§6.5](#65-devices-and-entities)).
+- Per-Baby devices carrying **sixteen** entities each, plus a Household device carrying **three** ([§6.5](#65-devices-and-entities)).
 - Six buttons and two services per Baby, over a bounded, visible outbox ([§6.6](#66-the-action-surface)).
 - Translations in en/de/ro, repair issues, HACS packaging, CI ([§6.7](#67-repair-issues)–[§6.10](#610-ci)).
 
@@ -303,6 +303,8 @@ Every error body is `{ "code": …, …versionBlock() }` — exactly the existin
 - **`POST /api/claim` and the preview gain `402 { code: "lapsed" }` too, checked before the link is spent.** Letting the claim succeed would burn a one-shot link and mint a session into a Household that then 402s everything. This gates **all** claims, not just a Hub's — a phone claiming an Invite into a Lapsed Household is the same trap.
 - **Lapsed is contract-only until the hosted-service effort implements it.** The code does not implement Lapsed yet. The contract names it now so the Python half handles it from day one and needs no later release to learn how.
 
+> **Correction — the `403` had to be made reachable.** [Ticket 08](../../../baby-log-book-homeassistant/.scratch/integration-v1/issues/08-both-halves-talked-to-each-other.md) found that a real Removal answered `401`, not `403`: removal marks the Member *and* revokes every token they hold, and `resolveSession` asked about the token first, so the `removed` branch was unreachable by the only path that produces it. A panel then opened the re-auth dialog [§6.3](#63-the-failure-taxonomy) forbids — asking for a Rescue Link that Removal has already burnt. Removal is now asked before revocation. The table above was right; the server was not.
+
 ### 5.8 Clock offset
 
 `offset := server_time − local_now`, updated on **every non-304 response** — state reads and push responses alike — and applied to merge keys per [ADR-0034](../../docs/adr/0034-a-hub-is-a-device-and-its-reads-are-derived.md). A Hub that was cut off writes the same slightly-late revision a phone would, clamped and flagged rather than refused.
@@ -366,6 +368,7 @@ The flow parses origin + token, calls `GET /api/claim?t=…` (`previewLink` — 
 - **Aborts are reserved for identity outcomes** — `already_configured` and `wrong_member`.
 - **Initial setup accepts both kinds of link.** An Invite *for a Hub* creates the Member; a Rescue Link re-binds an existing one ([ADR-0037](../../docs/adr/0037-a-rescue-link-is-minted-from-settings.md): a rescue is *add* as much as *recover*). **Kind is never enforced; identity is** — see the `wrong_member` row in [§6.3](#63-the-failure-taxonomy).
 - **The re-auth step reuses the same field and the same error rows.** One code path, two entry points.
+- **The confirmation has two wordings, because the preview does not always carry a name.** A `display_name` is a thing an Invite has and a Rescue Link and a Founding Link do not — the preview is deliberately thin, and an unauthenticated look must not be a name oracle. A translation cannot leave a line out, so the step id chooses: `confirm` names who the link is for, `confirm_unnamed` says instead that the link carries no name. Same code path again; only the strings differ.
 - **Config entry `unique_id` = the Household id.** One entry per Household per HA instance; a second wall panel is a second HA instance, not a second entry. `_abort_if_unique_id_configured()` does the work.
 - The claimed **Member id** lives in `entry.data`, beside the origin and the session cookie.
 
@@ -427,6 +430,8 @@ A `DataUpdateCoordinator` subclass overriding `_async_update_data()`, with `conf
 
 The Withings pattern is the model: flip `update_interval` when the SSE listener connects and disconnects.
 
+> **Observed — the first poll after a load lands at 60 s, not 5 min.** Home Assistant arms the refresh timer when the first entity is added, and the stream's `hello` arrives too late to re-arm it, so every setup or reload costs one extra conditional read a minute in. It is a `304`, and [ticket 08](../../../baby-log-book-homeassistant/.scratch/integration-v1/issues/08-both-halves-talked-to-each-other.md) left it alone: the numbers above govern the steady state, which is what they were priced for.
+
 **The conditional read.** The client keeps the last ETag and sends it verbatim in `If-None-Match`. **It never parses the ETag** — the format is the server's freedom. A `304` means *nothing changed*: keep the previous data, and treat it as a successful update.
 
 **The clock offset** is recomputed from `server_time` on **every non-304 response**, state reads and push responses alike, and applied to every merge key the Hub mints ([§5.8](#58-clock-offset)).
@@ -434,6 +439,8 @@ The Withings pattern is the model: flip `update_interval` when the SSE listener 
 ### 6.5 Devices and entities
 
 **One HA device per Baby**, named as the Household spelled her, plus **one Household device** named for the Household. A Baby added after the config entry exists appears through the `dynamic-devices` idiom; a deleted Baby's device goes stale and removable.
+
+**A Household with no name is called *Baby Log Book*.** Naming one is optional in the app and nothing in the app displays the name, so plenty of them never have one — but Home Assistant writes it on the config entry, on a device and into the Household entities' ids, and a blank in all three reads as a defect. The fallback is what is *shown*: the stored `household_name` keeps whatever the server sent, blank included.
 
 `unique_id` scheme: `{baby_id}_{key}` per Baby entity, `{household_id}_{key}` on the Household device. **The `{key}` is byte-for-byte the payload field name** ([§5.5](#55-get-apihubstate)) — no translation table.
 
@@ -460,8 +467,9 @@ The Withings pattern is the model: flip `update_interval` when the SSE listener 
 - `sleep_today`, `tummy_today` — minutes, `device_class: duration`; `tummy_today` **appears on first use**
 - `pees_today`, `poops_today` — counts
 
-**Household device (2)**:
+**Household device (3)**:
 
+- `pending_writes` — a **diagnostic** count of what a press has queued and the server has not taken yet, decided in [§6.6](#66-the-action-surface) and belonging here beside `last_update`, in the same staleness-tell family.
 - `last_update` — a **diagnostic** timestamp (`EntityCategory.DIAGNOSTIC`): when the coordinator last heard the server. This is the staleness tell that entity availability cannot express — *connected but stale since 14:02*. It needs no payload field; it is the coordinator's own clock.
 - `caregiving` — a binary sensor carrying `household.caregiving`. **New at assembly time**; the reasoning is in the correction note at [§5.5](#55-get-apihubstate). It is a read, not a capability: nothing about it gates a write, and no total is suppressed when it is off. It exists so a family's announce automation can hold its tongue while nobody is looking after her, which is what [ADR-0041](../../docs/adr/0041-caregiving-off-silences-the-caregivers-not-the-parents.md) says should happen.
 
@@ -518,6 +526,8 @@ Exactly three, and no more — each from the taxonomy in [§6.3](#63-the-failure
 | `member_removed` | error | no | `403 removed` |
 | `hosting_paused` | warning | no | `402 lapsed`, at setup or at runtime; deleted on the first `200` |
 | `integration_outdated` | warning | no | the server reports a version this integration is too old for |
+
+**All three go down with the config entry.** `member_removed` is persistent — nothing about a Removal heals, so it has to survive a restart — and the way back from one is to delete the entry and add the integration again ([ADR-0038](../../docs/adr/0038-a-hubs-member-is-marked-and-a-hub-stays-a-caregiver.md)'s unplugged panel). An issue left standing after that is a red, unfixable card about a Household this Home Assistant no longer has, and no surface offers to dismiss it. `async_remove_entry` deletes all three.
 
 ### 6.8 Translations
 

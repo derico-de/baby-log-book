@@ -37,9 +37,30 @@ and update this line.
 From inside the HA container the app is `http://host.docker.internal:5173`,
 regardless of whether `pnpm dev` or the dev container is serving it.
 
+## The integration
+
+Copy it in and restart:
+
+```bash
+rm -rf ha/config/custom_components/baby_log_book
+cp -r ../baby-log-book-homeassistant/custom_components/baby_log_book ha/config/custom_components/
+docker compose -f compose.ha.yaml restart
+```
+
+`custom_components/` is gitignored runtime state like everything else HA writes
+here, so it is a copy every time rather than a symlink — a link would point out
+of the bind mount and resolve to nothing inside the container.
+
 ## What is versioned
 
 Only `ha/config/configuration.yaml` (plus the empty include files): German
-locale, Europe/Berlin, metric, and one throwaway `device_class: timestamp`
-template sensor as a smoke test. Everything else HA writes under
+locale, Europe/Berlin, metric, and the recorder pointed at container-local
+storage — SQLite cannot hold its locks on the bind-mounted `/config`, and left
+on it the recorder declares itself corrupt every three seconds and takes
+`history`, `logbook` and `energy` down with it. Everything else HA writes under
 `ha/config/` is runtime state and gitignored.
+
+The template entities that stood in for the integration before it existed are
+gone: the real one is here, and they were holding the entity ids it wants. If a
+`_2` suffix ever shows up on a real entity, something else has claimed its id —
+delete the stale registry entry rather than living with the suffix.

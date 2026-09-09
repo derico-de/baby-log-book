@@ -499,6 +499,17 @@ describe('a session', () => {
 		expect(revokeMember(db, 'h1', 'mum', NOW)).toBe(2);
 	});
 
+	it('still says "removed" after the removal has revoked the session', () => {
+		/* Removal does both — it marks the Member and it kills their tokens — so
+		   the two must be asked in that order. A revoked-first answer sends a Hub
+		   into a re-auth dialog asking for a Rescue Link that removal has already
+		   burnt, which is the dead end ADR-0038 exists to avoid. */
+		const token = createSession(db, SECRET, { memberId: 'mum', deviceId: 'd1', now: NOW });
+		db.prepare('UPDATE members SET removed_at = ? WHERE id = ?').run(NOW, 'mum');
+		revokeMember(db, 'h1', 'mum', NOW);
+		expect(resolveSession(db, SECRET, token, NOW)).toEqual({ ok: false, code: 'removed' });
+	});
+
 	it('rejects a token nobody was issued', () => {
 		expect(resolveSession(db, SECRET, 'made-up', NOW)).toEqual({ ok: false, code: 'unauthenticated' });
 		expect(resolveSession(db, SECRET, undefined, NOW)).toEqual({ ok: false, code: 'unauthenticated' });

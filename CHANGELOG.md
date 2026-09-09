@@ -68,6 +68,24 @@ release moves that section under its version number.
 
 ### Fixed
 
+- **Removing somebody now clears their phone, as it always said it would.**
+  Removal does two things — it marks the Member and it kills every token they
+  hold — and the session lookup asked about the token first, so the *removed*
+  answer was unreachable by the only path that produces it. Every removed device
+  heard *signed out* instead, and *signed out* deliberately never wipes local
+  data: the household's whole log stayed on the phone of somebody who had just
+  been removed from it. A Home Assistant panel got a dead end on top, opening
+  the re-auth dialog that asks for a sign-in link when removal has already burnt
+  those. Removal is asked before revocation now. Phones already removed clear
+  themselves the next time they reach the server.
+
+- The Home Assistant dev instance keeps its recorder database inside the
+  container. On the bind-mounted `/config` SQLite declared itself corrupt every
+  three seconds and left a renamed copy behind, which took `history`, `logbook`
+  and `energy` down with it. The mocked template entities that stood in for the
+  integration before it existed are gone from the dev `configuration.yaml`: the
+  real one is here, and they were holding the entity ids it wants.
+
 - Settings says which rows are Hubs. A member row reads
   `Home Assistant · Hub · caregiver`, in the same suffix grammar it already
   used; the role toggle is gone from those rows, because the server refuses the

@@ -107,13 +107,19 @@ export function resolveSession(db: Db, secret: Buffer, token: string | undefined
 		| { member_id: string; device_id: string; created_at: number; last_seen_at: number; revoked_at: number | null }
 		| undefined;
 
-	if (!row || row.revoked_at != null) return { ok: false, code: 'unauthenticated' };
+	if (!row) return { ok: false, code: 'unauthenticated' };
 
 	const member = memberOfSession(db, row.member_id);
 	if (!member) return { ok: false, code: 'unauthenticated' };
-	/* Their tokens die immediately on removal, but a Device that has been
-	   offline arrives with one that was live when it left. */
+	/* Removal is asked before revocation, because removal *is* a revocation:
+	   `revokeMember` kills every token the Member had, so a revoked-first answer
+	   would make `removed` unreachable by the path that actually produces it, and
+	   every removed Device would hear `unauthenticated` instead. For a phone that
+	   is a wrong word; for a Hub it is a dead end, because the re-auth dialog it
+	   opens asks for a Rescue Link removal has already burnt (ADR-0037,
+	   ADR-0038). */
 	if (member.removed_at != null) return { ok: false, code: 'removed' };
+	if (row.revoked_at != null) return { ok: false, code: 'unauthenticated' };
 
 	if (now - row.last_seen_at > LAST_SEEN_THROTTLE_MS) {
 		db.prepare('UPDATE sessions SET last_seen_at = ? WHERE token_hash = ?').run(
