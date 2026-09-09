@@ -1,7 +1,7 @@
 # 29 — Home Assistant: a hub in the hall, against a public server
 
 Type: feature
-Status: **open 2026-08-27** — shape decided (**A**: a custom integration, entities first, card second). The server half is specified below; three calls at the bottom still want the maintainer.
+Status: **resolved 2026-09-09** — shape A held, and all three open calls are answered. Superseded in full by the [Home Assistant map](../../home-assistant/map.md) and its locked spec, [`spec.md`](../../home-assistant/spec.md).
 
 ## Question
 
@@ -93,3 +93,43 @@ Per Baby: timestamp sensors for last Feed, next Feed due and sleep start (`devic
 | Docs, HACS packaging, the README section a stranger follows | ~1 d |
 
 Decided in [ADR-0034](../../../docs/adr/0034-a-hub-is-a-device-and-its-reads-are-derived.md).
+
+
+## Answer
+
+Shape **A** held — a custom integration, entities first, card second — and everything this
+ticket left to the maintainer became the [Home Assistant map](../../home-assistant/map.md):
+twelve tickets, six ADRs, and a locked spec at [`spec.md`](../../home-assistant/spec.md).
+This ticket is the long-form background; the spec is what gets built.
+
+**The three open calls, answered:**
+
+1. **Which repo** → its own, `derico-de/baby-log-book-homeassistant`, HACS-installable with
+   an independent release cadence ([ADR-0039](../../../docs/adr/0039-the-integration-gates-on-the-server-release.md),
+   [ticket 08](../../home-assistant/issues/08-one-repo-or-two.md)). The clash with *keep the
+   release number in sync with the container tags* is resolved by gating on `app_version`
+   with a baked-in `MIN_SERVER_VERSION`, and a wire change lands server-side first.
+2. **Does the Hub's Member appear in Settings like a person** → it appears, and it is
+   **marked**: stated by the Parent on the Invite (*for a Hub*, which locks the role to
+   Caregiver), stamped at claim, immutable, synced like `role`. The row reads
+   `Home Assistant · Hub · Caregiver` and the remove confirm says it unplugs the panel
+   ([ADR-0038](../../../docs/adr/0038-a-hubs-member-is-marked-and-a-hub-stays-a-caregiver.md),
+   [ticket 05](../../home-assistant/issues/05-the-hub-in-the-members-list.md)).
+3. **Does the glossary gain a term** → yes. **Hub** entered `CONTEXT.md` when call 2 was
+   decided, with ADR-0034's broad boundary — *anything that watches a Household from a
+   screen on a wall*. The lazy rule's "moment" was that ticket: four ADRs and the spec lean
+   on the word.
+
+**Two things this ticket got wrong**, corrected on the map and worth recording here because
+the estimates below still read as if they were true:
+
+- The endpoint is **`GET /api/hub/state`**, not `/api/companion/state` — the glossary word
+  is *Hub*, and the API surface follows `CONTEXT.md` like every other surface
+  ([ticket 09](../../home-assistant/issues/09-the-wire-contract.md)).
+- The store function is **`liveEntries()`**, not `entriesSince()`. A `since`-bounded fetch
+  would quietly break *she hasn't pooped since Tuesday*: the folds' lookbacks are unbounded
+  — `last_poop` and `last_feed` reach arbitrarily far, `statsFor` wants fifteen day-buckets,
+  and the appear-on-first-use gate wants the whole log.
+
+The **custom card** row in the work estimate is now explicitly out of scope for that map —
+polish, not capability, designed against a real wall panel once real entities exist.
