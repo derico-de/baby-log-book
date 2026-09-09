@@ -10,7 +10,7 @@ A **locked spec plus ADRs** for the Home Assistant integration — the server's 
 
 - Domain: this repo; vocabulary is [`CONTEXT.md`](../../CONTEXT.md) — issue titles, spec and UI copy follow it word for word. **Hub** is in the glossary since [The Hub in the members list](issues/05-the-hub-in-the-members-list.md) resolved (broad boundary, per [ADR-0038](../../docs/adr/0038-a-hubs-member-is-marked-and-a-hub-stays-a-caregiver.md)).
 - Skills every session should consult: `/grilling` and `/domain-modeling` for HITL tickets; `/research` for research tickets.
-- **The integration repo exists**: `../../../../baby-log-book-homeassistant`, a sibling checkout
+- **The integration repo exists**: `../../../baby-log-book-homeassistant`, a sibling checkout
   inside the mount beside `blb-sass-service` (README, AGENTS.md, LICENSE, `.gitignore`; `origin`
   set, unpushed — the maintainer pushes from outside the sandbox). Its `AGENTS.md` points back at
   the spec and at `CONTEXT.md`.
@@ -48,12 +48,25 @@ A **locked spec plus ADRs** for the Home Assistant integration — the server's 
   beta job; the dev-env HA container has **no** part in CI; everything under `uv`; the CI files
   themselves land with the build, not now.
 
+- [Assemble the spec](issues/10-assemble-the-spec.md) — [`spec.md`](spec.md) exists: eleven
+  sections, both halves, the seam, the README a stranger follows, a pre-1.0.0 debt list and a
+  decision index. Assembly was not transcription — the server moved 1.18 → **1.25.0** under this
+  map and made **three corrections**: the ETag grows a night key
+  (`"<cursor>-<dayKey>-<nightBegun>"`) because [ADR-0040](../../docs/adr/0040-the-night-moves-a-feed-only-once-it-has-begun.md)
+  put `now` back into `feed_due` the day after ticket 09 closed; `caregiving` joins the payload
+  and the Household device because [ADR-0041](../../docs/adr/0041-caregiving-off-silences-the-caregivers-not-the-parents.md)
+  claims a Hub goes quiet and nothing on the wire let it; and `link_expired` stops quoting 60
+  minutes, which is the Rescue TTL and not an Invite's 7 days. Romanian ships coined with a
+  native pass on the pre-1.0.0 list. **This closes the map.**
+
 ## Not yet specified
 
 <!-- empty: the way to the destination is clear -->
 
-Nothing. The README a stranger follows graduated into
-[Assemble the spec](issues/10-assemble-the-spec.md), which is the only ticket left.
+Nothing. Every ticket is resolved and the destination — [`spec.md`](spec.md) — exists.
+**The map is complete.** Building either half is the next effort, from the spec; its first
+session's work is the two build checklists (spec §5.9 for the server half, §6.1–§6.10 for the
+integration half) and the pre-1.0.0 debts in spec §10.
 
 ## Out of scope
 
