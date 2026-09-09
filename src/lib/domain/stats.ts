@@ -28,6 +28,12 @@ export const WINDOW_DAYS = 7;
     not two. Measured from the end of one feed to the start of the next. */
 export const FEED_ROUND_GAP_MS = 15 * MS.minute;
 
+/** Naps closer together than this are one nap: the ten minutes she was awake
+    between two forty-minute stretches are a stir, not the end of the nap.
+    Measured from the end of one Nap to the start of the next, and only between
+    Naps — a Night Sleep never absorbs the nap that follows it. */
+export const NAP_GAP_MS = 30 * MS.minute;
+
 export type CardKind = 'feeds' | 'sleep' | 'nappies' | 'solids' | 'tummy';
 
 export interface DayBar {
@@ -208,21 +214,6 @@ export function statsFor(input: StatsInput): StatsCard[] {
 		if (!target) continue;
 
 		switch (e.type) {
-			case 'sleep': {
-				const ms = elapsedMs(e, now);
-				bump(target.sleepMs, key, ms);
-				if (current) {
-					hasSleep = true;
-					if (ms > longestMs) longestMs = ms;
-					/* Bucketed per day, today included: today is the truth so far, and
-					   the average that reads these maps leaves it out the same way the
-					   delta does. */
-					if (classifySleep(e, { dayStart, zone, night }, now) === 'night')
-						bump(nightByDay, key, ms);
-					else bump(napByDay, key, ms);
-				}
-				break;
-			}
 			case 'nappy': {
 				bump(target.nappies, key, 1);
 				if (current) {
@@ -278,6 +269,46 @@ export function statsFor(input: StatsInput): StatsCard[] {
 				if (target === acc) hasBottle = true;
 			}
 		}
+	}
+
+	/* Sleep, like Feeds, is counted in stretches rather than rows: a Nap
+	   starting within NAP_GAP_MS of the previous Nap's end is the same nap. She
+	   stirred, somebody stopped the timer, and she was back under ten minutes
+	   later — two rows, one nap, and calling it two halves the longest stretch
+	   this card exists to report.
+
+	   Only the minutes she slept are summed; the gap she was awake for is not
+	   sleep and is not added, so the day's total is exactly what it was. The
+	   stretch counts on the day it began, and a Night Sleep is never part of
+	   one — it stands alone, and the nap after it starts a fresh stretch. */
+	const sleeps = mine.filter((e) => e.type === 'sleep').sort((a, b) => a.occurred_at - b.occurred_at);
+	let sleepKey = '';
+	let sleepEdge = -Infinity;
+	let afterNap = false;
+	let stretchMs = 0;
+	for (const e of sleeps) {
+		const kind = classifySleep(e, { dayStart, zone, night }, now);
+		const joins = kind === 'nap' && afterNap && e.occurred_at - sleepEdge < NAP_GAP_MS;
+		if (!joins) {
+			sleepKey = dayBucketOf(e.occurred_at, dayStart, zone);
+			stretchMs = 0;
+		}
+		const ms = elapsedMs(e, now);
+		stretchMs += ms;
+		sleepEdge = Math.max(sleepEdge, e.ended_at ?? now);
+		afterNap = kind === 'nap';
+
+		const target = inWindow.has(sleepKey) ? acc : inPrevious.has(sleepKey) ? previous : null;
+		if (!target) continue;
+		bump(target.sleepMs, sleepKey, ms);
+		if (target !== acc) continue;
+		hasSleep = true;
+		/* The longest stretch is the whole nap, not its longest half. */
+		if (stretchMs > longestMs) longestMs = stretchMs;
+		/* Bucketed per day, today included: today is the truth so far, and the
+		   average that reads these maps leaves it out the same way the delta
+		   does. */
+		bump(kind === 'night' ? nightByDay : napByDay, sleepKey, ms);
 	}
 
 	const bars = (map: Map<string, number>): DayBar[] =>

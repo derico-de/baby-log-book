@@ -9,6 +9,13 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- Stats counts Naps less than 30 minutes apart as one nap. She stirs, somebody
+  stops the timer, and she is back down ten minutes later — two rows, one nap.
+  The longest stretch is now the whole nap rather than its longest half; only
+  the minutes she slept are summed, so the day's total is unchanged.
+
 ## [1.23.0] - 2026-09-08
 
 ### Added

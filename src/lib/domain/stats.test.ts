@@ -214,6 +214,53 @@ describe('the Sleep card', () => {
 		expect(s.nightTodayMs).toBe(0);
 	});
 
+	it('counts two Naps under half an hour apart as one nap, summing the time she slept', () => {
+		// She stirred, somebody stopped the timer, and she was back under twenty
+		// minutes later. That is one nap of 1h40, and it is longer than the
+		// eighty-minute one later that day.
+		const [card] = statsFor({
+			...LENS,
+			entries: [
+				sleep('2026-08-16T09:00:00Z', '2026-08-16T10:00:00Z') /* 1h */,
+				sleep('2026-08-16T10:20:00Z', '2026-08-16T11:00:00Z') /* +40m, 20m gap */,
+				sleep('2026-08-16T14:00:00Z', '2026-08-16T15:20:00Z') /* 1h20 on its own */
+			]
+		});
+		const s = card.secondary as SleepSecondary;
+		expect(s.longestMs).toBe(100 * 60_000);
+		/* The twenty minutes she was awake are not sleep: the day is unchanged. */
+		expect(card.bars.find((b) => b.key === '2026-08-16')?.value).toBe(180 * 60_000);
+		expect(s.napAvgMs).toBe(180 * 60_000);
+	});
+
+	it('leaves Naps half an hour or more apart as two naps', () => {
+		const [card] = statsFor({
+			...LENS,
+			entries: [
+				sleep('2026-08-16T09:00:00Z', '2026-08-16T10:00:00Z'),
+				sleep('2026-08-16T10:45:00Z', '2026-08-16T11:30:00Z')
+			]
+		});
+		expect((card.secondary as SleepSecondary).longestMs).toBe(60 * 60_000);
+	});
+
+	it('never lets a Night Sleep absorb the Nap that follows it', () => {
+		// Awake at 06:00 Berlin, back down at 06:10 — a morning nap of its own,
+		// on its own day, and not ten and a half hours of night.
+		const [card] = statsFor({
+			...LENS,
+			entries: [
+				sleep('2026-08-16T18:00:00Z', '2026-08-17T04:00:00Z') /* night, 10h */,
+				sleep('2026-08-17T04:10:00Z', '2026-08-17T04:40:00Z') /* nap, 30m */
+			]
+		});
+		const s = card.secondary as SleepSecondary;
+		expect(s.longestMs).toBe(10 * 3600_000);
+		expect(s.napTodayMs).toBe(30 * 60_000);
+		expect(card.bars.find((b) => b.key === '2026-08-17')?.napMs).toBe(30 * 60_000);
+		expect(card.bars.find((b) => b.key === '2026-08-16')?.value).toBe(10 * 3600_000);
+	});
+
 	it('counts the bedtime that collapsed as Night Sleep, for a Household that states a Night', () => {
 		// 19:00 to 22:00 Berlin: a Nap under the Day Start alone, and Night
 		// Sleep once the Household says its night begins at 20:00 (ADR-0033).
