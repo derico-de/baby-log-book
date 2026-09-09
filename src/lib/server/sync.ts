@@ -11,9 +11,10 @@
    lives inside the push transaction in a few dozen lines. */
 
 import { validateFields } from '$domain/entries';
+import { feedEndRevision, planFeedEnds } from '$domain/feed-end';
 import { mergeRevision, planSessionMerges, redirectRevision } from '$domain/session-merge';
 import { pastBottleRevision, planPastBottles } from '$domain/targets';
-import { PROTOCOL_VERSION, REVISION_KINDS, type PendingRevision, type Revision, type RevisionKind, type Role } from '$domain/types';
+import { PROTOCOL_VERSION, REVISION_KINDS, type Entry, type PendingRevision, type Revision, type RevisionKind, type Role } from '$domain/types';
 import type { Db } from './db';
 import {
 	countActiveParents,
@@ -49,7 +50,7 @@ export const SKEW_TOLERANCE_MS = 5 * 60_000;
     This refusal may say what it is, unlike the ownership ones below: it is
     decided by the shape of the id the client sent and reads nothing, so there
     is no existence to leak. */
-const RESERVED_ID_PREFIXES = ['merge:', 'bottle-past:'];
+const RESERVED_ID_PREFIXES = ['merge:', 'bottle-past:', 'feed-end:'];
 const isReservedId = (id: string) => RESERVED_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
 
 /** One uninformative reason for every ownership refusal. Saying more would turn
@@ -205,7 +206,9 @@ export function push(db: Db, input: PushInput): PushResult {
 
 	db.transaction(() => {
 		const redirects = mergedIntoMap(db, householdId);
-		const touched = new Set<string>();
+		/* The Entries this batch wrote to. A Meal is not a Live Session, so this
+		   is the only way the feed-end rule below can see one. */
+		const touchedEntries = new Set<string>();
 
 		for (const raw of input.revisions as unknown[]) {
 			const incoming = asIncoming(raw);
@@ -287,7 +290,7 @@ export function push(db: Db, input: PushInput): PushResult {
 				now
 			);
 			materialise(db, householdId, directed.kind, directed.entity_id);
-			touched.add(`${directed.kind} ${directed.entity_id}`);
+			if (directed.kind === 'entry') touchedEntries.add(directed.entity_id);
 			accepted.push(revision.id);
 		}
 
@@ -308,7 +311,12 @@ export function push(db: Db, input: PushInput): PushResult {
 			merged.push({ survivor_id: plan.survivor_id, loser_id: plan.loser_id });
 		}
 
+		/* Before the feed-end rule, so a bottle that outlived its Life ends at the
+		   due instant rather than at the next feeding: ADR-0017's end is the
+		   earlier and the truer of the two, and once it lands the Feed is no
+		   longer running for ADR-0019 to close. */
 		closePastBottles(db, householdId, now);
+		closeEndedFeeds(db, householdId, touchedEntries, now);
 	})();
 
 	return {
@@ -341,6 +349,36 @@ function closePastBottles(db: Db, householdId: string, now: number): void {
 		const id = `bottle-past:${plan.entry_id}`;
 		if (revisionExists(db, householdId, id)) continue;
 		const revision = pastBottleRevision(plan, {
+			household_id: householdId,
+			at: now,
+			device_id: 'server',
+			id
+		});
+		insertRevision(db, { ...revision, skewed: false }, now);
+		materialise(db, householdId, 'entry', plan.entry_id);
+	}
+}
+
+/** Ends every running Feed the log says has in fact ended, at the start of the
+    feeding that followed it (ADR-0019, moved here by ADR-0034).
+
+    Deterministic id, so replay is a no-op — and so a Member who deliberately
+    reopens the Feed by clearing its end is not fought: a Feed is closed by the
+    feeding after it exactly once.
+
+    Unlike the past-bottle close, the end is attributed to the Member who logged
+    that following feeding: they entered the instant, so nothing here is data
+    nobody entered. */
+function closeEndedFeeds(db: Db, householdId: string, touchedEntries: Set<string>, now: number): void {
+	const open = liveSessions(db, householdId);
+	const pushed = [...touchedEntries]
+		.map((id) => getEntry(db, householdId, id))
+		.filter((e): e is Entry => e != null);
+
+	for (const plan of planFeedEnds(open, [...open, ...pushed])) {
+		const id = `feed-end:${plan.entry_id}`;
+		if (revisionExists(db, householdId, id)) continue;
+		const revision = feedEndRevision(plan, {
 			household_id: householdId,
 			at: now,
 			device_id: 'server',

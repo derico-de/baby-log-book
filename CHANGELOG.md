@@ -9,6 +9,16 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- A new feeding ends the Feed that was still running, whoever logged it. The
+  rule lived in the feed sheet, so it held for one writer only: two phones that
+  each started a Feed while offline left both running, and the day's numbers
+  read as though she had eaten twice at once. The server now holds it, in the
+  same transaction as the rest of a push — both rows survive with their
+  millilitres, each earlier Feed carries the end it in fact had, and the sheet
+  still says *ends the running feed at 14:05* before saving.
+
 ## [1.25.0] - 2026-09-09
 
 ### Changed

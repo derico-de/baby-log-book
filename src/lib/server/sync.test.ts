@@ -507,3 +507,157 @@ describe('the undo window', () => {
 		expect(undo.rejected[0].reason).toMatch(/Parent/);
 	});
 });
+
+describe('a new feeding ends the running Feed (ADR-0019)', () => {
+	/* Breast feeds throughout: a bottle would also be closed by its Bottle Life,
+	   which is a different rule with its own tests above. */
+	const breast = (id: string, at: number, extra: Record<string, unknown> = {}) =>
+		rev({
+			entity_id: id,
+			fields: {
+				baby_id: 'b1',
+				type: 'breast_feed',
+				occurred_at: at,
+				ended_at: null,
+				recording_zone: BERLIN,
+				side: 'both',
+				...extra
+			}
+		});
+	const bottle = (id: string, at: number) =>
+		rev({
+			entity_id: id,
+			fields: {
+				baby_id: 'b1',
+				type: 'bottle_feed',
+				occurred_at: at,
+				ended_at: null,
+				recording_zone: BERLIN,
+				volume_ml: 120
+			}
+		});
+
+	it('ends it at the new feeding s Occurred At, attributed to the Member who logged it', () => {
+		asMember([breast('f1', NOW - 1800_000)]);
+		asMember([bottle('f2', NOW - 600_000)], 'caregiver', 'oma');
+
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBe(NOW - 600_000);
+		const [, endRev] = revisionsOf(db, 'h1', 'entry', 'f1');
+		expect(endRev.id).toBe('feed-end:f1');
+		expect(endRev.author_id).toBe('oma');
+		expect(endRev.device_id).toBe('server');
+	});
+
+	it('leaves the new feeding running — it is an end, not a merge', () => {
+		asMember([breast('f1', NOW - 1800_000)]);
+		asMember([bottle('f2', NOW - 600_000)]);
+		expect(getEntry(db, 'h1', 'f2')?.ended_at).toBeNull();
+	});
+
+	it('keeps both rows and their millilitres — ADR-0014 stands', () => {
+		asMember([bottle('f1', NOW - 1800_000)]);
+		asMember([bottle('f2', NOW - 600_000)]);
+		for (const id of ['f1', 'f2']) {
+			const entry = getEntry(db, 'h1', id);
+			expect(entry?.deleted_at).toBeNull();
+			expect(entry?.merged_into).toBeNull();
+			expect((entry?.payload as { volume_ml: number }).volume_ml).toBe(120);
+		}
+	});
+
+	it('leaves the running Feed alone when the new feeding predates it', () => {
+		asMember([breast('f2', NOW - 600_000)]);
+		asMember([breast('f1', NOW - 5400_000, { ended_at: NOW - 5000_000 })]);
+		expect(getEntry(db, 'h1', 'f2')?.ended_at).toBeNull();
+	});
+
+	it('a Meal ends it too — a feeding is a Feed or a Meal', () => {
+		asMember([breast('f1', NOW - 1800_000)]);
+		asMember([
+			rev({
+				entity_id: 'm1',
+				fields: {
+					baby_id: 'b1',
+					type: 'meal',
+					occurred_at: NOW - 600_000,
+					recording_zone: BERLIN,
+					foods: []
+				}
+			})
+		]);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBe(NOW - 600_000);
+	});
+
+	it('leaves a sibling s Feed alone', () => {
+		db.prepare('INSERT INTO babies (id, household_id, name, birth_date) VALUES (?,?,?,?)').run(
+			'b2',
+			'h1',
+			'Jonas',
+			'2026-02-17'
+		);
+		asMember([breast('f1', NOW - 1800_000)]);
+		asMember([rev({ entity_id: 'f2', fields: { baby_id: 'b2', type: 'breast_feed', occurred_at: NOW - 600_000, ended_at: null, recording_zone: BERLIN, side: 'both' } })]);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBeNull();
+	});
+
+	it('a Sleep is not a feeding', () => {
+		asMember([breast('f1', NOW - 1800_000)]);
+		asMember([creation('s1', NOW - 600_000)]);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBeNull();
+	});
+
+	/* The hole this ticket exists to close: the client-side guard never covered
+	   two writers, and both halves of ADR-0014 and ADR-0019 have to hold. */
+	it('the offline second Device: both rows survive, each carrying the end it had', () => {
+		asMember([breast('f1', NOW - 1800_000)], 'parent', 'mum', 'phone-a');
+		asMember([bottle('f2', NOW - 1500_000)], 'caregiver', 'oma', 'phone-b');
+
+		const first = getEntry(db, 'h1', 'f1');
+		const second = getEntry(db, 'h1', 'f2');
+		expect(first?.ended_at).toBe(NOW - 1500_000);
+		expect(second?.ended_at).toBeNull();
+		expect(first?.deleted_at).toBeNull();
+		expect(second?.deleted_at).toBeNull();
+		expect(first?.merged_into).toBeNull();
+		expect(second?.merged_into).toBeNull();
+	});
+
+	it('converges the same way whichever Device pushes first', () => {
+		asMember([bottle('f2', NOW - 1500_000)], 'caregiver', 'oma', 'phone-b');
+		asMember([breast('f1', NOW - 1800_000)], 'parent', 'mum', 'phone-a');
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBe(NOW - 1500_000);
+		expect(getEntry(db, 'h1', 'f2')?.ended_at).toBeNull();
+	});
+
+	it('closes a Feed exactly once — a Member who reopens it is not fought', () => {
+		asMember([breast('f1', NOW - 1800_000)]);
+		asMember([bottle('f2', NOW - 600_000)]);
+		asMember([rev({ entity_id: 'f1', fields: { ended_at: null }, merge_at: NOW + 1000 })], 'parent', 'mum', 'phone-a', NOW + 1000);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBeNull();
+		asMember([], 'parent', 'mum', 'phone-a', NOW + 2000);
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBeNull();
+	});
+
+	it('is idempotent — a replayed batch adds no second end', () => {
+		asMember([breast('f1', NOW - 1800_000)]);
+		const batch = [bottle('f2', NOW - 600_000)];
+		asMember(batch);
+		const before = revisionsOf(db, 'h1', 'entry', 'f1').length;
+		asMember(batch);
+		expect(revisionsOf(db, 'h1', 'entry', 'f1')).toHaveLength(before);
+	});
+
+	it('refuses a client that mints the server s own id', () => {
+		const result = asMember([
+			rev({ id: 'feed-end:f1', entity_id: 'f1', fields: { ended_at: NOW } })
+		]);
+		expect(result.rejected[0].reason).toBe('only the app may mint that revision id');
+	});
+
+	it('yields to the Bottle Life, which ends the Feed earlier and truer', () => {
+		asMember([bottle('f1', NOW - 2 * 3600_000)]);
+		asMember([breast('f2', NOW - 600_000)]);
+		// The bottle's hour ran out long before the next feeding began.
+		expect(getEntry(db, 'h1', 'f1')?.ended_at).toBe(NOW - 3600_000);
+	});
+});
