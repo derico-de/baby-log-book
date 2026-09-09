@@ -10,8 +10,10 @@
    Two properties this file exists to hold:
 
      - **No rows cross the wire.** No Entries, no Meals, no Milestones, no
-       Measurements, no per-Entry ids, no Revision history. A Hub answers *how
-       is today going*; the phone answers everything else.
+       Measurements, no Revision history. A Hub answers *how is today going*;
+       the phone answers everything else. The three ids of the sessions running
+       right now are the one exception, and they are handles for the wall's own
+       end buttons rather than log — see `HubBaby` below.
      - **Instants only.** No `elapsedMs`, no `remainingMs`, no `overdue`
        (ADR-0036). The Hub derives all three itself, exactly as a phone ticks a
        running timer with no traffic — which is also what leaves the payload a
@@ -54,6 +56,23 @@ export interface HubBaby {
 	asleep: boolean;
 	feeding: boolean;
 	bottle_open: boolean;
+
+	/* the running sessions' Entry ids (3) — handles, not rows.
+
+	   A wall's *End feed*, *She's awake* and *Off her tummy* write `ended_at`
+	   on a running Entry, and a revision addresses its entity by id. Without
+	   these three the only endable session would be one this Hub itself
+	   started, and a Sleep begun on a phone could never be stopped at the wall
+	   — so the buttons in spec §6.6 need them (spec §5.5's *no per-Entry ids*
+	   was written about the log, and still holds: nothing closed, nothing
+	   deleted and nothing historical is named here).
+
+	   They stay safe for the same reason the `baby_id` a Hub sends is safe:
+	   the id is never a capability, and `entityBelongsElsewhere` is what makes
+	   it so (ADR-0020). */
+	feed_entry_id: string | null;
+	sleep_entry_id: string | null;
+	tummy_entry_id: string | null;
 
 	/* totals (6) — sleep and tummy in whole minutes, floored here */
 	feeds_today: number;
@@ -99,6 +118,21 @@ export interface HubStateInput {
 /** Whole minutes, floored. The honest unit for a wall: nobody reads seconds of
     sleep off a screen in a hall. */
 const minutes = (ms: number) => Math.floor(ms / MS.minute);
+
+/** The stretch she is on her tummy for right now, or null. `headerState` names
+    the running Feed and the running Sleep but not this one — Tummy Time never
+    reached the header, because the glossary has it answer *how many minutes
+    were there today*, never *when did one begin*. The latest started, for the
+    same reason the header picks the latest Feed: with two open at once, the one
+    she is on now is the one a wall's *Off her tummy* means. */
+function runningTummy(entries: Entry[]): Entry | null {
+	let latest: Entry | null = null;
+	for (const e of entries) {
+		if (e.type !== 'tummy_time' || e.ended_at != null) continue;
+		if (latest == null || e.occurred_at > latest.occurred_at) latest = e;
+	}
+	return latest;
+}
 
 /** The strong ETag: `"<cursor>-<dayKey>-<nightBegun>"` (spec §5.6).
 
@@ -210,6 +244,10 @@ function hubBaby(input: {
 		asleep: header.sleep.running != null,
 		feeding: header.feed.running != null,
 		bottle_open: openBottle != null,
+
+		feed_entry_id: header.feed.running?.id ?? null,
+		sleep_entry_id: header.sleep.running?.id ?? null,
+		tummy_entry_id: runningTummy(mine)?.id ?? null,
 
 		/* Rounds, not rows: a breast feed and the formula topped up right after
 		   are one answer to *has she eaten*, which is what the app's own stats

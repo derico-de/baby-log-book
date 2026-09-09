@@ -50,6 +50,22 @@ release moves that section under its version number.
   moves on at the Day Start and at the Night Start, when today's numbers change
   with no revision behind them. Nothing in the app calls it.
 
+- The README points at the Home Assistant integration once, at its
+  compatibility table — which release of the panel needs which server.
+
+- Looking at a claim link says which release the server is, the same way every
+  other answer from the API does. A wall panel has to know before it spends the
+  link: a one-shot link burnt on a server too old for the panel is a link
+  somebody has to mint again, and the panel could not have said so any earlier.
+
+- The Hub's read names the three sessions running right now — the sleep, the
+  feed and the stretch on her tummy — so a wall panel can end one somebody
+  started on a phone. Three buttons on that panel write an end time, an end
+  time is a field on the thing it ends, and until now the panel had nothing to
+  put its finger on: it could only stop what it had started itself, and *she's
+  awake* is the button a passing parent presses most. Nothing that has finished
+  is named, so the read still answers how today is going and nothing else.
+
 ### Fixed
 
 - Settings says which rows are Hubs. A member row reads

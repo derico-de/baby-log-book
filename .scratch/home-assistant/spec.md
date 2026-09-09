@@ -224,6 +224,11 @@ Epoch-milliseconds instants everywhere, one representation across the whole API.
       "feeding": false,
       "bottle_open": false,
 
+      // the running sessions' ids (3) — handles for the wall's end buttons
+      "feed_entry_id": null,
+      "sleep_entry_id": null,
+      "tummy_entry_id": null,
+
       // totals (6) — sleep and tummy in minutes, floored server-side
       "feeds_today": 5,
       "sleep_today": 154,
@@ -245,9 +250,12 @@ Field rules:
 - **`feeds_today` counts rounds, not rows** — `FEED_ROUND_GAP_MS`, fifteen minutes (`stats.ts:29`), so a breast feed and the formula topped up right after are one answer to *has she eaten*. This matches the app's own stats card.
 - **`sleep_today` and `tummy_today` are whole minutes**, floored server-side from the fold's milliseconds. The honest unit for a wall.
 - The Household device's `last_update` diagnostic needs **no field**: it is the coordinator's own *when did I last hear the server*.
-- **Deliberately absent stays absent**: no Entries, no Meals, no Milestones, no Measurements, no per-Entry ids, no Revision history.
+- **The three `*_entry_id` fields name the sessions running right now**, and nothing else. They are `null` when nothing runs, and they are **handles, not log**: a wall's *End feed*, *She's awake* and *Off her tummy* write `ended_at` on a running Entry, and a revision addresses its entity by id ([§6.6](#66-the-action-surface)). See the correction note below.
+- **Deliberately absent stays absent**: no Entries, no Meals, no Milestones, no Measurements, no ids of anything closed, deleted or historical, no Revision history.
 
 > **Correction — `caregiving` is new here.** [ADR-0041](../../docs/adr/0041-caregiving-off-silences-the-caregivers-not-the-parents.md) landed on 2026-09-05, after every entity ticket closed, and its consequences claim *"A Hub goes quiet, and that is the point… A wall panel announcing a feed into an empty flat is the noise the switch exists to stop."* That sentence reasons about push delivery, and no Notice ever reaches a Hub ([ADR-0036](../../docs/adr/0036-the-deployment-never-wakes-a-hub.md)) — so there was nothing for the role filter to suppress, and the announcing is done by the family's own automation firing off a timestamp sensor. Without `caregiving` on the wire, a Household switches the cover off, every phone goes quiet as designed, and the hall panel announces the 02:00 feed into the empty flat: the one outcome ADR-0041 explicitly claims it prevents. The wire cost is one boolean on a field that already syncs. **The server does not withhold sensor values when Caregiving is off** — that would be the deployment reaching into the wall to switch it off, and it would make every derived total lie. The app states; the Household's automation decides, which is the split ADR-0041 actually chose. The README's announce automations carry the condition by default ([§8](#8-the-readme-a-stranger-follows)).
+
+> **Correction — the three running-session ids are new here.** [Ticket 09](issues/09-the-wire-contract.md) wrote *no per-Entry ids* about the log, and [ticket 07](issues/07-the-action-surface.md) gave the wall three buttons that end a running session. The build found the two cannot both be true: `ended_at` is a field on an Entry, a revision addresses its entity **by id**, and there is no action API to resolve *the running Sleep* server-side ([ADR-0034](../../docs/adr/0034-a-hub-is-a-device-and-its-reads-are-derived.md): *no action API — start a feed means one thing in one place*). Without them the only endable session would be one this Hub itself started, so a Sleep begun on a phone could never be stopped at the wall — and *She's awake* is the button a passing parent presses most. The rejected alternative, letting the Hub read `/api/sync/pull`, would hand it a replica and delete ADR-0034's floor. The wire cost is three nullable strings; the tenancy cost is none, because the id a Hub sends back is a client-supplied id like the `baby_id` beside it and `entityBelongsElsewhere` is what makes it safe ([ADR-0020](../../docs/adr/0020-one-deployment-many-households.md)). Nothing closed, deleted or historical is named, so *how is today going* is still all the payload answers.
 
 ### 5.6 The conditional contract
 
@@ -350,7 +358,9 @@ hacs.json
 
 **One form field**: the pasted **Claim Link** URL — exactly what Settings mints and what WhatsApp carries. Nothing else is asked; the URL carries origin and token.
 
-The flow parses origin + token, calls `GET /api/claim?token=…` (`previewLink` — **looking never spends the link**), shows what it found, then on confirm calls `POST /api/claim`.
+The flow parses origin + token, calls `GET /api/claim?t=…` (`previewLink` — **looking never spends the link**), shows what it found, then on confirm calls `POST /api/claim`.
+
+**The preview answer carries the version block**, as every other answer this API gives does, so the handshake in [§7.1](#71-the-version-handshake) is settled *before* the link is spent — a server too old is a form error the user can act on, not a burnt link. It also makes one request do three jobs: reachability, *is this a Baby Log Book at all*, and the release number.
 
 - **Every pre-claim failure is a form error**, so the user re-pastes rather than starting over.
 - **Aborts are reserved for identity outcomes** — `already_configured` and `wrong_member`.
@@ -375,11 +385,13 @@ Every failure maps to **exactly one** HA idiom. The point of this table is that 
 | link `unknown` | preview / claim | `link_unknown` | not a valid Claim Link |
 | origin unreachable | DNS, timeout, refused | `cannot_connect` | HA's standard key |
 | origin answers, not our API | preview 404 / non-JSON | `not_baby_log_book` | this address doesn't answer like a Baby Log Book server |
-| `http://` against a public host | client-side URL check | `http_public_origin` | a public address must use HTTPS. **Private hosts are exempt** — loopback, RFC1918, `.local`, `.internal` — so self-hosters and the dev env stay unblocked. The flow checks, because the server cannot reliably see its own scheme behind a proxy |
+| `http://` against a public host | client-side URL check | `http_public_origin` | a public address must use HTTPS. **Private hosts are exempt** — loopback, RFC1918, `.local`, `.internal`, `.localhost`, and any **single-label** host — so self-hosters and the dev env stay unblocked. The flow checks, because the server cannot reliably see its own scheme behind a proxy |
 | Lapsed Household | `402 lapsed` from preview or claim, **before the link is spent** | `hosting_paused` | hosting is paused; a Parent can resume it, then try again. A repair issue cannot be the surface — there is no entry yet |
 | server too old | version block vs `MIN_SERVER_VERSION` | `server_too_old` | the claim-time half of ADR-0039's dual gate, with both concrete numbers |
 | Household already configured | `unique_id` | **abort** `already_configured` | standard |
 | claim yields a different Member (re-auth) | Member id compare, post-claim | **abort** `wrong_member` | the link was for *{name}*, not this panel's Member — mint a Rescue Link for the Hub's Member. The integration first calls `DELETE /api/session` to discard the mis-claimed session: the link is spent, because the preview is deliberately thin and carries no member id, so the mismatch is only visible after claiming — but nothing stays bound wrong |
+
+> **Correction — two more private hosts.** The build added `.localhost` and **any single-label host** to the exempt list. `.localhost` is loopback by RFC 6761, so leaving it out was an oversight rather than a decision. A single-label name — `nas`, `planetmobile`, `babylog` — cannot be a public DNS name, and it is what a home network actually calls its machines; the enumerated list would have refused the commonest self-hosted address there is, which is the outcome the exemption exists to prevent. The gate still refuses plain `http://` to anything with a public-looking dotted name, which is the case it was written for.
 
 > **Correction — the `link_expired` copy.** [Ticket 11](issues/11-the-config-flow-failure-taxonomy.md) worded this row *"Claim Links last 60 minutes"*. That is the **Rescue Link** TTL ([§5.2](#52-the-rescue-link-in-settings)); an **Invite** lasts 7 days (`INVITE_TTL_MS`, `claims.ts:37`), and the preview does not always tell the flow which kind it held. The message must not quote a duration.
 
@@ -471,6 +483,8 @@ The write half. [ADR-0034](../../docs/adr/0034-a-hub-is-a-device-and-its-reads-a
 | *End feed* | writes `ended_at` on the live Feed |
 | *Tummy time* | starts a Tummy Time stretch |
 | *Off her tummy* | ends the running stretch |
+
+**The three enders address the Entry the payload names** — `sleep_entry_id`, `feed_entry_id`, `tummy_entry_id` from [§5.5](#55-get-apihubstate). A press with no id is not possible: the same coordinator read that leaves the button available is the one that carried the id, and availability and the id go `null` together.
 
 There is **no wake-and-feed compound write**: the fan's *Feed while asleep* row keeps the Sleep running (a Sleep Feed), so a wall's start-feed never touches a Sleep.
 

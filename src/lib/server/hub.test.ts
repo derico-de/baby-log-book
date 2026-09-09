@@ -122,9 +122,11 @@ describe('the payload', () => {
 		expect(payload.babies[0].feeds_today).toBe(0);
 	});
 
-	it('ships no rows — no Entries, no ids, no Revision history', () => {
+	it('ships no rows — no Entries, no closed ids, no Revision history', () => {
 		pushed([entry('e1', 'breast_feed', NOW - hour(1), { ended_at: NOW - min(50), side: 'both' })]);
 		const json = JSON.stringify(state());
+		/* A Feed that has ended is history, and history stays the phone's. Only
+		   a session running right now is named, and only so a wall can end it. */
 		expect(json).not.toContain('"e1"');
 		expect(json).not.toContain('occurred_at');
 		expect(json).not.toContain('payload');
@@ -241,6 +243,69 @@ describe('the binaries', () => {
 	it('a breast feed is feeding without a bottle open', () => {
 		pushed([entry('f1', 'breast_feed', NOW - min(5), { ended_at: null, side: 'both' })]);
 		expect(emma()).toMatchObject({ feeding: true, bottle_open: false });
+	});
+});
+
+/* --- the three handles -------------------------------------------------- */
+
+describe('the running sessions ids', () => {
+	it('are null while nothing runs', () => {
+		expect(emma()).toMatchObject({
+			feed_entry_id: null,
+			sleep_entry_id: null,
+			tummy_entry_id: null
+		});
+	});
+
+	it('name the Entry each button has to end', () => {
+		pushed([
+			entry('s1', 'sleep', NOW - min(30), { ended_at: null }),
+			entry('f1', 'breast_feed', NOW - min(5), { ended_at: null, side: 'both' }),
+			entry('t1', 'tummy_time', NOW - min(2), { ended_at: null })
+		]);
+		expect(emma()).toMatchObject({
+			sleep_entry_id: 's1',
+			feed_entry_id: 'f1',
+			tummy_entry_id: 't1'
+		});
+	});
+
+	it('let go the moment the session ends, so a wall cannot end it twice', () => {
+		pushed([entry('t1', 'tummy_time', NOW - min(20), { ended_at: null })]);
+		expect(emma().tummy_entry_id).toBe('t1');
+		pushed([rev({ entity_id: 't1', fields: { ended_at: NOW - min(1) } })]);
+		expect(emma().tummy_entry_id).toBeNull();
+	});
+
+	it('name the latest of two open stretches — the one she is on now', () => {
+		pushed([
+			entry('t1', 'tummy_time', NOW - min(20), { ended_at: null }),
+			entry('t2', 'tummy_time', NOW - min(3), { ended_at: null })
+		]);
+		expect(emma().tummy_entry_id).toBe('t2');
+	});
+
+	it('follow the app s header for the Feed, so a bottle and a breast agree', () => {
+		pushed([
+			entry('f1', 'breast_feed', NOW - min(40), { ended_at: null, side: 'both' }),
+			entry('f2', 'bottle_feed', NOW - min(4), { ended_at: null, volume_ml: 60 })
+		]);
+		/* The latest started is the one being fed right now, which is exactly
+		   what `headerState` picks and what *End feed* means at a wall. */
+		expect(emma().feed_entry_id).toBe('f2');
+	});
+
+	it('are per Baby, never the Household s', () => {
+		db.prepare('INSERT INTO babies (id, household_id, name, birth_date) VALUES (?,?,?,?)').run(
+			'b2',
+			'h1',
+			'Anton',
+			'2026-02-17'
+		);
+		pushed([entry('t1', 'tummy_time', NOW - min(2), { ended_at: null }, 'b2')]);
+		const babies = state().babies;
+		expect(babies.find((b) => b.id === 'b2')?.tummy_entry_id).toBe('t1');
+		expect(babies.find((b) => b.id === 'b1')?.tummy_entry_id).toBeNull();
 	});
 });
 

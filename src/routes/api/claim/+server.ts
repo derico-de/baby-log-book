@@ -39,7 +39,12 @@ export const GET: RequestHandler = async (event) => {
 	   hosting paused is `402`, and every other unusable link is an ordinary
 	   answer about the link (spec §5.7). */
 	if (!preview.ok && preview.reason === 'lapsed') return lapsedResponse(now);
-	return json(preview);
+	/* The version block rides along, as it does on every other answer this API
+	   gives. A Hub's config flow gates on the server's release number before it
+	   spends the link (spec §6.3), and looking is the only request it may make
+	   twice — so the two numbers it needs to print have to be here rather than
+	   in the answer that burns the link. */
+	return json({ ...preview, ...versionBlock(now) });
 };
 
 /** Claiming. A POST behind a button, which is the whole difference between

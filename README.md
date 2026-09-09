@@ -33,6 +33,12 @@ Read those before changing anything structural.
   asleep. Off until switched on, per device, and it needs nothing configured —
   the signing key is generated in the volume on first boot.
 - **Three languages** (English, German, Romanian), metric only.
+- **A wall panel, if you run Home Assistant**: the
+  [Baby Log Book integration](https://github.com/derico-de/baby-log-book-homeassistant)
+  puts today on a screen in the hall and logs the everyday things back. Its
+  README carries the
+  [compatibility table](https://github.com/derico-de/baby-log-book-homeassistant#compatibility)
+  — which release needs which server.
 
 ## Running it
 
