@@ -386,6 +386,29 @@ export function liveSessions(db: Db, householdId: string): Entry[] {
 	return rows.map(rowToEntry).filter((e): e is Entry => e != null);
 }
 
+/** Every live Entry the Household has — deliberately **not** a `since`-bounded
+    fetch, and the whole input the derived read folds (spec §5.4).
+
+    The folds' lookbacks are unbounded: `last_poop` and `last_feed` reach
+    arbitrarily far back, `statsFor` wants fifteen day-buckets, and the
+    ever-logged gate wants the whole log. A floor would quietly break *she
+    hasn't pooped since Tuesday*, which is exactly the kind of question a wall
+    panel exists to answer.
+
+    A heavy year is tens of thousands of SQLite rows and folds in milliseconds,
+    and the fold only runs on a content change or once at each boundary
+    (spec §5.6). If folding ever shows up in a profile, the answer is to
+    memoize the rendered payload keyed by the ETag — not to bound this. */
+export function liveEntries(db: Db, householdId: string): Entry[] {
+	const rows = db
+		.prepare(
+			`SELECT ${ENTRY_COLUMNS} FROM entries
+			 WHERE household_id = ? AND deleted_at IS NULL AND merged_into IS NULL`
+		)
+		.all(householdId) as EntryRow[];
+	return rows.map(rowToEntry).filter((e): e is Entry => e != null);
+}
+
 /** Everything the notifier has to look at: every Live Session, plus every Entry
     recent enough to still be some Target's anchor (ADR-0031).
 
@@ -476,6 +499,17 @@ export function countActiveParents(db: Db, householdId: string, excluding?: stri
 		)
 		.get(householdId, excluding ?? null) as { n: number };
 	return row.n;
+}
+
+/** Every Baby the Household has, deleted ones included — the caller decides,
+    exactly as `listMembers` leaves Removal to its caller. */
+export function listBabies(db: Db, householdId: string): Baby[] {
+	return db
+		.prepare(
+			`SELECT id, household_id, name, birth_date, deleted_at
+			 FROM babies WHERE household_id = ? ORDER BY name, id`
+		)
+		.all(householdId) as Baby[];
 }
 
 export function listTargets(db: Db, householdId: string): Target[] {

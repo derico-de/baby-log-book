@@ -9,6 +9,17 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- `GET /api/hub/state` — the one read a Hub makes (ADR-0034). It ships no rows:
+  it runs the app's own header and stats folds server-side and answers with
+  instants, three flags and six daily totals per Baby, addressed to a screen on
+  a wall that holds no replica of its own. Conditional from the first commit,
+  on a strong ETag of the cursor, the day key and whether the Night has begun —
+  so a quiet night costs a cursor lookup and never a fold, and the wall still
+  moves on at the Day Start and at the Night Start, when today's numbers change
+  with no revision behind them. Nothing in the app calls it.
+
 ### Fixed
 
 - A new feeding ends the Feed that was still running, whoever logged it. The
