@@ -198,15 +198,30 @@
 		deleted_at: m.field_deleted_at
 	};
 
-	/** The value a field held *before* this revision: the fold of everything older
-	    than it. This is what makes the row read "edited by Oma, was 120 ml" rather
-	    than merely naming the field (ADR-0002, spec §3.4). */
-	function previousValue(index: number, field: string): string | null {
-		/* `history` is newest-first, so everything older sits after this index. */
+	/** Every field this revision touched, with the value it replaced and the value
+	    it wrote. Naming the field is not the evidence — the numbers are, which is
+	    what makes a row read "120 ml → 150 ml" (ADR-0002, spec §3.4).
+
+	    One revision often carries more than one field: a corrected Intake nulls
+	    the leftover it converts away (ADR-0018), and a nappy saves what was in it
+	    together with its consistency. So this returns every changed field rather
+	    than only the lone one.
+
+	    The before is the fold of everything older, and `history` is newest-first,
+	    so everything older sits after this index. */
+	function changes(revision: Revision, index: number): Array<{ label: string; before: string; after: string }> {
+		/* The creation states values rather than changing them, and a Merge is the
+		   app reconciling two rows — neither has a before to show. */
+		if (index === history.length - 1 || revision.fields.merged_into != null) return [];
 		const older = history.slice(index + 1);
-		if (older.length === 0) return null;
-		const before = foldEntity(older)[field];
-		return formatFieldValue(field, before);
+		const before = older.length === 0 ? {} : foldEntity(older);
+		return Object.keys(revision.fields)
+			.filter((field) => FIELD_LABEL[field] != null && field !== 'deleted_at')
+			.map((field) => ({
+				label: FIELD_LABEL[field](),
+				before: formatFieldValue(field, before[field]) ?? m.value_none(),
+				after: formatFieldValue(field, revision.fields[field]) ?? m.value_none()
+			}));
 	}
 
 	function formatFieldValue(field: string, value: unknown): string | null {
@@ -229,7 +244,13 @@
 				return value === 'left' ? m.side_left() : value === 'right' ? m.side_right() : m.side_both();
 			case 'pee':
 			case 'poop':
-				return value === true ? m.nappy_pee() : null;
+				/* A tick taken away is as much a correction as one put on, so false
+				   is a value here and not an absence. */
+				return value === true ? m.value_yes() : m.value_no();
+			case 'consistency':
+				return CONSISTENCIES.find(([v]) => v === value)?.[1]() ?? null;
+			case 'where':
+				return WHERES.find(([v]) => v === value)?.[1]() ?? null;
 			case 'foods':
 				return Array.isArray(value)
 					? value.map((f) => app.foodName((f as { food_id: string }).food_id)).join(', ')
@@ -248,14 +269,7 @@
 
 		const named = Object.keys(revision.fields).filter((f) => FIELD_LABEL[f] != null);
 		const fields = named.map((f) => FIELD_LABEL[f]()).join(', ');
-		const line = m.sheet_history_changed({ who, fields: fields || Object.keys(revision.fields).join(', ') });
-
-		/* "was 120 ml" only when one field changed and it had a value to lose. */
-		if (named.length === 1) {
-			const was = previousValue(index, named[0]);
-			if (was) return `${line} · ${m.row_was({ value: was })}`;
-		}
-		return line;
+		return m.sheet_history_changed({ who, fields: fields || Object.keys(revision.fields).join(', ') });
 	}
 
 	async function save() {
@@ -472,9 +486,26 @@
 	{#if showHistory}
 		<ul class="history">
 			{#each history as revision, index (revision.id)}
+				{@const changed = changes(revision, index)}
 				<li>
-					<span>{describe(revision, index)}</span>
-					<time>{dateAndTime(revision.merge_at, zone)}</time>
+					<div class="line">
+						<span>{describe(revision, index)}</span>
+						<time>{dateAndTime(revision.merge_at, zone)}</time>
+					</div>
+					{#if changed.length > 0}
+						<!-- The values under the sentence that named the fields. The label
+						     repeats only when there is more than one field to tell apart. -->
+						<ul class="changes">
+							{#each changed as change (change.label)}
+								<li>
+									{#if changed.length > 1}<span class="what">{change.label}</span>{/if}
+									<span class="was">{change.before}</span>
+									<span aria-hidden="true">→</span>
+									<span class="now">{change.after}</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -556,17 +587,37 @@
 		margin: 0;
 		padding: 0 var(--sp-4);
 	}
-	.history li {
-		display: flex;
-		justify-content: space-between;
-		gap: var(--sp-3);
+	.history > li {
 		padding: var(--sp-2) 0;
 		border-bottom: 1px solid var(--line);
 		font-size: var(--fs-1);
 		color: var(--ink-2);
 	}
+	.history .line {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--sp-3);
+	}
 	.history time {
 		color: var(--ink-3);
 		white-space: nowrap;
+	}
+	.changes {
+		list-style: none;
+		margin: var(--sp-1) 0 0;
+		padding: 0;
+	}
+	.changes li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: var(--sp-1);
+		color: var(--ink-3);
+	}
+	.changes .was {
+		text-decoration: line-through;
+	}
+	.changes .now {
+		color: var(--ink);
 	}
 </style>

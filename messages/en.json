@@ -88,7 +88,6 @@
 	"row_live": "running",
 	"row_stop": "Stop",
 	"row_edited_by": "edited by {who}",
-	"row_was": "was {value}",
 	"row_sleep_feed": "sleep feed",
 	"row_night_sleep": "night",
 	"row_nap": "nap",
@@ -169,6 +168,9 @@
 	"sheet_history_changed": "{who} changed {fields}",
 	"sheet_history_merged": "reconciled two open sessions",
 	"sheet_history_deleted": "deleted by {who}",
+	"value_yes": "Yes",
+	"value_no": "No",
+	"value_none": "not set",
 
 	"toast_logged": "{what} logged",
 	"toast_deleted": "{what} deleted",

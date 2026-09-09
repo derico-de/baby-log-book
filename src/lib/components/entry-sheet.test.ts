@@ -8,7 +8,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { app } from '$client/state.svelte';
 import { ReplicaDb } from '$client/db';
 import type { Writer } from '$client/mutate';
-import type { Baby, Entry, Household, MemberRecord, Payload } from '$domain/types';
+import type { Baby, Entry, Household, MemberRecord, Payload, Revision } from '$domain/types';
 import EntrySheet from './EntrySheet.svelte';
 import { landed } from './test-wait';
 
@@ -101,6 +101,9 @@ beforeEach(() => {
 		kick: () => {}
 	};
 	app.edit = (async (action: (w: Writer) => Promise<unknown>) => action(writer)) as typeof app.edit;
+	/* The sheet reads the revision log straight off the replica to draw the
+	   history, so the tests hand it the same store the writer uses. */
+	(app as unknown as Record<string, unknown>).db = db;
 });
 
 afterEach(async () => {
@@ -108,6 +111,7 @@ afterEach(async () => {
 	mounted = null;
 	host.remove();
 	delete (app as unknown as Record<string, unknown>).edit;
+	delete (app as unknown as Record<string, unknown>).db;
 	await db.delete();
 });
 
@@ -220,5 +224,82 @@ describe('a nappy row in the edit sheet', () => {
 		await save(async () => (await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).count()) > 0);
 		const revisions = await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray();
 		expect(revisions[0].fields).toEqual({ pee: true, poop: false, consistency: null });
+	});
+});
+
+/* The history is the evidence a correction leaves behind (ADR-0002). Naming the
+   field is not the evidence — a Member reading a disputed amount needs the value
+   it was and the value it became. */
+describe('the history of a corrected entry', () => {
+	let minted = 0;
+	function revision(fields: Record<string, unknown>, mergeAt: number): Revision {
+		minted += 1;
+		return {
+			id: `r${minted}`,
+			household_id: 'h1',
+			kind: 'entry',
+			entity_id: 'e1',
+			fields,
+			merge_at: mergeAt,
+			device_id: 'd1',
+			author_id: 'mum'
+		};
+	}
+
+	/** Opens the sheet on a log, expands the History, and reads it back: the
+	    sentence of each entry, and the value line under it — each element's own
+	    text joined, so the assertions do not depend on how the markup spaces
+	    its spans. */
+	async function historyText(entry: Entry, revisions: Revision[]): Promise<string[]> {
+		await db.revisions.bulkPut(revisions);
+		open(entry);
+		const head = [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
+			b.textContent?.includes('History')
+		);
+		if (!head) throw new Error('no History toggle');
+		head.click();
+		flushSync();
+		await landed(() => host.querySelector('.history li') != null);
+		const text = (el: Element) =>
+			[...el.children].map((c) => c.textContent?.trim() ?? '').filter(Boolean).join(' ');
+		return [...host.querySelectorAll('.history .line, .changes li')].map(text);
+	}
+
+	it('says what the amount was and what it became', async () => {
+		const text = await historyText(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' }), [
+			revision({ volume_ml: 120, leftover_ml: null, contents: 'formula', occurred_at: NOW - 3600_000 }, NOW - 3000_000),
+			revision({ volume_ml: 150 }, NOW - 60_000)
+		]);
+		expect(text.some((line) => line.startsWith('Mum changed the intake'))).toBe(true);
+		expect(text).toContain('120 ml → 150 ml');
+	});
+
+	it('names each field when one correction touched more than one', async () => {
+		const text = await historyText(bottleEntry({ volume_ml: 120, leftover_ml: null, contents: 'formula' }), [
+			revision({ volume_ml: 170, leftover_ml: 40, contents: 'formula', occurred_at: NOW - 3600_000 }, NOW - 3000_000),
+			/* The legacy conversion: the new Intake, and the stored leftover nulled
+			   (ADR-0018) — two fields, so each one is labelled. */
+			revision({ volume_ml: 120, leftover_ml: null }, NOW - 60_000)
+		]);
+		expect(text).toContain('the intake 170 ml → 120 ml');
+		expect(text).toContain('the leftover 40 ml → not set');
+		expect(text.some((line) => line.startsWith('Mum changed the intake, the leftover'))).toBe(true);
+	});
+
+	it('shows a tick taken away as a value, not as an absence', async () => {
+		const text = await historyText(nappyEntry({ pee: true, poop: false, consistency: null, where: 'nappy' }), [
+			revision({ pee: true, poop: true, consistency: 'hard', where: 'nappy', occurred_at: NOW - 3600_000 }, NOW - 3000_000),
+			revision({ poop: false, consistency: null }, NOW - 60_000)
+		]);
+		expect(text).toContain('poop Yes → No');
+		expect(text).toContain('the consistency Hard → not set');
+	});
+
+	it('leaves the entry as it was logged without a before to show', async () => {
+		const text = await historyText(bottleEntry({ volume_ml: 120, leftover_ml: null, contents: 'formula' }), [
+			revision({ volume_ml: 120, leftover_ml: null, contents: 'formula', occurred_at: NOW - 3600_000 }, NOW - 3000_000)
+		]);
+		expect(text.some((line) => line.startsWith('logged by Mum'))).toBe(true);
+		expect(text.some((line) => line.includes('→'))).toBe(false);
 	});
 });

@@ -9,6 +9,14 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- An entry's History shows the values a correction changed, not only the field
+  it changed: each one reads `120 ml → 150 ml` under the line that names it, so
+  a disputed amount can be read back without guessing. A correction that touched
+  several fields at once labels each of them, an emptied field says *not set*,
+  and a tick taken away reads *Yes → No* rather than disappearing.
+
 ## [1.24.0] - 2026-09-09
 
 ### Changed
