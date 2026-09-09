@@ -11,6 +11,18 @@ release moves that section under its version number.
 
 ### Added
 
+- A sign-in link, minted from Settings (ADR-0037). Anybody may mint one for
+  themselves — it is *add my tablet* as much as it is *my phone is gone* — and a
+  parent may mint one for anybody, which reached only self-hosters while the
+  only way to do it was the container's terminal. Claiming it never signs
+  anything else out: devices that person is already signed in on stay signed in.
+  An unclaimed one sits beside the pending invites, named for the person it
+  signs in, revocable by any parent — and removing that person burns it, so
+  there is no door left open that removal did not close. One hour, everywhere,
+  the terminal included: fifteen minutes was priced for somebody standing at a
+  terminal, not for a link travelling over WhatsApp to somebody fumbling with a
+  new phone.
+
 - A Member is marked as a person's or a Hub's, from a stored fact rather than
   from a guess (ADR-0038). A Parent states it on the Invite — *this one is for a
   Hub* — which locks the role to Caregiver at mint time; the claim stamps it

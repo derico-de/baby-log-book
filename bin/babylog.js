@@ -40,8 +40,9 @@ import { fileURLToPath } from 'node:url';
 const DATA_DIR = process.env.DATA_DIR && process.env.DATA_DIR !== '' ? process.env.DATA_DIR : '/data';
 const DB_PATH = `${DATA_DIR}/app.db`;
 const SECRET_PATH = `${DATA_DIR}/secret.key`;
-/** Fifteen minutes, because you are standing at the terminal. */
-export const RESCUE_TTL_MS = 15 * 60_000;
+/** One hour, the same everywhere: Settings mints these too now, and one TTL is
+    one fact to remember (ADR-0037). */
+export const RESCUE_TTL_MS = 60 * 60_000;
 /** Seven days: a Founding Link is sent over WhatsApp and opened whenever the
     family gets round to it. */
 export const BOOTSTRAP_TTL_MS = 7 * 24 * 60 * 60_000;
@@ -391,6 +392,8 @@ function rescue(db, inHousehold, needle) {
 	const now = Date.now();
 	const expires = now + RESCUE_TTL_MS;
 
+	/* `created_by` stays NULL: the operator has no Member row, and a link nobody
+	   in the Household minted should say so in the pending list. */
 	db.prepare(
 		`INSERT INTO claim_links (token_hash, kind, household_id, member_id, created_at, expires_at)
 		 VALUES (?, 'rescue', ?, ?, ?, ?)`
@@ -406,8 +409,9 @@ function rescue(db, inHousehold, needle) {
 	console.log('');
 	console.log(`    ${origin()}/claim?t=${token}`);
 	console.log('');
-	console.log('It expires in 15 minutes and works once. Open it on the device that');
-	console.log('needs access, then press the button on the page.');
+	console.log('It expires in an hour and works once. Open it on the device that');
+	console.log('needs access, then press the button on the page. Devices they are');
+	console.log('already signed in on stay signed in.');
 	console.log('');
 }
 

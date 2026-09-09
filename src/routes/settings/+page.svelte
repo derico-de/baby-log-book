@@ -59,12 +59,18 @@
 	import Notices from '$lib/components/Notices.svelte';
 	import { activeLocale } from '$lib/i18n/locale.svelte';
 
-	interface PendingInvite {
+	/** A Claim Link this Household has out: an Invite waiting for a person, or a
+	    Rescue Link waiting for a Device. Both are the same question — what is
+	    currently a way in — so both are in one list (ADR-0037). */
+	interface PendingLink {
+		kind: 'invite' | 'rescue';
 		display_name: string;
 		role: 'parent' | 'caregiver';
 		/** What the Member will be marked as. Null on a link minted before the
 		    choice existed, which reads as a person's (ADR-0038). */
 		kind_for: 'person' | 'hub' | null;
+		member_id: string | null;
+		created_by: string | null;
 		created_at: number;
 		expires_at: number;
 		handle: string;
@@ -78,7 +84,7 @@
 	    only sound with the app open is a different promise from one that wakes
 	    the phone, and the Member has to know which they have (ADR-0030). */
 	let chimeReach = $state<PushOutcome | null>(null);
-	let invites = $state<PendingInvite[]>([]);
+	let links = $state<PendingLink[]>([]);
 	let inviteName = $state('');
 	let inviteRole = $state<'parent' | 'caregiver'>('caregiver');
 	/** *This one is for a Hub.* It locks the role to Caregiver — visibly here,
@@ -87,6 +93,9 @@
 	let inviteForHub = $state(false);
 	let mintedUrl = $state<string | null>(null);
 	let mintedName = $state('');
+	/** Which kind of link the panel above the list is showing, so it can explain
+	    the right thing: an Invite makes a person, a rescue adds a Device. */
+	let mintedKind = $state<'invite' | 'rescue'>('invite');
 	let copied = $state(false);
 	let exporting = $state(false);
 	let resetNote = $state<string | null>(null);
@@ -181,15 +190,15 @@
 		where = whereDefault();
 		chime = bottleChime();
 		installed = isStandalone();
-		if (isParent) void loadInvites();
+		if (isParent) void loadLinks();
 	});
 
-	async function loadInvites() {
+	async function loadLinks() {
 		try {
-			const response = await fetch('/api/invites');
+			const response = await fetch('/api/links');
 			if (!response.ok) return;
-			const body = (await response.json()) as { invites: PendingInvite[] };
-			invites = body.invites;
+			const body = (await response.json()) as { links: PendingLink[] };
+			links = body.links;
 		} catch {
 			/* Offline: the pending list is a server thing, and its absence is not an
 			   error worth shouting about. */
@@ -200,10 +209,11 @@
 		event.preventDefault();
 		const name = inviteName.trim();
 		if (name.length === 0) return;
-		const response = await fetch('/api/invites', {
+		const response = await fetch('/api/links', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({
+				kind: 'invite',
 				display_name: name,
 				role: inviteForHub ? 'caregiver' : inviteRole,
 				kind_for: inviteForHub ? 'hub' : 'person'
@@ -211,17 +221,37 @@
 		});
 		if (!response.ok) return;
 		const body = (await response.json()) as { url: string };
+		mintedKind = 'invite';
 		mintedUrl = body.url;
 		mintedName = name;
 		inviteName = '';
 		inviteForHub = false;
 		copied = false;
-		await loadInvites();
+		await loadLinks();
 	}
 
-	async function revokeInvite(handle: string) {
-		await fetch(`/api/invites?handle=${encodeURIComponent(handle)}`, { method: 'DELETE' });
-		await loadInvites();
+	/** A Rescue Link, from Settings rather than from the operator's terminal
+	    (ADR-0037). Any Member for themselves — *add my tablet* — and a Parent for
+	    anybody, which is why the pending list shows it and any Parent can revoke
+	    it. Claiming it never touches the Devices they are already signed in on. */
+	async function mintRescue(memberId: string, name: string) {
+		const response = await fetch('/api/links', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ kind: 'rescue', member_id: memberId })
+		});
+		if (!response.ok) return;
+		const body = (await response.json()) as { url: string };
+		mintedKind = 'rescue';
+		mintedUrl = body.url;
+		mintedName = name;
+		copied = false;
+		await loadLinks();
+	}
+
+	async function revokeLink(handle: string) {
+		await fetch(`/api/links?handle=${encodeURIComponent(handle)}`, { method: 'DELETE' });
+		await loadLinks();
 	}
 
 	async function copyInvite() {
@@ -356,6 +386,21 @@
 		void goto('/');
 	}
 </script>
+
+<!-- A minted Claim Link, waiting to be sent. One panel for both flavours: what
+     changes is the sentence, because an Invite makes a person and a sign-in link
+     adds a Device to somebody who is already here (ADR-0037). -->
+{#snippet minted()}
+	<p class="minted">
+		{mintedKind === 'rescue'
+			? m.settings_rescue_explain({ name: mintedName })
+			: m.settings_invite_explain({ name: mintedName })}
+		<code>{mintedUrl}</code>
+		<button type="button" onclick={copyInvite}>
+			{copied ? m.settings_invite_copied() : m.settings_invite_copy()}
+		</button>
+	</p>
+{/snippet}
 
 <section class="screen">
 	<header class="head">
@@ -850,27 +895,39 @@
 									{#if member.id === app.identity?.memberId}· {m.settings_this_device()}{/if}
 								</span>
 							</span>
-							{#if isParent && member.removed_at == null && member.id !== app.identity?.memberId}
+							{#if member.removed_at == null && (isParent || member.id === app.identity?.memberId)}
 								<span class="member-acts">
-									<!-- No role toggle on a Hub: the server refuses the promotion,
-									     and the UI must not offer what will be refused. -->
-									{#if member.kind !== 'hub'}
-										<button
-											type="button"
-											class="secondary"
-											onclick={() =>
-												void app.edit((w) => setMemberRole(w, member.id, member.role === 'parent' ? 'caregiver' : 'parent'))}
-										>
-											{member.role === 'parent' ? m.settings_member_demote() : m.settings_member_promote()}
-										</button>
-									{/if}
+									<!-- Any Member may add another Device of their own; a Parent may
+									     do it for anybody, which is why it shows up in the pending
+									     list below and any Parent can revoke it (ADR-0037). -->
 									<button
 										type="button"
 										class="secondary"
-										onclick={() => void removeThem(member.id, member.display_name, member.kind)}
+										onclick={() => void mintRescue(member.id, member.display_name)}
 									>
-										{m.settings_member_remove()}
+										{m.settings_rescue_mint()}
 									</button>
+									{#if isParent && member.id !== app.identity?.memberId}
+										<!-- No role toggle on a Hub: the server refuses the promotion,
+										     and the UI must not offer what will be refused. -->
+										{#if member.kind !== 'hub'}
+											<button
+												type="button"
+												class="secondary"
+												onclick={() =>
+													void app.edit((w) => setMemberRole(w, member.id, member.role === 'parent' ? 'caregiver' : 'parent'))}
+											>
+												{member.role === 'parent' ? m.settings_member_demote() : m.settings_member_promote()}
+											</button>
+										{/if}
+										<button
+											type="button"
+											class="secondary"
+											onclick={() => void removeThem(member.id, member.display_name, member.kind)}
+										>
+											{m.settings_member_remove()}
+										</button>
+									{/if}
 								</span>
 							{/if}
 						</li>
@@ -878,6 +935,10 @@
 				</ul>
 				<!-- One hard rule, and the server enforces it too. -->
 				<small class="hint">{m.settings_last_parent()}</small>
+
+				<!-- Beside the act that produced it: a sign-in link belongs under the
+				     people list, an Invite under the form. -->
+				{#if mintedUrl && mintedKind === 'rescue'}{@render minted()}{/if}
 
 				{#if isParent}
 					<h3>{m.settings_invite()}</h3>
@@ -904,29 +965,22 @@
 						<button type="submit" class="secondary">{m.settings_invite_create()}</button>
 					</form>
 
-					{#if mintedUrl}
-						<p class="minted">
-							{m.settings_invite_explain({ name: mintedName })}
-							<code>{mintedUrl}</code>
-							<button type="button" onclick={copyInvite}>
-								{copied ? m.settings_invite_copied() : m.settings_invite_copy()}
-							</button>
-						</p>
-					{/if}
+					{#if mintedUrl && mintedKind === 'invite'}{@render minted()}{/if}
 
-					{#if invites.length > 0}
+					{#if links.length > 0}
 						<h3>{m.settings_invite_pending()}</h3>
 						<ul class="members">
-							{#each invites as invite (invite.handle)}
+							{#each links as link (link.handle)}
 								<li>
 									<span>
-										{invite.display_name}
+										{link.display_name}
 										<span class="role">
-											{#if invite.kind_for === 'hub'}· {m.settings_kind_hub()}{/if}
-											· {m.settings_invite_expires({ when: dateAndTime(invite.expires_at, app.zone) })}
+											· {link.kind === 'rescue' ? m.settings_pending_rescue() : m.settings_pending_invite()}
+											{#if link.kind_for === 'hub'}· {m.settings_kind_hub()}{/if}
+											· {m.settings_invite_expires({ when: dateAndTime(link.expires_at, app.zone) })}
 										</span>
 									</span>
-									<button type="button" class="secondary" onclick={() => void revokeInvite(invite.handle)}>
+									<button type="button" class="secondary" onclick={() => void revokeLink(link.handle)}>
 										{m.settings_invite_revoke()}
 									</button>
 								</li>

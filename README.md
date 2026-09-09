@@ -55,7 +55,10 @@ opens it becomes the household's first parent, and the link stops working once i
 has been used. Restart the container to get a new one.
 
 There is no public sign-up page. Everyone else gets in through an invite link a
-parent creates in Settings, or through a rescue link you mint from the container.
+parent creates in Settings. A sign-in link — for a second device, or for a phone
+that was lost — is minted in Settings too: anyone can mint one for themselves, a
+parent can mint one for anybody, and the container's terminal still does it for
+the household nobody is left signed in to.
 
 A [`compose.yaml`](compose.yaml) example is included. The container publishes no
 host port and ships no proxy configuration — put nginx, Caddy or Traefik in front
@@ -118,9 +121,10 @@ docker exec -it baby-log-book babylog delete "Anna & Tom"
 docker exec baby-log-book babylog delete "Anna & Tom" <id>
 ```
 
-`rescue` mints a 15-minute link that signs a device back in **as an existing
-person**, so everything they have already logged stays theirs. Use it when a
-phone is lost and no parent is left to send an invite.
+`rescue` mints a one-hour link that signs a device in **as an existing person**,
+so everything they have already logged stays theirs, and devices they are already
+signed in on stay signed in. Settings does the same thing; the terminal is for
+the household nobody is left signed in to.
 
 `delete` erases one household and everything it ever logged. It shows you what
 it is about to destroy and then wants that household's id back before it does

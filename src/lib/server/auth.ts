@@ -154,6 +154,15 @@ export function revokeMember(db: Db, householdId: string, memberId: string, now:
 	db.prepare(
 		`DELETE FROM push_subscriptions WHERE member_id = ? AND household_id = ?`
 	).run(memberId, householdId);
+	/* And every pending Rescue Link that would let them back in. A rescue binds
+	   this Member to another Device, so one left waiting would be a door removal
+	   did not close — and a stolen hub credential that self-rescued before it was
+	   noticed gains no persistence removal does not end (ADR-0037). */
+	db.prepare(
+		`UPDATE claim_links SET burnt_at = ?
+		 WHERE kind = 'rescue' AND member_id = ? AND household_id = ?
+		   AND claimed_at IS NULL AND burnt_at IS NULL`
+	).run(now, memberId, householdId);
 	return info.changes;
 }
 

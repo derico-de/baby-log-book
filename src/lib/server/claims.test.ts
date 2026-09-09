@@ -4,14 +4,14 @@ import { runMigrations } from './migrations';
 import {
 	claim,
 	INVITE_TTL_MS,
-	listPendingInvites,
+	listPendingLinks,
 	MAX_TOKEN_ATTEMPTS,
 	mintBootstrap,
 	mintInvite,
 	mintRescue,
 	previewLink,
 	RESCUE_TTL_MS,
-	revokeInvite
+	revokePendingLink
 } from './claims';
 import { createSession, listDevices, resolveSession, revokeMember, revokeSession, tokenHash } from './auth';
 import { getHousehold, listMembers, revisionsOf } from './store';
@@ -76,7 +76,7 @@ describe('a Claim Link', () => {
 		expect(claim(db, SECRET, { token: link.token, deviceId: 'd1', zone: BERLIN, now: NOW }).ok).toBe(true);
 	});
 
-	it('expires in seven days as an Invite and fifteen minutes as a Rescue', () => {
+	it('expires in seven days as an Invite and an hour as a Rescue', () => {
 		const invite = mintInvite(db, SECRET, {
 			householdId: 'h1',
 			displayName: 'Oma',
@@ -153,7 +153,7 @@ describe('an Invite', () => {
 	it('is not a half-real person until then', () => {
 		mint();
 		expect(listMembers(db, 'h1').map((m) => m.display_name)).toEqual(['Mama']);
-		expect(listPendingInvites(db, 'h1', NOW)).toHaveLength(1);
+		expect(listPendingLinks(db, 'h1', NOW)).toHaveLength(1);
 	});
 
 	it('syncs the new Member as a revision attributed to the inviting Parent', () => {
@@ -166,9 +166,9 @@ describe('an Invite', () => {
 
 	it('can be revoked while it is still pending', () => {
 		const link = mint();
-		const [pending] = listPendingInvites(db, 'h1', NOW);
-		expect(revokeInvite(db, 'h1', pending.token_hash, NOW)).toBe(true);
-		expect(listPendingInvites(db, 'h1', NOW)).toHaveLength(0);
+		const [pending] = listPendingLinks(db, 'h1', NOW);
+		expect(revokePendingLink(db, 'h1', pending.token_hash, NOW)).toBe(true);
+		expect(listPendingLinks(db, 'h1', NOW)).toHaveLength(0);
 		expect(claim(db, SECRET, { token: link.token, deviceId: 'd1', zone: BERLIN, now: NOW })).toEqual({
 			ok: false,
 			reason: 'burnt'
@@ -219,7 +219,7 @@ describe("a Member's mark", () => {
 
 	it('is on the pending Invite before anybody claims it', () => {
 		mintFor('hub');
-		expect(listPendingInvites(db, 'h1', NOW)[0]).toMatchObject({
+		expect(listPendingLinks(db, 'h1', NOW)[0]).toMatchObject({
 			display_name: 'Home Assistant',
 			role: 'caregiver',
 			kind_for: 'hub'
@@ -253,13 +253,124 @@ describe("a Member's mark", () => {
 });
 
 describe('a Rescue Link', () => {
+	const rescue = (memberId = 'mum', createdBy: string | null = 'mum') =>
+		mintRescue(db, SECRET, { householdId: 'h1', memberId, createdBy, origin: ORIGIN, now: NOW });
+
+	/** Somebody for a Parent to mint on behalf of. */
+	const oma = () => {
+		db.prepare('INSERT INTO members (id, household_id, display_name, role) VALUES (?,?,?,?)').run(
+			'oma',
+			'h1',
+			'Oma',
+			'caregiver'
+		);
+	};
+
 	it('re-binds an existing Member rather than creating a second Mama', () => {
 		// A new row would split three years of attribution, since every Revision
 		// points at the old one (spec §6.1).
-		const link = mintRescue(db, SECRET, { householdId: 'h1', memberId: 'mum', origin: ORIGIN, now: NOW });
+		const link = rescue();
 		const result = claim(db, SECRET, { token: link.token, deviceId: 'new-phone', zone: BERLIN, now: NOW });
 		expect(result).toMatchObject({ ok: true, memberId: 'mum' });
 		expect(listMembers(db, 'h1')).toHaveLength(1);
+	});
+
+	it('lasts an hour, the same everywhere — Settings and the terminal alike', () => {
+		expect(RESCUE_TTL_MS).toBe(60 * 60_000);
+		expect(rescue().expires_at).toBe(NOW + 60 * 60_000);
+		/* And an Invite's seven days is unchanged. */
+		expect(
+			mintInvite(db, SECRET, {
+				householdId: 'h1',
+				displayName: 'Oma',
+				role: 'caregiver',
+				createdBy: 'mum',
+				origin: ORIGIN,
+				now: NOW
+			}).expires_at
+		).toBe(NOW + INVITE_TTL_MS);
+	});
+
+	it('never touches the Devices that Member is already signed in on', () => {
+		/* One link, one meaning — bind this Member to another Device — and silent
+		   about the old ones: a rescue is *add* as much as *recover*, and an
+		   auto-revoke would sign the phone out for adding the tablet. */
+		const phone = createSession(db, SECRET, { memberId: 'mum', deviceId: 'phone', now: NOW });
+		claim(db, SECRET, { token: rescue().token, deviceId: 'tablet', zone: BERLIN, now: NOW });
+		expect(resolveSession(db, SECRET, phone, NOW)).toMatchObject({ ok: true });
+		expect(listDevices(db, 'mum').map((d) => d.device_id).sort()).toEqual(['phone', 'tablet']);
+	});
+
+	it('joins the pending list, named for the Member it re-binds, with its minter', () => {
+		oma();
+		rescue('oma', 'mum');
+		expect(listPendingLinks(db, 'h1', NOW)).toMatchObject([
+			{
+				kind: 'rescue',
+				display_name: 'Oma',
+				role: 'caregiver',
+				member_id: 'oma',
+				created_by: 'mum',
+				kind_for: null
+			}
+		]);
+	});
+
+	it('takes its name from the Member now, not from the mint — a rename keeps up', () => {
+		oma();
+		rescue('oma');
+		db.prepare('UPDATE members SET display_name = ? WHERE id = ?').run('Großmama', 'oma');
+		expect(listPendingLinks(db, 'h1', NOW)[0].display_name).toBe('Großmama');
+	});
+
+	it('is revocable by any Parent, from the same list as an Invite', () => {
+		oma();
+		const link = rescue('oma');
+		const [pending] = listPendingLinks(db, 'h1', NOW);
+		expect(revokePendingLink(db, 'h1', pending.token_hash, NOW)).toBe(true);
+		expect(listPendingLinks(db, 'h1', NOW)).toHaveLength(0);
+		expect(claim(db, SECRET, { token: link.token, deviceId: 'd1', zone: BERLIN, now: NOW })).toEqual({
+			ok: false,
+			reason: 'burnt'
+		});
+	});
+
+	it('the operator s terminal mints one with no minter, having no session to name', () => {
+		mintRescue(db, SECRET, { householdId: 'h1', memberId: 'mum', origin: ORIGIN, now: NOW });
+		expect(listPendingLinks(db, 'h1', NOW)[0].created_by).toBeNull();
+	});
+
+	it('is burnt by Removal — a door removal did not close is not closed', () => {
+		oma();
+		const link = rescue('oma');
+		revokeMember(db, 'h1', 'oma', NOW);
+		expect(listPendingLinks(db, 'h1', NOW)).toHaveLength(0);
+		expect(claim(db, SECRET, { token: link.token, deviceId: 'd1', zone: BERLIN, now: NOW })).toEqual({
+			ok: false,
+			reason: 'burnt'
+		});
+	});
+
+	it('Removal burns only that Member s rescues', () => {
+		oma();
+		rescue('mum');
+		rescue('oma');
+		revokeMember(db, 'h1', 'oma', NOW);
+		expect(listPendingLinks(db, 'h1', NOW)).toMatchObject([{ member_id: 'mum' }]);
+	});
+
+	it('Removal leaves the pending Invites alone — they are nobody s yet', () => {
+		mintInvite(db, SECRET, {
+			householdId: 'h1',
+			displayName: 'Opa',
+			role: 'caregiver',
+			createdBy: 'mum',
+			origin: ORIGIN,
+			now: NOW
+		});
+		oma();
+		revokeMember(db, 'h1', 'oma', NOW);
+		expect(listPendingLinks(db, 'h1', NOW)).toMatchObject([{ kind: 'invite', display_name: 'Opa' }]);
 	});
 });
 

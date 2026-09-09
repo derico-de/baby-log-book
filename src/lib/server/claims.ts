@@ -12,8 +12,10 @@
      - Invite    — creates a Member. 7-day expiry: you send it on Wednesday, she
                    taps it on Sunday. The Member row is created on claim, so a
                    pending Invite is never a half-real person in the Household.
-     - Rescue    — re-binds a Device to a Member who already exists. 15 minutes,
-                   because you are standing at the terminal.
+     - Rescue    — binds another Device to a Member who already exists: the new
+                   tablet as much as the phone that was lost. One hour, and
+                   mintable from Settings as well as from the terminal
+                   (ADR-0037).
      - Bootstrap — the same mechanism with nothing to bind to: it **founds** a
                    Household and its first Parent. This is the Founding Link,
                    printed at first boot or minted by the operator for a further
@@ -38,7 +40,12 @@ import { insertRevision, materialise } from './store';
 export type ClaimKind = 'invite' | 'rescue' | 'bootstrap';
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60_000;
-export const RESCUE_TTL_MS = 15 * 60_000;
+/** One hour, everywhere — the app's Settings and the operator's terminal alike
+    (ADR-0037). Fifteen minutes was priced for an operator standing at a
+    terminal; a Settings mint travels over WhatsApp to someone fumbling with a
+    new phone. An Invite's seven days is unchanged: it waits for a person to be
+    free, and this waits for a person to be at a screen. */
+export const RESCUE_TTL_MS = 60 * 60_000;
 /** A boot line is read by an operator who may be halfway through reading a
     README. Long enough to be useful, and superseded on every restart. */
 export const BOOTSTRAP_TTL_MS = 7 * 24 * 60 * 60_000;
@@ -102,17 +109,43 @@ export function mintInvite(
 	return { token, url: claimUrl(input.origin, token), expires_at: expires };
 }
 
+/** Binds another Device to a Member who already exists. Any Member mints one
+    for themselves; a Parent mints one for anybody (ADR-0037).
+
+    **Claiming it says nothing about that Member's other Devices.** One link,
+    one meaning — *bind this Member to another Device* — because a rescue is
+    *add* as much as *recover*: an auto-revoke on claim would sign the phone out
+    for adding the tablet.
+
+    `createdBy` is the counterweight to a Parent minting credentials that write
+    as somebody else: the pending link is visible beside the Invites, named for
+    the Member it re-binds, and any Parent can revoke it. */
 export function mintRescue(
 	db: Db,
 	secret: Buffer,
-	input: { householdId: string; memberId: string; origin: string; now: number }
+	input: {
+		householdId: string;
+		memberId: string;
+		/** The Member who minted it, or null when the operator did it from the
+		    terminal — where there is no session to name. */
+		createdBy?: string | null;
+		origin: string;
+		now: number;
+	}
 ): MintedLink {
 	const token = newToken();
 	const expires = input.now + RESCUE_TTL_MS;
 	db.prepare(
-		`INSERT INTO claim_links (token_hash, kind, household_id, member_id, created_at, expires_at)
-		 VALUES (?, 'rescue', ?, ?, ?, ?)`
-	).run(tokenHash(token, secret), input.householdId, input.memberId, input.now, expires);
+		`INSERT INTO claim_links (token_hash, kind, household_id, member_id, created_by, created_at, expires_at)
+		 VALUES (?, 'rescue', ?, ?, ?, ?, ?)`
+	).run(
+		tokenHash(token, secret),
+		input.householdId,
+		input.memberId,
+		input.createdBy ?? null,
+		input.now,
+		expires
+	);
 	return { token, url: claimUrl(input.origin, token), expires_at: expires };
 }
 
@@ -145,30 +178,58 @@ export function mintBootstrap(
 	return { token, url: claimUrl(input.origin, token), expires_at: expires };
 }
 
-export interface PendingInvite {
+export interface PendingLink {
+	/** An Invite waiting for a person, or a Rescue Link waiting for a Device. */
+	kind: 'invite' | 'rescue';
+	/** For an Invite, the name the Parent typed; for a rescue, the name of the
+	    Member it re-binds — a link nobody can put a name to is not revocable in
+	    any meaningful sense. */
 	display_name: string;
 	role: Role;
 	/** What the Member will be marked as when somebody claims it. Null on an
-	    Invite minted before the choice existed. */
+	    Invite minted before the choice existed, and on every rescue: a rescue
+	    re-binds a Member who is already marked. */
 	kind_for: MemberKind | null;
+	/** The Member who minted it, or null for the operator's terminal. */
+	created_by: string | null;
+	/** The Member a rescue re-binds; null on an Invite, which has no Member
+	    yet. */
+	member_id: string | null;
 	created_at: number;
 	expires_at: number;
 	token_hash: string;
 }
 
-/** Until it is claimed an Invite sits in a list the Parent can revoke. */
-export function listPendingInvites(db: Db, householdId: string, now: number): PendingInvite[] {
+/** Every Claim Link this Household has out and nobody has claimed — Invites and
+    Rescue Links in one list, because they are the same question: *what is
+    currently a way in, and do we still want it to be* (ADR-0037).
+
+    A rescue takes its name and role from the Member it re-binds, joined here
+    rather than copied at mint time, so a rename does not leave the list saying
+    something out of date. */
+export function listPendingLinks(db: Db, householdId: string, now: number): PendingLink[] {
 	return db
 		.prepare(
-			`SELECT display_name, role, kind_for, created_at, expires_at, token_hash FROM claim_links
-			 WHERE kind = 'invite' AND household_id = ? AND claimed_at IS NULL AND burnt_at IS NULL
-			   AND expires_at > ?
-			 ORDER BY created_at DESC`
+			`SELECT l.kind,
+			        COALESCE(l.display_name, mem.display_name, '') AS display_name,
+			        COALESCE(l.role, mem.role, 'caregiver')        AS role,
+			        l.kind_for, l.created_by, l.member_id, l.created_at, l.expires_at, l.token_hash
+			   FROM claim_links l
+			   LEFT JOIN members mem ON mem.id = l.member_id AND mem.household_id = l.household_id
+			  WHERE l.kind IN ('invite', 'rescue') AND l.household_id = ?
+			    AND l.claimed_at IS NULL AND l.burnt_at IS NULL AND l.expires_at > ?
+			  ORDER BY l.created_at DESC`
 		)
-		.all(householdId, now) as PendingInvite[];
+		.all(householdId, now) as PendingLink[];
 }
 
-export function revokeInvite(db: Db, householdId: string, tokenHashValue: string, now: number): boolean {
+/** Burns one pending link, whichever kind it is. Any Parent may. */
+export function revokePendingLink(
+	db: Db,
+	householdId: string,
+	tokenHashValue: string,
+	now: number
+): boolean {
 	const info = db
 		.prepare(
 			`UPDATE claim_links SET burnt_at = ?

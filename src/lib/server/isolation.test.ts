@@ -10,7 +10,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import { runMigrations } from './migrations';
 import { push, pull } from './sync';
-import { claim, mintBootstrap, mintInvite, mintRescue, listPendingInvites } from './claims';
+import {
+	claim,
+	mintBootstrap,
+	mintInvite,
+	mintRescue,
+	listPendingLinks,
+	revokePendingLink
+} from './claims';
 import { createSession, resolveSession, revokeMember } from './auth';
 import { getEntry, getHousehold, getMember, insertRevision, listMembers, materialise, revisionsOf } from './store';
 import { listenerCount, subscribe, wake } from './live';
@@ -367,8 +374,8 @@ describe('Claim Links', () => {
 			origin: 'https://log.example.com',
 			now: NOW
 		});
-		expect(listPendingInvites(db, 'B', NOW)).toEqual([]);
-		expect(listPendingInvites(db, 'A', NOW)).toHaveLength(1);
+		expect(listPendingLinks(db, 'B', NOW)).toEqual([]);
+		expect(listPendingLinks(db, 'A', NOW)).toHaveLength(1);
 
 		const result = claim(db, SECRET, { token: invite.token, deviceId: 'd1', zone: BERLIN, now: NOW });
 		expect(result).toMatchObject({ ok: true, householdId: 'A' });
@@ -384,6 +391,50 @@ describe('Claim Links', () => {
 		});
 		const result = claim(db, SECRET, { token: link.token, deviceId: 'd2', zone: BERLIN, now: NOW });
 		expect(result).toMatchObject({ ok: true, memberId: 'b-dad', householdId: 'B' });
+	});
+
+	it('a pending rescue is only ever the minting Household s to see or revoke', () => {
+		const link = mintRescue(db, SECRET, {
+			householdId: 'A',
+			memberId: 'a-oma',
+			createdBy: 'a-mum',
+			origin: 'https://log.example.com',
+			now: NOW
+		});
+		expect(listPendingLinks(db, 'B', NOW)).toEqual([]);
+		const [pending] = listPendingLinks(db, 'A', NOW);
+		/* Beatriz holds the handle — it is on nobody's screen but a Parent of A's,
+		   and even so it is not hers to burn. */
+		expect(revokePendingLink(db, 'B', pending.token_hash, NOW)).toBe(false);
+		expect(revokePendingLink(db, 'A', pending.token_hash, NOW)).toBe(true);
+		expect(claim(db, SECRET, { token: link.token, deviceId: 'd3', zone: BERLIN, now: NOW })).toEqual({
+			ok: false,
+			reason: 'burnt'
+		});
+	});
+
+	it('Removal burns pending rescues inside that Household alone', () => {
+		mintRescue(db, SECRET, {
+			householdId: 'A',
+			memberId: 'a-oma',
+			createdBy: 'a-mum',
+			origin: 'https://log.example.com',
+			now: NOW
+		});
+		mintRescue(db, SECRET, {
+			householdId: 'B',
+			memberId: 'b-dad',
+			createdBy: 'b-mum',
+			origin: 'https://log.example.com',
+			now: NOW
+		});
+		/* A member id is a client-supplied id and never a capability (ADR-0020):
+		   removing from the wrong side reaches nothing. */
+		revokeMember(db, 'A', 'b-dad', NOW);
+		expect(listPendingLinks(db, 'B', NOW)).toHaveLength(1);
+		revokeMember(db, 'B', 'b-dad', NOW);
+		expect(listPendingLinks(db, 'B', NOW)).toEqual([]);
+		expect(listPendingLinks(db, 'A', NOW)).toHaveLength(1);
 	});
 
 	it('are invalid when a non-founding link carries no Household', () => {

@@ -105,7 +105,10 @@ describe('the operator tool', () => {
 			symlinkSync(resolve('bin/babylog.js'), `${dir}/babylog`);
 			const minted = execFileSync('node', [`${dir}/babylog`, 'rescue', 'Mama'], { env, encoding: 'utf8' });
 			expect(minted).toContain('https://log.example.com/claim?t=');
-			expect(minted).toContain('15 minutes');
+			expect(minted).toContain('an hour');
+		/* One TTL everywhere: a Settings mint travels over WhatsApp, and an
+		   operator who has to remember two numbers remembers the wrong one. */
+		expect(minted).not.toContain('15 minutes');
 			/* It says plainly that it re-binds rather than creating someone new. */
 			expect(minted).toContain('does not create a new person');
 
