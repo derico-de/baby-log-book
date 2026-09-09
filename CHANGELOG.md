@@ -11,6 +11,15 @@ release moves that section under its version number.
 
 ### Added
 
+- The Lapsed gate, named and in place ahead of the hosting it belongs to
+  (ADR-0022). One seam answers whether a Household's hosting is paused —
+  nothing sets it yet — and the Hub's read and both claim paths ask it: the
+  read before it compares ETags, so a Lapsed Household cannot even learn that
+  nothing changed, and a claim before the link is spent, so a one-shot link is
+  never burnt on a Household that would then refuse everything. It gates every
+  claim, not only a Hub's, and the claim page says hosting is paused rather
+  than that the link is broken.
+
 - `GET /api/hub/state` — the one read a Hub makes (ADR-0034). It ships no rows:
   it runs the app's own header and stats folds server-side and answers with
   instants, three flags and six daily totals per Baby, addressed to a screen on

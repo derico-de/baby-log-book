@@ -30,6 +30,7 @@ import {
 import { seedTargets } from '$domain/targets';
 import type { Db } from './db';
 import { createSession, newToken, tokenHash } from './auth';
+import { isLapsed } from './lapsed';
 import { insertRevision, materialise } from './store';
 
 export type ClaimKind = 'invite' | 'rescue' | 'bootstrap';
@@ -157,7 +158,11 @@ export function revokeInvite(db: Db, householdId: string, tokenHashValue: string
     not reveal. */
 export type LinkPreview =
 	| { ok: true; kind: ClaimKind; display_name: string | null; expires_at: number }
-	| { ok: false; reason: 'unknown' | 'expired' | 'used' | 'burnt' };
+	/** `lapsed` is the one reason that is not about the link: hosting for the
+	    Household it leads into is paused, so there is nothing to join yet
+	    (ADR-0022). It answers `402` rather than `400`, so no client has to read
+	    a body to know which flow it is in. */
+	| { ok: false; reason: 'unknown' | 'expired' | 'used' | 'burnt' | 'lapsed' };
 
 interface LinkRow {
 	token_hash: string;
@@ -191,12 +196,18 @@ export function previewLink(db: Db, secret: Buffer, token: string, now: number):
 	if (row.burnt_at != null) return { ok: false, reason: 'burnt' };
 	if (row.claimed_at != null) return { ok: false, reason: 'used' };
 	if (row.expires_at <= now) return { ok: false, reason: 'expired' };
+	if (row.household_id != null && isLapsed(db, row.household_id)) {
+		return { ok: false, reason: 'lapsed' };
+	}
 	return { ok: true, kind: row.kind, display_name: row.display_name, expires_at: row.expires_at };
 }
 
 export type ClaimResult =
 	| { ok: true; token: string; memberId: string; householdId: string; kind: ClaimKind }
-	| { ok: false; reason: 'unknown' | 'expired' | 'used' | 'burnt' | 'rate_limited' | 'invalid' };
+	| {
+			ok: false;
+			reason: 'unknown' | 'expired' | 'used' | 'burnt' | 'rate_limited' | 'invalid' | 'lapsed';
+	  };
 
 export interface ClaimInput {
 	token: string;
@@ -221,6 +232,14 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 		if (row.burnt_at != null) return { ok: false, reason: 'burnt' };
 		if (row.claimed_at != null) return { ok: false, reason: 'used' };
 		if (row.expires_at <= input.now) return { ok: false, reason: 'expired' };
+
+		/* Before the link is spent — before the attempt is counted and long before
+		   `claimed_at` is set. Letting the claim through would burn a one-shot link
+		   and mint a session into a Household that then refuses everything, and a
+		   Founding Link has no Household to Lapse yet (ADR-0022). */
+		if (row.household_id != null && isLapsed(db, row.household_id)) {
+			return { ok: false, reason: 'lapsed' };
+		}
 
 		/* Count the attempt before deciding, so a failure to complete still spends
 		   one — and burn the token on the fifth. */

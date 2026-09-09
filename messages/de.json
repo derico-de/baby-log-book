@@ -412,6 +412,7 @@
 	"claim_expired": "Dieser Link ist abgelaufen. Bitte um einen neuen.",
 	"claim_used": "Dieser Link wurde schon benutzt.",
 	"claim_burnt": "Dieser Link wurde zurückgezogen.",
+	"claim_lapsed": "Das Hosting für diesen Haushalt ist pausiert. Ein Elternteil kann es wieder starten, dann funktioniert dieser Link.",
 	"claim_rate_limited": "Zu viele Versuche. Bitte später erneut versuchen.",
 	"claim_invalid": "Etwas hat gefehlt. Prüfe den Namen und versuche es erneut.",
 	"claim_ready": "Du bist dabei.",

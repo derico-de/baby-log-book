@@ -30,6 +30,7 @@ import {
 import { dayBucketOf, dayStartInstant, MS, withinNight } from '$domain/time';
 import type { Baby, Entry, Household, Target } from '$domain/types';
 import type { Db } from './db';
+import { isLapsed } from './lapsed';
 import { currentCursor, getHousehold, listBabies, listTargets, liveEntries } from './store';
 
 /** One Baby, as a wall reads her. Every key here is byte-for-byte the
@@ -250,6 +251,10 @@ export function readHubState(
 	options: { ifNoneMatch?: string | null; now: number }
 ): HubRead {
 	const { now } = options;
+
+	/* Before the ETag, and therefore before any fetch: a Lapsed Household may
+	   not even learn that nothing has changed (ADR-0022). */
+	if (isLapsed(db, householdId)) return { status: 402, code: 'lapsed' };
 
 	const household = getHousehold(db, householdId);
 	/* A session whose Household is gone is not a session. */

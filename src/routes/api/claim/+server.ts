@@ -8,6 +8,12 @@ import { getHousehold } from '$server/store';
 
 export const prerender = false;
 
+/** The Household this link leads into has Lapsed. `402`, in the error body
+    every other endpoint uses — and carrying `reason` too, so the claim page can
+    say plainly that hosting is paused rather than that the link is broken. */
+const lapsedResponse = (now: number) =>
+	json({ ok: false, code: 'lapsed', reason: 'lapsed', ...versionBlock(now) }, { status: 402 });
+
 /** Looking. A GET may say what the link is for and must never spend it: every
     messenger fetches a URL server-side to build the preview card, so a link that
     claimed on GET would be burnt by the bot before the recipient ever saw it
@@ -29,6 +35,10 @@ export const GET: RequestHandler = async (event) => {
 	   Household whatever is already in the file, so there is no question here for
 	   an answer to leak (hosted spec §5.3). */
 	const preview = previewLink(db, secret, token, now);
+	/* One status per flow, so nothing has to read a body to know which it is in:
+	   hosting paused is `402`, and every other unusable link is an ordinary
+	   answer about the link (spec §5.7). */
+	if (!preview.ok && preview.reason === 'lapsed') return lapsedResponse(now);
 	return json(preview);
 };
 
@@ -56,6 +66,7 @@ export const POST: RequestHandler = async (event) => {
 
 	const result = claim(db, secret, { token, deviceId, zone, displayName, now });
 	if (!result.ok) {
+		if (result.reason === 'lapsed') return lapsedResponse(now);
 		return json(result, { status: result.reason === 'rate_limited' ? 429 : 400 });
 	}
 

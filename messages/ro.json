@@ -398,6 +398,7 @@
 	"claim_expired": "Linkul a expirat. Cere unul nou.",
 	"claim_used": "Linkul a fost deja folosit.",
 	"claim_burnt": "Linkul a fost retras.",
+	"claim_lapsed": "Găzduirea pentru această gospodărie este pusă pe pauză. Un părinte o poate porni din nou, apoi linkul va funcționa.",
 	"claim_rate_limited": "Prea multe încercări. Încearcă mai târziu.",
 	"claim_invalid": "A lipsit ceva. Verifică numele și încearcă din nou.",
 	"claim_ready": "Ești înăuntru.",

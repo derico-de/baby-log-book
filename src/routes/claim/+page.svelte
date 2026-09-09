@@ -17,7 +17,7 @@
 
 	type Preview =
 		| { ok: true; kind: 'invite' | 'rescue' | 'bootstrap'; display_name: string | null; expires_at: number }
-		| { ok: false; reason: 'unknown' | 'expired' | 'used' | 'burnt' };
+		| { ok: false; reason: 'unknown' | 'expired' | 'used' | 'burnt' | 'lapsed' };
 
 	let preview = $state<Preview | null>(null);
 	let name = $state('');
@@ -42,18 +42,24 @@
 			});
 	});
 
-	const reasonText = (reason: 'unknown' | 'expired' | 'used' | 'burnt' | 'rate_limited' | 'invalid') =>
-		reason === 'expired'
-			? m.claim_expired()
-			: reason === 'used'
-				? m.claim_used()
-				: reason === 'burnt'
-					? m.claim_burnt()
-					: reason === 'rate_limited'
-						? m.claim_rate_limited()
-						: reason === 'invalid'
-							? m.claim_invalid()
-							: m.claim_unknown();
+	const reasonText = (
+		reason: 'unknown' | 'expired' | 'used' | 'burnt' | 'rate_limited' | 'invalid' | 'lapsed'
+	) =>
+		/* Hosting paused is the one reason that is not about the link at all, so
+		   it must not read as "this link is not valid" (ADR-0022). */
+		reason === 'lapsed'
+			? m.claim_lapsed()
+			: reason === 'expired'
+				? m.claim_expired()
+				: reason === 'used'
+					? m.claim_used()
+					: reason === 'burnt'
+						? m.claim_burnt()
+						: reason === 'rate_limited'
+							? m.claim_rate_limited()
+							: reason === 'invalid'
+								? m.claim_invalid()
+								: m.claim_unknown();
 
 	async function claim() {
 		if (busy) return;
