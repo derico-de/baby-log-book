@@ -389,6 +389,26 @@ describe('babylog members, hosting more than one Household', () => {
 			rmSync(vol.dir, { recursive: true, force: true });
 		}
 	});
+
+	it('says which rows are Hubs, so removing one is not mistaken for removing Oma', () => {
+		const vol = volume();
+		try {
+			const db = vol.db();
+			seedHousehold(db, 'h1', 'Anna & Tom', [
+				['a-mum', 'Mama', 'parent'],
+				['a-hub', 'Home Assistant', 'caregiver']
+			]);
+			db.prepare('UPDATE members SET kind = ? WHERE id = ?').run('hub', 'a-hub');
+			db.close();
+
+			const listed = run(vol.env, 'members');
+			expect(listed).toContain('Hub · caregiver');
+			/* And a person's row says nothing extra. */
+			expect(listed).toMatch(/Mama\n\s+parent ·/);
+		} finally {
+			rmSync(vol.dir, { recursive: true, force: true });
+		}
+	});
 });
 
 describe('babylog rescue, hosting more than one Household', () => {

@@ -12,9 +12,11 @@ import { foldEntity, foldEntry, splitFields } from '$domain/revisions';
 import {
 	DEFAULT_CAREGIVING,
 	DEFAULT_DAY_START,
+	DEFAULT_MEMBER_KIND,
 	DEFAULT_NIGHT_START,
 	DEFAULT_FEED_NOTICE_S,
 	DEFAULT_SLEEP_NOTICE_S,
+	MEMBER_KINDS,
 	type Baby,
 	type Food,
 	type Household,
@@ -70,6 +72,10 @@ async function materialise(db: ReplicaDb, householdId: string, kind: RevisionKin
 				household_id: householdId,
 				display_name: str(state.display_name),
 				role: state.role === 'parent' ? 'parent' : 'caregiver',
+				/* The mark rides the fold beside the role, so every screen reads it
+				   from the log rather than guessing from a name (ADR-0038). A Member
+				   whose creating revision predates the mark is a person's. */
+				kind: oneOf(state.kind, MEMBER_KINDS, DEFAULT_MEMBER_KIND),
 				removed_at: num(state.removed_at),
 				locale: state.locale == null ? null : String(state.locale)
 			} satisfies MemberRecord);

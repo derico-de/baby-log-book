@@ -11,6 +11,15 @@ release moves that section under its version number.
 
 ### Added
 
+- A Member is marked as a person's or a Hub's, from a stored fact rather than
+  from a guess (ADR-0038). A Parent states it on the Invite — *this one is for a
+  Hub* — which locks the role to Caregiver at mint time; the claim stamps it
+  onto the Member, and it travels with the member data exactly as the role does,
+  so every screen can say which rows are panels. It is the server's to write and
+  nobody else's: no revision may carry it, there is no toggle and no history, a
+  mis-marked Member is fixed by Remove and re-invite, and a Hub can never be
+  promoted to Parent. `babylog members` prints it on the status line.
+
 - The Lapsed gate, named and in place ahead of the hosting it belongs to
   (ADR-0022). One seam answers whether a Household's hosting is paused —
   nothing sets it yet — and the Hub's read and both claim paths ask it: the

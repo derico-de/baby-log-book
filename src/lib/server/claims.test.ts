@@ -176,6 +176,82 @@ describe('an Invite', () => {
 	});
 });
 
+describe("a Member's mark", () => {
+	const mintFor = (kindFor: 'person' | 'hub', role: 'parent' | 'caregiver' = 'caregiver') =>
+		mintInvite(db, SECRET, {
+			householdId: 'h1',
+			displayName: kindFor === 'hub' ? 'Home Assistant' : 'Oma',
+			role,
+			kindFor,
+			createdBy: 'mum',
+			origin: ORIGIN,
+			now: NOW
+		});
+
+	const claimed = (token: string) => {
+		const result = claim(db, SECRET, { token, deviceId: 'd1', zone: BERLIN, now: NOW });
+		if (!result.ok) throw new Error(`claim failed: ${result.reason}`);
+		return result;
+	};
+
+	it('is a person s by default, and every Member who predates the mark is one', () => {
+		claimed(mintFor('person').token);
+		expect(listMembers(db, 'h1').find((m) => m.display_name === 'Oma')?.kind).toBe('person');
+		expect(listMembers(db, 'h1').find((m) => m.display_name === 'Mama')?.kind).toBe('person');
+	});
+
+	it('is stamped onto the Member from what the Parent stated on the Invite', () => {
+		claimed(mintFor('hub').token);
+		const hub = listMembers(db, 'h1').find((m) => m.display_name === 'Home Assistant');
+		expect(hub).toMatchObject({ kind: 'hub', role: 'caregiver' });
+	});
+
+	it('locks the role to Caregiver at mint time, so no link can carry a Hub Parent', () => {
+		const result = claimed(mintFor('hub', 'parent').token);
+		expect(listMembers(db, 'h1').find((m) => m.id === result.memberId)?.role).toBe('caregiver');
+	});
+
+	it('travels with the member data exactly as role does', () => {
+		const result = claimed(mintFor('hub').token);
+		const [revision] = revisionsOf(db, 'h1', 'member', result.memberId);
+		expect(revision.fields).toMatchObject({ role: 'caregiver', kind: 'hub' });
+	});
+
+	it('is on the pending Invite before anybody claims it', () => {
+		mintFor('hub');
+		expect(listPendingInvites(db, 'h1', NOW)[0]).toMatchObject({
+			display_name: 'Home Assistant',
+			role: 'caregiver',
+			kind_for: 'hub'
+		});
+	});
+
+	it('a Rescue Link changes nothing about it — it re-binds, it does not create', () => {
+		const result = claimed(mintFor('hub').token);
+		const rescue = mintRescue(db, SECRET, {
+			householdId: 'h1',
+			memberId: result.memberId,
+			origin: ORIGIN,
+			now: NOW
+		});
+		claim(db, SECRET, { token: rescue.token, deviceId: 'd2', zone: BERLIN, now: NOW });
+		expect(listMembers(db, 'h1').find((m) => m.id === result.memberId)?.kind).toBe('hub');
+	});
+
+	it('a Founding Link founds a person — nothing founds a Household from a wall', () => {
+		const founding = mintBootstrap(db, SECRET, { origin: ORIGIN, now: NOW });
+		const result = claim(db, SECRET, {
+			token: founding.token,
+			deviceId: 'd9',
+			zone: BERLIN,
+			displayName: 'Papa',
+			now: NOW
+		});
+		if (!result.ok) throw new Error('claim failed');
+		expect(listMembers(db, result.householdId)[0]).toMatchObject({ kind: 'person', role: 'parent' });
+	});
+});
+
 describe('a Rescue Link', () => {
 	it('re-binds an existing Member rather than creating a second Mama', () => {
 		// A new row would split three years of attribution, since every Revision

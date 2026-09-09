@@ -18,6 +18,7 @@ export const GET: RequestHandler = async (event) => {
 		invites: listPendingInvites(authed.db, authed.householdId, Date.now()).map((invite) => ({
 			display_name: invite.display_name,
 			role: invite.role,
+			kind_for: invite.kind_for,
 			created_at: invite.created_at,
 			expires_at: invite.expires_at,
 			/* The handle for revoking it. It is an HMAC of a token nobody can derive
@@ -38,6 +39,9 @@ export const POST: RequestHandler = async (event) => {
 	const body = await readJson(event);
 	const displayName = typeof body?.display_name === 'string' ? body.display_name.trim() : '';
 	const role = body?.role === 'parent' ? 'parent' : 'caregiver';
+	/* Whether this Invite is for a person or for a Hub — the Parent states it,
+	   and a Hub Invite locks the role to Caregiver at mint time (ADR-0038). */
+	const kindFor = body?.kind_for === 'hub' ? 'hub' : 'person';
 	if (displayName.length === 0 || displayName.length > MAX_NAME) {
 		return json({ code: 'malformed', message: 'a name is required' }, { status: 400 });
 	}
@@ -47,12 +51,21 @@ export const POST: RequestHandler = async (event) => {
 		householdId: authed.householdId,
 		displayName,
 		role,
+		kindFor,
 		createdBy: authed.member.id,
 		origin: config.origin,
 		now: Date.now()
 	});
 
-	return json({ url: link.url, expires_at: link.expires_at, display_name: displayName, role });
+	return json({
+		url: link.url,
+		expires_at: link.expires_at,
+		display_name: displayName,
+		/* What was minted, not what was asked for: a Hub Invite comes back as a
+		   Caregiver's however the form was filled in. */
+		role: kindFor === 'hub' ? 'caregiver' : role,
+		kind_for: kindFor
+	});
 };
 
 export const DELETE: RequestHandler = async (event) => {

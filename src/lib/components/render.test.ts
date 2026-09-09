@@ -32,6 +32,7 @@ const oma: MemberRecord = {
 	household_id: 'h1',
 	display_name: 'Oma',
 	role: 'caregiver',
+	kind: 'person',
 	removed_at: null,
 	locale: 'en'
 };

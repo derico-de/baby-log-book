@@ -2,7 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import { runMigrations } from './migrations';
 import { MAX_BATCH, pull, push, SKEW_TOLERANCE_MS, SyncError } from './sync';
-import { getEntry, getHousehold, listMembers, liveSessions, revisionsOf } from './store';
+import {
+	getEntry,
+	getHousehold,
+	insertRevision,
+	listMembers,
+	liveSessions,
+	materialise,
+	revisionsOf
+} from './store';
 import type { PendingRevision, Role } from '$domain/types';
 
 const BERLIN = 'Europe/Berlin';
@@ -270,6 +278,101 @@ describe('roles', () => {
 		asMember([rev({ kind: 'member', entity_id: 'oma', fields: { role: 'parent', display_name: 'Oma' } })]);
 		const demote = asMember([rev({ kind: 'member', entity_id: 'mum', fields: { role: 'caregiver' } })]);
 		expect(demote.accepted).toHaveLength(1);
+	});
+});
+
+describe("a Member's mark (ADR-0038)", () => {
+	/* A Member as a claim makes one: the mark rides the creating revision, which
+	   is the only way every replica hears it. */
+	const born = (id: string, name: string, role: Role, kind: 'person' | 'hub') => {
+		insertRevision(
+			db,
+			{
+				id: `claim-${id}`,
+				household_id: 'h1',
+				kind: 'member',
+				entity_id: id,
+				fields: { display_name: name, role, kind, removed_at: null },
+				merge_at: NOW - 1000,
+				device_id: 'server',
+				author_id: 'mum',
+				skewed: false
+			},
+			NOW - 1000
+		);
+		materialise(db, 'h1', 'member', id);
+	};
+
+	const memberNamed = (id: string) => listMembers(db, 'h1').find((m) => m.id === id);
+
+	beforeEach(() => {
+		born('oma', 'Home Assistant', 'caregiver', 'hub');
+	});
+
+	it('refuses any revision that carries it — it is the server s to write', () => {
+		const result = asMember([
+			rev({ kind: 'member', entity_id: 'oma', fields: { display_name: 'Flur', kind: 'person' } })
+		]);
+		expect(result.rejected).toEqual([{ id: 'r1', reason: 'only the server may mark a Member' }]);
+		expect(memberNamed('oma')).toMatchObject({ kind: 'hub', display_name: 'Home Assistant' });
+	});
+
+	it('refuses it from a Parent too — there is no toggle and no history', () => {
+		const result = asMember([rev({ kind: 'member', entity_id: 'oma', fields: { kind: 'person' } })], 'parent');
+		expect(result.accepted).toEqual([]);
+	});
+
+	it('refuses to promote a Hub to Parent', () => {
+		const result = asMember([rev({ kind: 'member', entity_id: 'oma', fields: { role: 'parent' } })]);
+		expect(result.rejected).toEqual([{ id: 'r1', reason: 'a Hub stays a Caregiver' }]);
+		expect(memberNamed('oma')?.role).toBe('caregiver');
+	});
+
+	it('lets everything else through — a Hub s Member is an ordinary Member', () => {
+		const result = asMember([
+			rev({ kind: 'member', entity_id: 'oma', fields: { display_name: 'Wandpanel' } })
+		]);
+		expect(result.accepted).toEqual(['r1']);
+		expect(memberNamed('oma')).toMatchObject({ display_name: 'Wandpanel', kind: 'hub' });
+	});
+
+	it('survives every later revision — the fold keeps what the claim stamped', () => {
+		asMember([rev({ kind: 'member', entity_id: 'oma', fields: { locale: 'de' } })]);
+		asMember([rev({ kind: 'member', entity_id: 'oma', fields: { display_name: 'Flur' } })]);
+		expect(memberNamed('oma')?.kind).toBe('hub');
+	});
+
+	it('still lets a person be promoted', () => {
+		born('opa', 'Opa', 'caregiver', 'person');
+		const result = asMember([rev({ kind: 'member', entity_id: 'opa', fields: { role: 'parent' } })]);
+		expect(result.accepted).toEqual(['r1']);
+		expect(memberNamed('opa')?.role).toBe('parent');
+	});
+
+	it('a Member who predates the mark folds to a person s', () => {
+		insertRevision(
+			db,
+			{
+				id: 'claim-opa',
+				household_id: 'h1',
+				kind: 'member',
+				entity_id: 'opa',
+				fields: { display_name: 'Opa', role: 'caregiver', removed_at: null },
+				merge_at: NOW - 1000,
+				device_id: 'server',
+				author_id: 'mum',
+				skewed: false
+			},
+			NOW - 1000
+		);
+		materialise(db, 'h1', 'member', 'opa');
+		expect(memberNamed('opa')?.kind).toBe('person');
+	});
+
+	it('removes a Hub s Member like any other — that is what unplugs the panel', () => {
+		const result = asMember([rev({ kind: 'member', entity_id: 'oma', fields: { removed_at: NOW } })]);
+		expect(result.accepted).toEqual(['r1']);
+		expect(memberNamed('oma')?.removed_at).toBe(NOW);
 	});
 });
 

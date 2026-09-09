@@ -38,6 +38,10 @@ export type Consistency = 'soft' | 'firm' | 'runny' | 'hard';
     backfilled as a nappy the app was never told about (ticket 26). */
 export type Where = 'nappy' | 'potty' | 'toilet';
 export type Role = 'parent' | 'caregiver';
+/** Whether a Member stands for a person or for a Hub. Stated when the Member is
+    created, stamped by the server, and never changed (ADR-0038). */
+export const MEMBER_KINDS = ['person', 'hub'] as const;
+export type MemberKind = (typeof MEMBER_KINDS)[number];
 export type Activity = 'feed' | 'sleep' | 'bottle';
 /** The Feed Interval runs from the previous Feed's start; the Wake Window
     from the last Sleep's end; the Bottle Life from the start of the bottle
@@ -158,6 +162,15 @@ export interface MemberRecord {
 	household_id: string;
 	display_name: string;
 	role: Role;
+	/** A person's Membership or a Hub's. Stated by the Parent on the Invite,
+	    stamped onto the Member at claim, and immutable after that: there is no
+	    toggle and no "hub became a person" history, and a mis-marked Member is
+	    fixed by Remove and re-invite (ADR-0038).
+
+	    It travels with the member data exactly as `role` does, because a screen
+	    that cannot see it cannot say *removing this unplugs the hall panel
+	    rather than removing Oma*. */
+	kind: MemberKind;
 	/** Removal is a state, never a deletion (spec §6.4). */
 	removed_at: number | null;
 	/** Per Member, mirrored into a cookie and a synchronous rune (spec §9.4). */
@@ -268,6 +281,11 @@ export const DEFAULT_NIGHT_START = null;
     (ADR-0031). */
 export const DEFAULT_FEED_NOTICE_S = 0;
 export const DEFAULT_SLEEP_NOTICE_S = 0;
+
+/** A Membership is a person's until somebody says otherwise: every Member who
+    existed before the mark did was claimed by a human in a browser, and a Hub
+    is the thing that has to announce itself. */
+export const DEFAULT_MEMBER_KIND: MemberKind = 'person';
 
 /** Caregiving until somebody says otherwise: a Household that has never been
     asked is logging a Baby it is looking after, and a default that silenced

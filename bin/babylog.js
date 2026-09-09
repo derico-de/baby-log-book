@@ -262,9 +262,9 @@ function relabel(db, argv) {
 
 /** @param {import('better-sqlite3').Database} db */
 function members(db) {
-	const rows = /** @type {Array<{id: string, household_id: string, display_name: string, role: string, removed_at: number | null, devices: number, last_seen: number | null}>} */ (db
+	const rows = /** @type {Array<{id: string, household_id: string, display_name: string, role: string, kind: string, removed_at: number | null, devices: number, last_seen: number | null}>} */ (db
 		.prepare(
-			`SELECT m.id, m.household_id, m.display_name, m.role, m.removed_at,
+			`SELECT m.id, m.household_id, m.display_name, m.role, m.kind, m.removed_at,
 			        (SELECT COUNT(*) FROM sessions s WHERE s.member_id = m.id AND s.revoked_at IS NULL) AS devices,
 			        (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.member_id = m.id) AS last_seen
 			 FROM members m ORDER BY m.display_name`
@@ -285,8 +285,14 @@ function members(db) {
 		console.log(`  ${called(group)}`);
 		for (const row of mine) {
 			const state = row.removed_at ? 'removed' : row.role;
+			/* A Hub says so, in the same word every screen uses: removing “Home
+			   Assistant” unplugs the hall panel, and an operator reading this list
+			   should not have to guess that from the name (ADR-0038). */
+			const mark = row.kind === 'hub' ? 'Hub · ' : '';
 			console.log(`      ${row.display_name}`);
-			console.log(`          ${state} · ${row.devices} device(s) · last seen ${utcStamp(row.last_seen)}`);
+			console.log(
+				`          ${mark}${state} · ${row.devices} device(s) · last seen ${utcStamp(row.last_seen)}`
+			);
 			console.log(`          id ${row.id}`);
 		}
 		console.log('');

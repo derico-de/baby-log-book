@@ -23,6 +23,7 @@ const mum: MemberRecord = {
 	household_id: 'h1',
 	display_name: 'Mum',
 	role: 'parent',
+	kind: 'person',
 	removed_at: null,
 	locale: 'en'
 };

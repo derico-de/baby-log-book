@@ -24,7 +24,9 @@ import {
 	DEFAULT_CAREGIVING,
 	DEFAULT_DAY_START,
 	DEFAULT_FEED_NOTICE_S,
+	DEFAULT_MEMBER_KIND,
 	DEFAULT_SLEEP_NOTICE_S,
+	type MemberKind,
 	type Role
 } from '$domain/types';
 import { seedTargets } from '$domain/targets';
@@ -57,22 +59,42 @@ function claimUrl(origin: string, token: string): string {
 	return `${origin}/claim?t=${token}`;
 }
 
+/** An Invite carries what the Member will be, and the Parent states both: the
+    name and role they will have, and whether this Membership is a person's or a
+    Hub's (ADR-0038).
+
+    **A Hub Invite locks the role to Caregiver here, at mint time**, so the link
+    itself cannot carry a Hub Parent. That role is the blast radius for a
+    credential sitting at rest on a box in a hall against a public origin
+    (ADR-0034), and the refusal in `push()` is the second line rather than the
+    first. */
 export function mintInvite(
 	db: Db,
 	secret: Buffer,
-	input: { householdId: string; displayName: string; role: Role; createdBy: string; origin: string; now: number }
+	input: {
+		householdId: string;
+		displayName: string;
+		role: Role;
+		kindFor?: MemberKind;
+		createdBy: string;
+		origin: string;
+		now: number;
+	}
 ): MintedLink {
 	const token = newToken();
 	const expires = input.now + INVITE_TTL_MS;
+	const kindFor = input.kindFor ?? DEFAULT_MEMBER_KIND;
+	const role = kindFor === 'hub' ? 'caregiver' : input.role;
 	db.prepare(
 		`INSERT INTO claim_links
-		   (token_hash, kind, household_id, display_name, role, created_by, created_at, expires_at)
-		 VALUES (?, 'invite', ?, ?, ?, ?, ?, ?)`
+		   (token_hash, kind, household_id, display_name, role, kind_for, created_by, created_at, expires_at)
+		 VALUES (?, 'invite', ?, ?, ?, ?, ?, ?, ?)`
 	).run(
 		tokenHash(token, secret),
 		input.householdId,
 		input.displayName,
-		input.role,
+		role,
+		kindFor,
 		input.createdBy,
 		input.now,
 		expires
@@ -126,6 +148,9 @@ export function mintBootstrap(
 export interface PendingInvite {
 	display_name: string;
 	role: Role;
+	/** What the Member will be marked as when somebody claims it. Null on an
+	    Invite minted before the choice existed. */
+	kind_for: MemberKind | null;
 	created_at: number;
 	expires_at: number;
 	token_hash: string;
@@ -135,7 +160,7 @@ export interface PendingInvite {
 export function listPendingInvites(db: Db, householdId: string, now: number): PendingInvite[] {
 	return db
 		.prepare(
-			`SELECT display_name, role, created_at, expires_at, token_hash FROM claim_links
+			`SELECT display_name, role, kind_for, created_at, expires_at, token_hash FROM claim_links
 			 WHERE kind = 'invite' AND household_id = ? AND claimed_at IS NULL AND burnt_at IS NULL
 			   AND expires_at > ?
 			 ORDER BY created_at DESC`
@@ -171,6 +196,7 @@ interface LinkRow {
 	household_label: string | null;
 	display_name: string | null;
 	role: string | null;
+	kind_for: string | null;
 	member_id: string | null;
 	created_by: string | null;
 	expires_at: number;
@@ -182,8 +208,8 @@ interface LinkRow {
 function findLink(db: Db, secret: Buffer, token: string): LinkRow | undefined {
 	return db
 		.prepare(
-			`SELECT token_hash, kind, household_id, household_label, display_name, role, member_id,
-			        created_by, expires_at, claimed_at, attempts, burnt_at
+			`SELECT token_hash, kind, household_id, household_label, display_name, role, kind_for,
+			        member_id, created_by, expires_at, claimed_at, attempts, burnt_at
 			 FROM claim_links WHERE token_hash = ?`
 		)
 		.get(tokenHash(token, secret)) as LinkRow | undefined;
@@ -306,6 +332,9 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 				memberId,
 				displayName: name,
 				role: 'parent',
+				/* A Founding Link is claimed in a browser by the person who will be
+				   the first Parent. Nothing founds a Household from a wall. */
+				kind: 'person',
 				/* Self-created: the first Parent has nobody to be invited by, and this
 				   is still not an app-authored revision. */
 				authorId: memberId,
@@ -323,6 +352,10 @@ export function claim(db: Db, secret: Buffer, input: ClaimInput): ClaimResult {
 				memberId,
 				displayName: row.display_name ?? '',
 				role: row.role === 'parent' ? 'parent' : 'caregiver',
+				/* Stamped from what the Parent stated when they minted the link, and
+				   never from anything the claiming client says about itself: a
+				   self-declaration is a guess, and this is a stored fact. */
+				kind: row.kind_for === 'hub' ? 'hub' : 'person',
 				/* Attributed to the Parent who typed the name and picked the role. */
 				authorId: row.created_by ?? memberId,
 				deviceId: input.deviceId,
@@ -351,6 +384,7 @@ function appendMemberRevision(
 		memberId: string;
 		displayName: string;
 		role: Role;
+		kind: MemberKind;
 		authorId: string;
 		deviceId: string;
 		now: number;
@@ -363,7 +397,15 @@ function appendMemberRevision(
 			household_id: input.householdId,
 			kind: 'member',
 			entity_id: input.memberId,
-			fields: { display_name: input.displayName, role: input.role, removed_at: null },
+			/* The mark travels with the member data exactly as `role` does: it is in
+			   the creating revision, so every replica hears it from the log rather
+			   than from a side channel, and no screen has to guess. */
+			fields: {
+				display_name: input.displayName,
+				role: input.role,
+				kind: input.kind,
+				removed_at: null
+			},
 			merge_at: input.now,
 			device_id: input.deviceId,
 			author_id: input.authorId,

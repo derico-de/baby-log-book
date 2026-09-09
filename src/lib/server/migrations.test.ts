@@ -49,6 +49,12 @@ describe('the boot-time migration runner', () => {
 			`INSERT INTO claim_links (token_hash, kind, household_id, display_name, created_at, expires_at)
 			 VALUES (?,?,?,?,?,?)`
 		).run('hash', 'invite', 'h1', 'Oma', 1, 2);
+		db.prepare('INSERT INTO members (id, household_id, display_name, role) VALUES (?,?,?,?)').run(
+			'm1',
+			'h1',
+			'Oma',
+			'caregiver'
+		);
 
 		expect(runMigrations(db)).toEqual([
 			'0002-founding-label',
@@ -56,7 +62,8 @@ describe('the boot-time migration runner', () => {
 			'0004-push-subscriptions',
 			'0005-notice-offsets',
 			'0006-night-period',
-			'0007-caregiving'
+			'0007-caregiving',
+			'0008-member-kind'
 		]);
 		/* Nothing about anybody's due times changes until a Parent states an
 		   hour: the column arrives NULL, which is *this Household keeps no Night
@@ -72,6 +79,16 @@ describe('the boot-time migration runner', () => {
 		expect(
 			db.prepare('SELECT display_name, household_label FROM claim_links WHERE token_hash = ?').get('hash')
 		).toEqual({ display_name: 'Oma', household_label: null });
+		/* An Invite minted before the choice existed says nothing about what the
+		   Member will be, and silence reads as a person's (ADR-0038). */
+		expect(db.prepare('SELECT kind_for FROM claim_links WHERE token_hash = ?').get('hash')).toEqual({
+			kind_for: null
+		});
+		/* And every Member who predates it is a person's: they were all claimed by
+		   a human in a browser. */
+		expect(db.prepare('SELECT kind FROM members WHERE id = ?').get('m1')).toEqual({
+			kind: 'person'
+		});
 		/* The operator's label starts as whatever the household is already called:
 		   before 0003 there was one name, and it was the one they typed. */
 		expect(db.prepare('SELECT name, label FROM households WHERE id = ?').get('h1')).toEqual({

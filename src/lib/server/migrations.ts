@@ -325,6 +325,32 @@ export const MIGRATIONS: Migration[] = [
 			   its reminders would be the app deciding nobody cares. */
 			ALTER TABLE households ADD COLUMN caregiving INTEGER NOT NULL DEFAULT 1;
 		`
+	},
+	{
+		name: '0008-member-kind',
+		sql: `
+			/* Whether a Member stands for a person or for a Hub (ADR-0038). A Hub
+			   claims as its own Caregiver Member so that attribution stays honest
+			   and removing it unplugs the hall panel without signing anyone's
+			   phone out — and the members list has to say which rows those are,
+			   from a stored fact rather than from a guess. A name convention and a
+			   client self-declaration were both rejected as guesses.
+
+			   Server-stamped and immutable: it is written once, by the claim, from
+			   what the Parent stated on the Invite. Push never accepts it, there is
+			   no toggle, and a mis-marked Member is fixed by Remove and re-invite.
+
+			   'person' on every existing row, because every Member who existed
+			   before the mark did was claimed by a human in a browser. */
+			ALTER TABLE members ADD COLUMN kind TEXT NOT NULL DEFAULT 'person';
+
+			/* What the Invite says the Member will be, beside the display name and
+			   the role it already carries. NULL on every existing link — an Invite
+			   minted before the choice existed says nothing, and silence reads as a
+			   person's. Choosing a Hub also locks the role to Caregiver at mint
+			   time, so the link itself cannot carry a Hub Parent. */
+			ALTER TABLE claim_links ADD COLUMN kind_for TEXT;
+		`
 	}
 ];
 

@@ -166,6 +166,32 @@ function withinUndoWindow(
 	return now - entry.logged_at <= UNDO_WINDOW_MS;
 }
 
+/** The mark is the server's to write, and nobody else's (ADR-0038). It is
+    stamped once by the claim, from what the Parent stated on the Invite; a
+    client that names it is either buggy or trying to talk its way out of the
+    role a Hub is confined to.
+
+    Refused rather than silently dropped, unlike an unknown field: this one is
+    known, and it decides a blast radius. The reason may say what it is — it is
+    decided by the shape of what the client sent and reads nothing, so there is
+    no existence to leak. */
+function refuseServerStamped(revision: PendingRevision): string | null {
+	if (revision.kind !== 'member') return null;
+	return 'kind' in revision.fields ? 'only the server may mark a Member' : null;
+}
+
+/** A Hub stays a Caregiver (ADR-0038). Subject-based, beside the last-Parent
+    rule, because the subject is the Member being changed rather than the one
+    doing the changing — and anything less quietly deletes ADR-0034's
+    blast-radius argument, which is the reason the Caregiver role was chosen in
+    the first place. */
+function refuseHubParent(db: Db, householdId: string, revision: PendingRevision): string | null {
+	if (revision.kind !== 'member' || revision.fields.role !== 'parent') return null;
+	const subject = getMember(db, householdId, revision.entity_id);
+	if (!subject || subject.kind !== 'hub') return null;
+	return 'a Hub stays a Caregiver';
+}
+
 /** One hard rule: the last Parent can be neither demoted nor removed. */
 function refuseLastParent(
 	db: Db,
@@ -246,6 +272,12 @@ export function push(db: Db, input: PushInput): PushResult {
 				continue;
 			}
 
+			const serverStamped = refuseServerStamped(incoming);
+			if (serverStamped) {
+				rejected.push({ id: incoming.id, reason: serverStamped });
+				continue;
+			}
+
 			const validation = validateFields(incoming.kind, incoming.fields);
 			if (!validation.ok) {
 				rejected.push({ id: incoming.id, reason: validation.reason });
@@ -268,9 +300,10 @@ export function push(db: Db, input: PushInput): PushResult {
 				author_id: memberId
 			};
 
-			const lastParent = refuseLastParent(db, householdId, revision);
-			if (lastParent) {
-				rejected.push({ id: revision.id, reason: lastParent });
+			const subjectRefusal =
+				refuseHubParent(db, householdId, revision) ?? refuseLastParent(db, householdId, revision);
+			if (subjectRefusal) {
+				rejected.push({ id: revision.id, reason: subjectRefusal });
 				continue;
 			}
 

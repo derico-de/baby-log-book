@@ -20,7 +20,13 @@ import type {
 	RevisionKind,
 	Target
 } from '$domain/types';
-import { ENTRY_TYPES, type EntryType } from '$domain/types';
+import {
+	DEFAULT_MEMBER_KIND,
+	ENTRY_TYPES,
+	MEMBER_KINDS,
+	type EntryType,
+	type MemberKind
+} from '$domain/types';
 import type { Db } from './db';
 
 interface RevisionRow {
@@ -168,6 +174,11 @@ export function insertRevision(db: Db, revision: InsertableRevision, receivedAt:
 
 const isEntryType = (v: unknown): v is EntryType => ENTRY_TYPES.includes(v as EntryType);
 
+/** The mark, narrowed the way every other stored union is narrowed here:
+    anything the log does not say is a person's Membership. */
+export const memberKind = (v: unknown): MemberKind =>
+	MEMBER_KINDS.includes(v as MemberKind) ? (v as MemberKind) : DEFAULT_MEMBER_KIND;
+
 /** Re-folds one entity and writes the result to its table. Called for every
     entity a push touched, inside the same transaction.
 
@@ -240,17 +251,24 @@ export function materialise(db: Db, householdId: string, kind: RevisionKind, ent
 			).run(entityId, householdId, str(state.name), str(state.birth_date), num(state.deleted_at));
 			return;
 		case 'member':
+			/* `kind` rides the fold exactly as `role` does: the creating revision
+			   the claim appends names it, no later revision may carry it, and the
+			   fold keeps it there — so a role change or a locale cannot quietly
+			   turn a Hub back into a person. A Member created before the mark
+			   existed folds to no kind at all, and reads as a person's. */
 			db.prepare(
-				`INSERT INTO members (id, household_id, display_name, role, removed_at, locale)
-				 VALUES (?, ?, ?, ?, ?, ?)
+				`INSERT INTO members (id, household_id, display_name, role, kind, removed_at, locale)
+				 VALUES (?, ?, ?, ?, ?, ?, ?)
 				 ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name,
-				   role = excluded.role, removed_at = excluded.removed_at, locale = excluded.locale
+				   role = excluded.role, kind = excluded.kind,
+				   removed_at = excluded.removed_at, locale = excluded.locale
 				 WHERE members.household_id = excluded.household_id`
 			).run(
 				entityId,
 				householdId,
 				str(state.display_name),
 				str(state.role, 'caregiver'),
+				memberKind(state.kind),
 				num(state.removed_at),
 				state.locale == null ? null : String(state.locale)
 			);
@@ -462,7 +480,7 @@ export function getHousehold(db: Db, householdId: string): Household | null {
 export function listMembers(db: Db, householdId: string): MemberRecord[] {
 	return db
 		.prepare(
-			`SELECT id, household_id, display_name, role, removed_at, locale
+			`SELECT id, household_id, display_name, role, kind, removed_at, locale
 			 FROM members WHERE household_id = ? ORDER BY display_name`
 		)
 		.all(householdId) as MemberRecord[];
@@ -472,7 +490,7 @@ export function getMember(db: Db, householdId: string, id: string): MemberRecord
 	return (
 		(db
 			.prepare(
-				`SELECT id, household_id, display_name, role, removed_at, locale
+				`SELECT id, household_id, display_name, role, kind, removed_at, locale
 				 FROM members WHERE household_id = ? AND id = ?`
 			)
 			.get(householdId, id) as MemberRecord | undefined) ?? null
@@ -486,7 +504,9 @@ export function getMember(db: Db, householdId: string, id: string): MemberRecord
 export function memberOfSession(db: Db, memberId: string): MemberRecord | null {
 	return (
 		(db
-			.prepare('SELECT id, household_id, display_name, role, removed_at, locale FROM members WHERE id = ?')
+			.prepare(
+				'SELECT id, household_id, display_name, role, kind, removed_at, locale FROM members WHERE id = ?'
+			)
 			.get(memberId) as MemberRecord | undefined) ?? null
 	);
 }
