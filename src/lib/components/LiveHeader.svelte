@@ -3,17 +3,24 @@
 
 	   It carries the due information and stays visible while the timeline scrolls
 	   under it, because it is the numbers people check constantly — a two-column
-	   grid, sleep on the left, feed on the right:
+	   grid, sleep on the left, feed on the right, four short lines deep:
 
-	     - Big figure per column: the current state's elapsed time. The sleep
-	       column swaps its label on state (`asleep` / `awake`); while a Sleep
-	       runs the Wake Window is simply not shown, because it cannot apply.
-	     - Secondary line per column: the due figure as a countdown against the
-	       clock face it lands on (`due -55m at 21:18`) — subordinate in size but
-	       readable at arm's length, with the instant itself the bold half,
-	       because that is the part people read off to plan the next hour.
-	     - Empty state per column: nothing logged means no elapsed figure and no
-	       due figure. Never compute a due instant from nothing.
+	     - Title per column: what the column reports.
+	     - State line per column: the state word and its elapsed figure on one
+	       line (`asleep: 5m`, `since last feed: 22m`). The word is the quiet
+	       half, the figure the one being read — the step between them is weight
+	       and ink, not size, because two hero figures cost two full lines of a
+	       header the timeline has to scroll under. The sleep column swaps its
+	       word on state (`asleep` / `awake`); while a Sleep runs the Wake Window
+	       is simply not shown, because it cannot apply.
+	     - Due line per column: the due figure as a countdown against the clock
+	       face it lands on (`due -55m at 21:18`), set at the same size as the
+	       state line above it, with the instant itself the bold half, because
+	       that is the part people read off to plan the next hour. A running
+	       Sleep states the instant it started instead (`since 22:05`).
+	     - Empty state per column: nothing logged means the word alone — no
+	       elapsed figure and no due figure. Never compute a due instant from
+	       nothing.
 	     - Overdue shifts colour once and never again, and flips the sign
 	       (`due +20m at 19:40`). No second colour, no red at 2h, no badge —
 	       escalation is nagging with extra steps. */
@@ -77,6 +84,17 @@
 	});
 </script>
 
+<!-- `asleep: 5m` — the state word and the figure it belongs to on one line.
+     The word keeps the quiet ink, the figure takes the full ink and tabular
+     digits so it does not jitter as it ticks. A column with nothing logged
+     prints the word alone: there is no figure to hang a colon on. -->
+{#snippet stat(label: string, value: string | null)}
+	<div class="live-stat">
+		<span class="live-label">{label}{value == null ? '' : ':'}</span>
+		{#if value != null}<span class="live-num">{value}</span>{/if}
+	</div>
+{/snippet}
+
 <!-- `due -1h19 at 21:18`: what the line is about, how long is left, then the
      clock face it lands on. The instant is bold because it is the half people
      plan against; the word and the countdown stay plain so the two never
@@ -126,20 +144,17 @@
 				<div class="live-title">{m.header_sleep_title()}</div>
 				{#if header.sleep.running}
 					<!-- While a Sleep runs there is no Wake Window to show. -->
-					<div class="live-label">{m.header_asleep_label()}</div>
-					<span class="live-num">{duration(header.sleep.asleepMs ?? 0)}</span>
+					{@render stat(m.header_asleep_label(), duration(header.sleep.asleepMs ?? 0))}
 					<div class="live-sub">
 						{m.header_since_time({ time: clockTime(header.sleep.running.occurred_at, zone) })}
 					</div>
 				{:else if header.sleep.awakeMs != null}
-					<div class="live-label">{m.header_awake_label()}</div>
-					<span class="live-num">{duration(header.sleep.awakeMs)}</span>
+					{@render stat(m.header_awake_label(), duration(header.sleep.awakeMs))}
 					{#if header.sleep.dueAt != null}
 						{@render dueLine(header.sleep)}
 					{/if}
 				{:else}
-					<div class="live-label">{m.header_no_sleep_yet()}</div>
-					<span class="live-num">—</span>
+					{@render stat(m.header_no_sleep_yet(), null)}
 				{/if}
 			</div>
 
@@ -147,16 +162,16 @@
 				<div class="live-title">{m.header_feed_title()}</div>
 				{#if header.feed.elapsedMs == null}
 					<!-- Never compute a due instant from nothing. -->
-					<div class="live-label">{m.header_no_feed_yet()}</div>
-					<span class="live-num">—</span>
+					{@render stat(m.header_no_feed_yet(), null)}
 				{:else if header.feed.absolute}
-					<!-- Past a day the date moves into the label, so the big figure
-					     stays a clock time and never outgrows its column. -->
-					<div class="live-label">{m.header_last_feed_at({ when: dateShort(header.feed.lastAt ?? 0, zone) })}</div>
-					<span class="live-num">{clockTime(header.feed.lastAt ?? 0, zone)}</span>
+					<!-- Past a day the date moves into the word, so the figure stays a
+					     clock time and never outgrows its column. -->
+					{@render stat(
+						m.header_last_feed_at({ when: dateShort(header.feed.lastAt ?? 0, zone) }),
+						clockTime(header.feed.lastAt ?? 0, zone)
+					)}
 				{:else}
-					<div class="live-label">{m.header_since_last_feed()}</div>
-					<span class="live-num">{duration(header.feed.elapsedMs)}</span>
+					{@render stat(m.header_since_last_feed(), duration(header.feed.elapsedMs))}
 				{/if}
 				{#if header.feed.dueAt != null}
 					{@render dueLine(header.feed)}

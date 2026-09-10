@@ -9,6 +9,17 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The sticky header reads as four short lines per column instead of a hero
+  block. The state word and its figure now share one line — `asleep: 5m`,
+  `since last feed: 22m` — with the step between them made of weight and ink
+  rather than size, and the due line below sits at the same size. Two hero
+  figures cost the header two full lines each, and the header is the thing the
+  timeline scrolls under; at 360px this also stops `since last feed: 22m` and
+  `due -3h05 at 22:48` from wrapping, which is what made the old header grow a
+  line whenever a feed was due. Titles and the nappy line are untouched.
+
 ## [1.26.1] - 2026-09-10
 
 ### Fixed

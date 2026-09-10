@@ -47,11 +47,10 @@
 		--fw-medium: 500;
 		--fw-bold: 650;
 
-		/* The hero figures — "2h 10m" — are the loudest thing on the screen, and
-       they are loud through size at a LIGHT weight. Two of them stand side by
-       side (sleep | feed) under their column titles, so 70% of --fs-7 —
-       still the biggest thing in the header; bold would shout. */
-		--hero-size: calc(var(--fs-7) * 0.7);
+		/* A hero figure — "2h 10m" on a stat card — is loud through size at a
+       LIGHT weight; bold at that size would shout. The header used to set two
+       of them side by side (sleep | feed) and no longer does: its figures ride
+       inline with their state word instead, so only the weight is a token. */
 		--hero-weight: 300;
 
 		--r-1: 10px;

@@ -242,27 +242,38 @@
 		color: var(--ink);
 		margin-bottom: var(--sp-1);
 	}
+	/* `asleep: 5m` — the state word and its figure on one line. The step
+	   between them is weight and ink, not size: a hero figure per column cost
+	   the header a whole extra line each, and the header is the thing the
+	   timeline scrolls under. Wrapping is allowed, because a German word plus
+	   a figure does not fit half of a 360px screen. */
+	.live-stat {
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: var(--sp-1);
+		font-size: var(--fs-2);
+		line-height: 1.3;
+	}
 	.live-label {
-		font-size: var(--fs-1);
 		color: var(--ink-2);
-		margin-bottom: 2px;
 	}
 	.live-num {
 		font-family: var(--font-num);
 		font-variant-numeric: tabular-nums lining-nums;
 		font-feature-settings: var(--num-feature);
-		font-size: var(--hero-size);
-		font-weight: var(--hero-weight);
-		line-height: 1;
-		letter-spacing: -0.02em;
+		font-weight: var(--fw-bold);
+		letter-spacing: -0.01em;
 		color: var(--ink);
-		display: block;
 	}
-	/* Subordinate to the hero figures, but readable at arm's length — this is
-	   the due line, not a footnote. */
+	/* The due line sits at the state line's size — the two rows are one block
+	   of small print now, told apart by ink and weight, not by scale. Both are
+	   set at --fs-2 because that is what keeps `since last feed: 22m` and
+	   `due -3h06 at 22:48` each on one line in a 156px column, which is what
+	   half of a 360px phone gives them. */
 	.live-sub {
-		margin-top: var(--sp-1);
-		font-size: var(--fs-3);
+		margin-top: 2px;
+		font-size: var(--fs-2);
 		color: var(--ink-2);
 		font-variant-numeric: tabular-nums;
 	}
