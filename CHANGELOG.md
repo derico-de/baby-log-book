@@ -68,6 +68,13 @@ release moves that section under its version number.
 
 ### Fixed
 
+- **`LICENSE` carries the licence.** It held a maintainer's note where the
+  verbatim GNU AGPL-3.0 text belongs, written on a machine with no copy of it
+  and no way to fetch one. AGPL §14 asks that a copy of the License be conveyed
+  with the program, and the Home Assistant integration's first release is the
+  moment that stops being hypothetical — so both repos now carry the FSF text,
+  byte-identical, below the header each already had.
+
 - **Removing somebody now clears their phone, as it always said it would.**
   Removal does two things — it marks the Member and it kills every token they
   hold — and the session lookup asked about the token first, so the *removed*

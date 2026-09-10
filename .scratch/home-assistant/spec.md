@@ -751,13 +751,13 @@ Two contracts in this spec are **named but not yet implemented**, and both are h
 
 ## 10. Pre-1.0.0 checklist
 
-Carried debts, each with an owner and none of them blocking the build:
+Carried debts, each with an owner and none of them blocking the build. Item 4 was the one a release could not carry, and it is discharged; 1, 2 and 3 a `1.0.0` can.
 
 1. **Open the `home-assistant/brands` PR**, then delete `ignore: brands` from `hacs/action` ([§6.10](#610-ci)).
 2. **A native speaker's pass over the Romanian entity names** — the `⚠` cells in [§6.8](#68-translations). Ships coined; corrected by a one-file PR.
 3. **The GitHub repo public**, with a description and topics — HACS requires all three.
-4. **The verbatim AGPL-3.0 text** in `LICENSE`, in **both** repos. Both currently carry a maintainer's note where the licence text belongs; AGPL §14 wants the real thing before either is distributed. Inherited from the server repo, not introduced here.
-5. **Push the integration repo.** It exists at [`../../../baby-log-book-homeassistant`](../../../baby-log-book-homeassistant) with `origin` set and one commit (`0cb3011`), unpushed — the sandbox has no route to GitHub, so the maintainer pushes from outside.
+4. ~~**The verbatim AGPL-3.0 text** in `LICENSE`, in **both** repos.~~ **Done**, in both, ahead of the `v1.0.0` tag — which is the moment §14's *before either is distributed* stopped being hypothetical, because `release.yml` publishes and HACS serves what it publishes. The text was fetched from a vendored copy rather than `gnu.org`, which the sandbox cannot reach: two independent projects' `LICENSE` files, byte-identical to each other and word-for-word identical to SPDX's after whitespace normalisation.
+5. **Push the integration repo**, and with it the `v1.0.0` tag. It exists at [`../../../baby-log-book-homeassistant`](../../../baby-log-book-homeassistant) with `origin` set, unpushed — the sandbox has no route to GitHub, so the maintainer pushes from outside. Nothing is distributed, and no item above is spent, until that push happens: `git push origin main v1.0.0`.
 
 ---
 
