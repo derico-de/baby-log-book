@@ -729,10 +729,15 @@
 		background: var(--surface);
 		border-top: 1px solid var(--line);
 		border-radius: var(--r-2) var(--r-2) 0 0;
-		padding: var(--sp-4) 0 calc(var(--sp-5) + env(safe-area-inset-bottom, 0px));
+		padding: var(--sp-3) 0 calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
 		box-shadow: var(--shadow);
 		animation: slideup var(--dur-3) var(--ease);
-		max-height: 88%;
+		/* The cap only ever bites on a small screen, and what it costs there is
+		   the Save button: on a 640pt phone 88% denied the fullest sheet — a
+		   bottle feed, ending a running one — its last two pixels and put the
+		   whole thing into scroll. 90% still leaves a thumb's worth of scrim to
+		   dismiss by. */
+		max-height: 90%;
 		overflow-y: auto;
 	}
 	@keyframes slideup {
@@ -752,11 +757,11 @@
 		display: flex;
 		align-items: center;
 		gap: var(--sp-3);
-		margin: 0 var(--sp-4) var(--sp-3);
+		margin: 0 var(--sp-4) var(--sp-2);
 	}
 	.sheet-head .glyph {
-		width: 32px;
-		height: 32px;
+		width: 28px;
+		height: 28px;
 	}
 	.sheet-head .glyph svg {
 		width: 16px;
@@ -784,7 +789,7 @@
 	.sheet .note-line {
 		font-size: var(--fs-1);
 		color: var(--ink-2);
-		margin: 0 var(--sp-4) var(--sp-3);
+		margin: 0 var(--sp-4) var(--sp-2);
 	}
 
 	/* Pico ships no `[role=tab]` rules at all — this is the segmented
@@ -802,9 +807,9 @@
 		width: auto;
 		background: var(--surface-2);
 		border-radius: var(--r-1);
-		padding: 3px;
-		margin: 0 var(--sp-4) var(--sp-4);
-		gap: 3px;
+		padding: 2px;
+		margin: 0 var(--sp-4) var(--sp-3);
+		gap: 2px;
 	}
 	.seg button {
 		flex: 1;
@@ -814,7 +819,14 @@
 		   -1px pull between neighbours that collapses shared borders these
 		   buttons do not have. */
 		padding-inline: var(--sp-2);
-		margin-left: 0;
+		/* Pico hangs 1rem under every button. Between paragraphs that is
+		   rhythm; inside a track that draws its own frame around the row it is
+		   16px of dead air the sheet then has to scroll to reach the Save
+		   button past. The track's own padding is the spacing here. */
+		margin: 0;
+		/* The row's height is the tap target, stated once. Pico's 0.75rem block
+		   padding would otherwise set it and leave `min-height` a dead letter. */
+		padding-block: 0;
 		/* A flex item does not shrink below its own text, so a row whose labels
 		   do not fit would push out of the sheet rather than divide it. */
 		min-width: 0;
@@ -823,7 +835,7 @@
 		   than truncating: a choice has to stay readable to be pickable. */
 		hyphens: auto;
 		overflow-wrap: break-word;
-		min-height: 42px;
+		min-height: 40px;
 		border: 0;
 		border-radius: calc(var(--r-1) - 2px);
 		background: none;
@@ -845,10 +857,14 @@
 		display: grid;
 		grid-template-columns: repeat(4, 1fr);
 		gap: var(--sp-2);
-		margin: 0 var(--sp-4) var(--sp-4);
+		margin: 0 var(--sp-4) var(--sp-3);
 	}
 	.amounts button {
-		min-height: 52px;
+		/* Same dead 1rem as the segmented control, doubled: two grid rows hang
+		   it under each. The grid's `gap` is the spacing here. */
+		margin: 0;
+		padding-block: 0;
+		min-height: 48px;
 		border-radius: var(--r-1);
 		border: 1px solid var(--line-strong);
 		background: var(--surface);
@@ -870,10 +886,13 @@
 	.sheet-acts {
 		display: flex;
 		gap: var(--sp-2);
-		padding: var(--sp-4) var(--sp-4) 0;
+		padding: var(--sp-3) var(--sp-4) 0;
 	}
 	.sheet-acts button {
 		flex: 1;
+		/* And once more at the foot, where the dead 1rem sat between Save and
+		   the sheet's own bottom padding. */
+		margin: 0;
 		min-height: 52px;
 		border-radius: var(--r-1);
 		border: 1px solid var(--line-strong);

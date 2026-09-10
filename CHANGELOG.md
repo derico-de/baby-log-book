@@ -9,6 +9,18 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- A bottle feed reaches its Save button without scrolling. Pico hangs a 1rem
+  margin under every button, and inside the sheet's segmented controls and its
+  preset grid — which draw their own frames and set their own gaps — that was
+  64px of dead air, enough on a phone-sized screen to push Cancel and Save below
+  the fold on the fullest sheet there is: a bottle, logged while a feed is
+  already running, where an extra line says the running one is about to end. The
+  dead margin is gone, the mode and contents switches are a size smaller, and
+  the sheet may claim 90% of a small screen rather than 88% — the cap only ever
+  bit there, and what it cost was the Save button.
+
 ## [1.26.0] - 2026-09-10
 
 ### Added
