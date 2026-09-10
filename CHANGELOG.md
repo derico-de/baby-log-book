@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-09-10
+
 ### Changed
 
 - The sticky header reads as four short lines per column instead of a hero
