@@ -103,8 +103,9 @@ describe('the sticky header', () => {
 	it('prints the elapsed figure and when the next feed is due', () => {
 		app.entries = [entry({ type: 'bottle_feed', occurred_at: NOW - 2 * 3600_000 - 10 * 60_000 })];
 		const text = draw(LiveHeader, { onFilter: () => {} });
-		expect(text).toContain('Sleeping');
-		expect(text).toContain('Feeding');
+		/* The columns are named for what they report, not for the state they are
+		   in — the state word lives on the line below. */
+		expect([...host.querySelectorAll('.live-title')].map((e) => e.textContent)).toEqual(['Sleep', 'Feed']);
 		expect(text).toContain('since last feed');
 		expect(text).toContain('2h10');
 		/* The due line is a countdown against the clock face it lands on. */

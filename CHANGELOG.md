@@ -18,7 +18,11 @@ release moves that section under its version number.
   figures cost the header two full lines each, and the header is the thing the
   timeline scrolls under; at 360px this also stops `since last feed: 22m` and
   `due -3h05 at 22:48` from wrapping, which is what made the old header grow a
-  line whenever a feed was due. Titles and the nappy line are untouched.
+  line whenever a feed was due. The nappy line is untouched.
+- The header's column titles are the plain nouns the rest of the app uses —
+  **Sleep** and **Feed**, the same words the log button offers, rather than
+  *Sleeping* and *Feeding*. The column is named for what it reports; the state
+  it is in is the word on the line below it.
 
 ## [1.26.1] - 2026-09-10
 
