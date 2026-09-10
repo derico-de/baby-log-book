@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.26.1] - 2026-09-10
+
 ### Fixed
 
 - A bottle feed reaches its Save button without scrolling. Pico hangs a 1rem
