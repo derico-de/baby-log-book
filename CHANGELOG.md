@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-09-10
+
 ### Added
 
 - A sign-in link, minted from Settings (ADR-0037). Anybody may mint one for
