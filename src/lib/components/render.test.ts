@@ -308,6 +308,21 @@ describe('a timeline row', () => {
 		expect(text).not.toContain('Stop');
 	});
 
+	it('counts a running Sleep up under its start time', () => {
+		const row = entry({ type: 'sleep', occurred_at: NOW - 65 * 60_000 });
+		app.entries = [row];
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		expect(text).toContain('14:55');
+		expect(host.querySelector('.row-dur')?.textContent).toBe('1h05');
+	});
+
+	it('leaves a running Feed without an elapsed figure — nothing depends on when it ended', () => {
+		const row = entry({ type: 'breast_feed', occurred_at: NOW - 65 * 60_000, payload: { side: 'left' } });
+		app.entries = [row];
+		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		expect(host.querySelector('.row-dur')).toBeNull();
+	});
+
 	it('states both ends of a finished Sleep, with the duration underneath', () => {
 		const row = entry({
 			type: 'sleep',

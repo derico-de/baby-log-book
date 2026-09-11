@@ -70,8 +70,16 @@
 		return parts.join(' · ');
 	});
 
+	/* A running Sleep states how long it has been running, on the tick, in the
+	   same place a finished one states its length. It is the figure the header
+	   carries too, but the header speaks for the Baby and the row speaks for
+	   this Sleep — with two Babies or a Sleep further down the timeline the
+	   header cannot answer it. Only Sleep: a running Feed still draws nothing,
+	   because nothing downstream depends on when a Feed ended (spec §3.3). */
 	const durationText = $derived.by(() => {
-		if (entry.ended_at == null) return null;
+		if (entry.ended_at == null) {
+			return live && entry.type === 'sleep' ? duration(Math.max(0, app.now - entry.occurred_at)) : null;
+		}
 		if (isSession(entry.type)) return duration(entry.ended_at - entry.occurred_at);
 		return null;
 	});
@@ -121,7 +129,10 @@
 			{/if}
 		</span>
 		{#if live}
-			<span class="row-time">{clockTime(entry.occurred_at, zone)}</span>
+			<span class="row-time">
+				{clockTime(entry.occurred_at, zone)}
+				{#if durationText}<span class="row-dur">{durationText}</span>{/if}
+			</span>
 		{:else}
 			<span class="row-time">
 				<!-- A Milestone gets an em dash where the clock time would be, which is

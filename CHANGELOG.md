@@ -9,6 +9,13 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- A running Sleep prints its elapsed time under its start time on the timeline,
+  where a finished one prints its length. The header carries the same figure but
+  speaks for one Baby at a time; the row answers for that Sleep. A running Feed
+  is unchanged — it still draws no elapsed figure.
+
 ## [1.28.0] - 2026-09-11
 
 ### Added
