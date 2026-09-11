@@ -92,6 +92,29 @@ export interface HubHousehold {
 	    Day Start is a Household setting — and it becomes every total's declared
 	    `last_reset`, so no sensor ever re-derives "today" from local midnight. */
 	day_reset_at: number;
+	/** The Day Start itself, `HH:MM`. `day_reset_at` answers *when did today
+	    begin*; this answers *what hour did the Household state*, and an
+	    automation's night window needs the hour — the Night Period **ends** at
+	    the Day Start (ADR-0032), and tomorrow's boundary cannot be read off
+	    today's instant. */
+	day_start: string;
+	/** The hour the Night Period begins, `HH:MM`, or `null` where this
+	    Household keeps none — the *effective* one, so a `night_start` equal to
+	    the Day Start arrives as `null` exactly as `nightPeriodOf` reads it. A
+	    Hub already sees the Night in `feed_due`, which the night moves; this is
+	    the boundary itself, for the automations that want to be quieter inside
+	    it. */
+	night_start: string | null;
+	/** Seconds *before* the Feed Interval is up that the app sends its own Feed
+	    Notice, and seconds *after* the Wake Window is up for the Sleep Notice;
+	    `null` where the Household sends neither (ADR-0031).
+
+	    No notice crosses this wire and none ever will — a deployment never
+	    wakes a Hub. These are the *numbers*, not the reminders: a Household
+	    that has said how much warning is useful has said it once, and a wall's
+	    automation should not make it say it again. */
+	feed_notice_s: number | null;
+	sleep_notice_s: number | null;
 	/** ADR-0041's switch, passed straight through. A read, never a gate: no
 	    total is suppressed while it is off, because that would make every
 	    derived figure lie. The app states; the Household's automation decides. */
@@ -187,6 +210,16 @@ export function hubState(input: HubStateInput): HubState {
 			id: household.id,
 			name: household.name,
 			day_reset_at: dayStartInstant(dayBucketOf(now, dayStart, zone), dayStart, zone),
+			day_start: dayStart,
+			/* The Night in force, not the column: `nightPeriodOf` is what the
+			   folds above are run with, and a Hub must not read a boundary the
+			   app itself is ignoring. */
+			night_start: night?.start ?? null,
+			/* Settings, so the cursor already carries them: every one of these
+			   changes by way of a household revision, and `hubEtag` folds the
+			   cursor. No new ETag component. */
+			feed_notice_s: household.feed_notice_s,
+			sleep_notice_s: household.sleep_notice_s,
 			caregiving: household.caregiving
 		},
 		babies

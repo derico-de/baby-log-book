@@ -122,6 +122,36 @@ describe('the payload', () => {
 		expect(payload.babies[0].feeds_today).toBe(0);
 	});
 
+	it('states the Household hours and the two Notice seconds', () => {
+		pushed([
+			rev({
+				kind: 'household',
+				entity_id: 'h1',
+				fields: { night_start: '21:00', feed_notice_s: 600, sleep_notice_s: 300 }
+			})
+		]);
+		const household = state().household;
+		expect(household.day_start).toBe('05:00');
+		expect(household.night_start).toBe('21:00');
+		expect(household.feed_notice_s).toBe(600);
+		expect(household.sleep_notice_s).toBe(300);
+	});
+
+	it('ships the Night in force, so a boundary the app ignores arrives as null', () => {
+		/* `nightPeriodOf` reads a Night Start equal to the Day Start as no Night
+		   Period at all, and a Hub must not see a boundary the folds above it
+		   are not using. */
+		pushed([rev({ kind: 'household', entity_id: 'h1', fields: { night_start: '05:00' } })]);
+		expect(state().household.night_start).toBeNull();
+	});
+
+	it('keeps no Night Period and no Notices until the Household states them', () => {
+		const household = state().household;
+		expect(household.night_start).toBeNull();
+		expect(household.feed_notice_s).toBe(0);
+		expect(household.sleep_notice_s).toBe(0);
+	});
+
 	it('ships no rows — no Entries, no closed ids, no Revision history', () => {
 		pushed([entry('e1', 'breast_feed', NOW - hour(1), { ended_at: NOW - min(50), side: 'both' })]);
 		const json = JSON.stringify(state());

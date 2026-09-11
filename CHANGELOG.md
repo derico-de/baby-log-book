@@ -9,6 +9,23 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- The Hub state payload states the Household's hours and its two Notice
+  offsets: `day_start`, `night_start`, `feed_notice_s` and `sleep_notice_s`
+  join `day_reset_at` and `caregiving` on `household`. A Home Assistant
+  automation that wants to be quieter at night had no way to know when this
+  Household's night is — `day_reset_at` is an instant, and the Night Period's
+  end is an hour that has to hold for tomorrow too — and a family that had
+  already said how much warning is useful was being asked to say it a second
+  time in Home Assistant. `night_start` is the Night **in force**, so a Night
+  Start equal to the Day Start arrives as `null` exactly as `nightPeriodOf`
+  reads it, and a Hub never sees a boundary the folds above it are ignoring.
+
+  Still no reminder crosses this wire, and none ever will: these are the
+  numbers, not the notices (ADR-0036). All four are settings, so the cursor
+  already carries them and the ETag is unchanged.
+
 ## [1.27.0] - 2026-09-10
 
 ### Changed

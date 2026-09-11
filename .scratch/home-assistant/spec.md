@@ -203,6 +203,10 @@ Epoch-milliseconds instants everywhere, one representation across the whole API.
     "id": "…",
     "name": "…",
     "day_reset_at": 1724821200000,    // today's Day Start instant, Household Zone
+    "day_start": "05:00",             // the stated hour; the Night Period ends here
+    "night_start": "21:00",           // the Night in force, or null — ADR-0032
+    "feed_notice_s": 600,             // the app's own lead times, stated once — ADR-0031
+    "sleep_notice_s": 300,
     "caregiving": true                // ADR-0041 — see below
   },
   "babies": [
@@ -246,6 +250,9 @@ Field rules:
 - **Inapplicable is `null`**, and the entity shows `unknown`. A cleared Target must never break a family's dashboard or automations.
 - **`milk_today` and `tummy_today` are omitted, not null, until first use** — and the gate is **ever-logged**, a cheap predicate over the live entries the fold already fetched. It is *not* `statsFor`'s window-scoped `has*`: once a Household has tracked tummy time, *0 minutes today* is a true statement forever, and the payload must never drop a field it once carried. **The rule only adds**, on the wire as well as in the integration.
 - **`day_reset_at` is Household-level.** Day Start is a Household setting, not a per-Baby one. It becomes every total's `last_reset`.
+- **`day_start` is the hour, `day_reset_at` the instant**, and both are needed: `day_reset_at` answers *when did today begin* and becomes every total's `last_reset`; `day_start` answers *what hour did the Household state*, which is the boundary an automation's night window is written against — the Night Period **ends** at the Day Start (ADR-0032), and tomorrow's boundary cannot be read off today's instant.
+- **`night_start` is the Night in force**, `nightPeriodOf`'s answer rather than the stored column: a Night Start equal to the Day Start is no Night Period, and arrives as `null`. A Hub must never see a boundary the folds above it are ignoring.
+- **`feed_notice_s` and `sleep_notice_s` are numbers, not notices.** No reminder crosses this wire and none ever will — a deployment never wakes a Hub ([ADR-0036](../../docs/adr/0036-the-deployment-never-wakes-a-hub.md)). They are shipped because a Household that has stated how much warning is useful has stated it once, and a wall's automation should not make it state it again; seconds *before* the Feed Interval is up, seconds *after* the Wake Window is up, `null` where neither is sent (ADR-0031).
 - **`caregiving` is Household-level**, the synced `household.caregiving` field (`types.ts:216`) passed straight through. See the correction note below.
 - **`feeds_today` counts rounds, not rows** — `FEED_ROUND_GAP_MS`, fifteen minutes (`stats.ts:29`), so a breast feed and the formula topped up right after are one answer to *has she eaten*. This matches the app's own stats card.
 - **`sleep_today` and `tummy_today` are whole minutes**, floored server-side from the fold's milliseconds. The honest unit for a wall.
