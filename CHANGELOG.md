@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-09-11
+
 ### Added
 
 - A running Sleep prints its elapsed time under its start time on the timeline,
