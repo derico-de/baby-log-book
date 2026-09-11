@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-09-11
+
 ### Added
 
 - The Hub state payload states the Household's hours and its two Notice
