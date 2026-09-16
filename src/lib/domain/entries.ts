@@ -296,6 +296,28 @@ export function subtractLeftover(intake: number | null, leftover: number): numbe
 	return Math.max(0, intake - leftover);
 }
 
+/** The Intake once what came back has been taken off it — the figure a stop
+    writes and the figure it states out loud. Nothing to subtract from, nothing
+    said, or nothing left: the Intake stands as it is. */
+export function intakeAfterLeftover(
+	payload: BottleFeedPayload,
+	leftoverMl: number | null
+): number | null {
+	const intake = intakeMl(payload);
+	if (intake == null || leftoverMl == null || leftoverMl <= 0) return intake;
+	return subtractLeftover(intake, leftoverMl);
+}
+
+/** Whether stopping this session has the leftover question attached: a running
+    bottle whose Intake there is something to subtract from. Breast and sleep
+    have nothing coming back, and a bottle nobody stated an amount for has
+    nothing to take it off — the app asks a question only when the answer can
+    land somewhere (ADR-0018). */
+export function asksLeftover(entry: Entry): boolean {
+	if (entry.type !== 'bottle_feed' || entry.ended_at != null) return false;
+	return intakeMl(entry.payload as BottleFeedPayload) != null;
+}
+
 /** Formula presets speak water and write milk (ADR-0018): the water measure a
     parent actually prepares, beside the final volume the powder brings it to —
     and the final volume is what tapping one writes into the Intake field. The

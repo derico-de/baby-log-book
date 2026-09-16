@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	asksLeftover,
 	coercePayload,
+	intakeAfterLeftover,
 	emptyPayload,
 	feedContentKey,
 	intakeMl,
@@ -208,6 +210,63 @@ describe('the leftover affordance (ADR-0018)', () => {
 
 	it('has nothing to subtract from when the Intake field is empty', () => {
 		expect(subtractLeftover(null, 30)).toBeNull();
+	});
+
+	describe('intakeAfterLeftover — the figure a stop writes', () => {
+		const bottle = (volume_ml: number | null, leftover_ml: number | null = null) => ({
+			volume_ml,
+			leftover_ml,
+			contents: null
+		});
+
+		it('takes what came back off the Intake', () => {
+			expect(intakeAfterLeftover(bottle(170), 40)).toBe(130);
+		});
+
+		it('leaves the Intake standing for a finished bottle and for nobody said', () => {
+			expect(intakeAfterLeftover(bottle(170), 0)).toBe(170);
+			expect(intakeAfterLeftover(bottle(170), null)).toBe(170);
+		});
+
+		it('reads a legacy row through the lens before subtracting', () => {
+			expect(intakeAfterLeftover(bottle(180, 30), 20)).toBe(130);
+		});
+
+		it('says nothing when nobody said how much went in', () => {
+			expect(intakeAfterLeftover(bottle(null), 40)).toBeNull();
+		});
+	});
+});
+
+describe('asksLeftover — which Stop has the question attached (ADR-0018)', () => {
+	const session = (type: Entry['type'], payload: unknown, ended_at: number | null = null): Entry =>
+		({ id: 'e1', type, ended_at, payload }) as Entry;
+	const bottle = (volume_ml: number | null, leftover_ml: number | null = null) => ({
+		volume_ml,
+		leftover_ml,
+		contents: 'formula'
+	});
+
+	it('asks on a running bottle with an Intake to take it off', () => {
+		expect(asksLeftover(session('bottle_feed', bottle(170)))).toBe(true);
+	});
+
+	it('asks on a legacy row too — its derived Intake is a figure all the same', () => {
+		expect(asksLeftover(session('bottle_feed', bottle(180, 30)))).toBe(true);
+	});
+
+	it('stays quiet when nobody said how much went in — there is nothing to subtract from', () => {
+		expect(asksLeftover(session('bottle_feed', bottle(null)))).toBe(false);
+	});
+
+	it('stays quiet on a bottle that has already ended', () => {
+		expect(asksLeftover(session('bottle_feed', bottle(170), 1_700_000_000_000))).toBe(false);
+	});
+
+	it('stays quiet on everything a bottle is not', () => {
+		expect(asksLeftover(session('breast_feed', { side: 'both' }))).toBe(false);
+		expect(asksLeftover(session('sleep', {}))).toBe(false);
+		expect(asksLeftover(session('tummy_time', {}))).toBe(false);
 	});
 });
 

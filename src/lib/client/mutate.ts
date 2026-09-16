@@ -19,6 +19,7 @@ import type {
 	Activity,
 	Anchor,
 	BottleContents,
+	BottleFeedPayload,
 	Consistency,
 	EntryType,
 	MealFood,
@@ -29,6 +30,7 @@ import type {
 	Side,
 	Where
 } from '$domain/types';
+import { intakeAfterLeftover, intakeMl } from '$domain/entries';
 import { milestoneInstant } from '$domain/milestones';
 import { noticeOffset } from '$domain/notices';
 
@@ -225,6 +227,32 @@ export async function logMilestone(
     function that stops one at a guess. */
 export function stopSession(w: Writer, entryId: string, endedAt: number): Promise<string> {
 	return write(w, 'entry', entryId, { ended_at: endedAt });
+}
+
+/** Stops a bottle Feed with what came back in it. The leftover is a number a
+    Member entered and is never stored: it is subtracted from the Intake here,
+    exactly as the two sheets do it (ADR-0018). One revision, because the end
+    and the corrected Intake are one statement — "she's done, this much came
+    back" — and the history should read as one.
+
+    Nothing left, or nothing said, writes the end alone: an untouched Intake is
+    already the statement that she drank the lot. */
+export function endBottleFeed(
+	w: Writer,
+	feed: { id: string; payload: BottleFeedPayload },
+	endedAt: number,
+	leftoverMl: number | null
+): Promise<string> {
+	const fields: Record<string, unknown> = { ended_at: endedAt };
+	const taken = intakeAfterLeftover(feed.payload, leftoverMl);
+	if (taken !== intakeMl(feed.payload)) {
+		fields.volume_ml = taken;
+		/* Converting a legacy row: the new Intake is the whole statement, so the
+		   stored leftover is explicitly nulled — the same field write the edit
+		   sheet makes (ADR-0018). */
+		if (feed.payload.leftover_ml != null) fields.leftover_ml = null;
+	}
+	return write(w, 'entry', feed.id, fields);
 }
 
 /** *She's awake* — ends the Sleep, and the fan reflows in place to the awake set

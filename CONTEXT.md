@@ -111,7 +111,7 @@ What a Baby drank from a bottle — the one stored amount on a Bottle Feed, and 
 _Avoid_: Volume offered, amount taken
 
 **Leftover**:
-What is still in the bottle when a Feed is over. Not a stored fact: entering one subtracts it from the Intake in place and vanishes (ADR-0018, superseding ADR-0015). Entries from before the change carry a stored leftover and read as intake = volume − leftover.
+What is still in the bottle when a Feed is over. Not a stored fact: entering one subtracts it from the Intake in place and vanishes (ADR-0018, superseding ADR-0015). Asked for at the two moments it is knowable — stopping the running bottle, and correcting the row afterwards. Entries from before the change carry a stored leftover and read as intake = volume − leftover.
 _Avoid_: Waste, remainder, unfinished
 
 **Pee & Poop**:

@@ -2,16 +2,26 @@
 	/* The timeline — the primary screen, not a dashboard of tiles with the log
 	   demoted below the fold (spec §8.4). */
 	import { app } from '$client/state.svelte';
-	import { addBaby, deleteEntry, endSleep, startSleep, startTummyTime, stopSession } from '$client/mutate';
+	import {
+		addBaby,
+		deleteEntry,
+		endBottleFeed,
+		endSleep,
+		startSleep,
+		startTummyTime,
+		stopSession
+	} from '$client/mutate';
+	import { asksLeftover, intakeAfterLeftover, intakeMl } from '$domain/entries';
 	import { dayBucketOf, dayStartInstant, wallTimeAtOrAfter, wallTimeAtOrBefore } from '$domain/time';
-	import { dayLabel } from '$lib/i18n/format';
-	import type { Entry } from '$domain/types';
+	import { dayLabel, millilitres } from '$lib/i18n/format';
+	import type { BottleFeedPayload, Entry } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 	import EntrySheet from '$lib/components/EntrySheet.svelte';
 	import Fan from '$lib/components/Fan.svelte';
 	import FeedSheet from '$lib/components/FeedSheet.svelte';
 	import FilterHeader from '$lib/components/FilterHeader.svelte';
 	import FilterSheet from '$lib/components/FilterSheet.svelte';
+	import LeftoverSheet from '$lib/components/LeftoverSheet.svelte';
 	import LiveHeader from '$lib/components/LiveHeader.svelte';
 	import MeasurementSheet from '$lib/components/MeasurementSheet.svelte';
 	import MilestoneSheet from '$lib/components/MilestoneSheet.svelte';
@@ -37,6 +47,8 @@
 	/** The Sleep *She's awake* is aimed at — the row's own, or the running one
 	    when the statement comes from the fan. */
 	let awakeTarget = $state<Entry | null>(null);
+	/** The running bottle whose Stop is waiting on *what's left in it*. */
+	let leftoverFeed = $state<Entry | null>(null);
 	let newBabyName = $state('');
 	let newBabyBirth = $state('');
 
@@ -110,15 +122,43 @@
 		await app.edit((w) => endSleep(w, target.id, at), { text: m.toast_sleep_ended() });
 	}
 
-	/** Stopping a row you are already looking at does not clear the filter. */
+	/** Stopping a row you are already looking at does not clear the filter.
+
+	    A running bottle stops through a question: what came back in it is
+	    knowable only now, and it is what the Intake is corrected by (ADR-0018).
+	    Every other session — and a bottle nobody stated an amount for — stops
+	    where it always did, on the tap. */
 	async function stop(entry: Entry) {
+		if (asksLeftover(entry)) {
+			leftoverFeed = entry;
+			return;
+		}
 		await app.edit((w) => stopSession(w, entry.id, Date.now()), {
 			text:
 				entry.type === 'sleep'
 					? m.toast_sleep_ended()
 					: entry.type === 'tummy_time'
 						? m.toast_tummy_ended()
-						: m.toast_logged({ what: m.type_breast_feed() })
+						: m.toast_logged({
+								what: entry.type === 'bottle_feed' ? m.type_bottle_feed() : m.type_breast_feed()
+							})
+		});
+	}
+
+	/** The answer to that question: the end and the corrected Intake in one
+	    revision, and a toast that states the figure the row now carries — the
+	    subtraction is a number changing, so it is said out loud. */
+	async function endBottle(leftoverMl: number | null) {
+		const feed = leftoverFeed;
+		leftoverFeed = null;
+		if (!feed) return;
+		const payload = feed.payload as BottleFeedPayload;
+		const taken = intakeAfterLeftover(payload, leftoverMl);
+		await app.edit((w) => endBottleFeed(w, { id: feed.id, payload }, Date.now(), leftoverMl), {
+			text:
+				taken == null
+					? m.toast_logged({ what: m.type_bottle_feed() })
+					: m.toast_bottle_ended({ value: millilitres(taken) })
 		});
 	}
 
@@ -268,6 +308,14 @@
 			sheet = null;
 			awakeTarget = null;
 		}}
+	/>
+{/if}
+
+{#if leftoverFeed}
+	<LeftoverSheet
+		intake={intakeMl(leftoverFeed.payload as BottleFeedPayload) ?? 0}
+		onsave={(ml) => void endBottle(ml)}
+		onclose={() => (leftoverFeed = null)}
 	/>
 {/if}
 

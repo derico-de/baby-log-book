@@ -9,6 +9,18 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- Stopping a running bottle asks what is left in it. The Stop opens a short
+  sheet — *Nothing left*, a row of amounts, or the field for anything else —
+  and writes the end and the Intake it corrects as one revision, with the
+  resulting figure in the toast. Cancelling ends nothing, so a mis-tapped Stop
+  leaves the bottle running. The leftover is still never stored: it is
+  subtracted from the Intake exactly as the feed and entry sheets already do it
+  ([ADR-0018](docs/adr/0018-a-bottle-records-the-intake.md)). A breast feed, a
+  sleep, tummy time and a bottle nobody stated an amount for stop on the tap,
+  as before.
+
 ### Changed
 
 - Correcting an Entry from more than two hours ago asks once: the first Save
@@ -20,6 +32,9 @@ release moves that section under its version number.
   ([ADR-0042](docs/adr/0042-an-old-correction-asks-once.md)).
 
 ### Fixed
+
+- Stopping a bottle no longer toasts *Breast feed logged* — it names the bottle
+  it ended.
 
 - Correcting one field of an Entry no longer claims its time was restated. The
   date and time inputs say minutes, while an Entry logged straight through is
