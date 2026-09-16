@@ -19,6 +19,16 @@ release moves that section under its version number.
   other write in the app, and Delete — which has its Undo — are unchanged
   ([ADR-0042](docs/adr/0042-an-old-correction-asks-once.md)).
 
+### Fixed
+
+- Correcting one field of an Entry no longer claims its time was restated. The
+  date and time inputs say minutes, while an Entry logged straight through is
+  stamped to the millisecond, so every save wrote `occurred_at` and `ended_at`
+  back at minute precision — the history grew a `17:28 → 17:28` line, the row
+  read *edited by* for a field nobody touched, and the stored seconds were
+  dropped. Both instants are now compared at the minute, which is all the
+  inputs can state.
+
 ## [1.29.0] - 2026-09-11
 
 ### Added

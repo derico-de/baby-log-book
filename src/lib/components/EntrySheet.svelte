@@ -29,7 +29,7 @@
 		length
 	} from '$lib/i18n/format';
 	import { FACET_OF } from '$domain/filter';
-	import { instantOnDate, wallTimeAtOrAfter } from '$domain/time';
+	import { instantOnDate, sameMinute, wallTimeAtOrAfter } from '$domain/time';
 	import { intakeMl, isSession } from '$domain/entries';
 	import { applyLeftoverInput } from './leftover';
 	import type {
@@ -287,11 +287,16 @@
 	function changedFields(): Record<string, unknown> {
 		const fields: Record<string, unknown> = {};
 
-		if (startAt != null && startAt !== entry.occurred_at) fields.occurred_at = startAt;
+		/* Both instants are compared at the minute, which is all the inputs can
+		   say: an Entry logged straight through is stamped to the millisecond, so
+		   a raw comparison reads every save of a note as a restated time and
+		   writes a revision that says "the time 17:20 → 17:20" while quietly
+		   dropping the seconds it had. */
+		if (startAt != null && !sameMinute(startAt, entry.occurred_at)) fields.occurred_at = startAt;
 
 		if (session) {
 			if (endTime === '' && entry.ended_at != null) fields.ended_at = null;
-			else if (endAt != null && endAt !== entry.ended_at) fields.ended_at = endAt;
+			else if (endAt != null && !sameMinute(endAt, entry.ended_at)) fields.ended_at = endAt;
 		}
 
 		const trimmedNote = note.trim();

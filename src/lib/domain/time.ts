@@ -219,6 +219,16 @@ export function wallTimeAtOrBefore(value: string, until: number, zone: string): 
 	return null;
 }
 
+/** Whether two instants name the same minute — the precision a time input
+    speaks. A Member states minutes; the clock stamps seconds, so an Entry
+    logged straight through carries `Date.now()` to the millisecond. Comparing
+    a restated time against a stamped one raw reads every save as a changed
+    time, so anything asking *did the Member move this?* asks it here. */
+export function sameMinute(a: number | null, b: number | null): boolean {
+	if (a == null || b == null) return a === b;
+	return Math.floor(a / MINUTE) === Math.floor(b / MINUTE);
+}
+
 /** Elapsed real time. The only subtraction of instants in the app, and the
     reason a Sleep across spring-forward is seven hours rather than eight. */
 export function elapsed(from: number, to: number): number {

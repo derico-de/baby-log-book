@@ -371,3 +371,52 @@ describe('a correction to an entry older than two hours', () => {
 		expect(closes).toBe(1);
 	});
 });
+
+/* A time input says minutes; the clock that stamps an Entry logged straight
+   through says milliseconds. The save compares the two at the minute, so
+   correcting an amount does not also claim the time was restated. */
+describe('the time fields of a corrected entry', () => {
+	/** The same row as it comes off a clock rather than out of a form: seconds
+	    on the start, seconds on the end. */
+	const stamped = (entry: Entry): Entry => ({
+		...entry,
+		occurred_at: NOW - 3600_000 + 34_812,
+		ended_at: NOW - 3000_000 + 21_509
+	});
+
+	function setField(labelText: string, value: string): void {
+		const input = fieldInput(labelText);
+		input.value = value;
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		input.dispatchEvent(new Event('change', { bubbles: true }));
+		flushSync();
+	}
+
+	async function fieldsWritten(): Promise<Record<string, unknown>> {
+		await save(async () => (await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).count()) > 0);
+		const revisions = await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray();
+		return revisions[0].fields;
+	}
+
+	it('leaves an untouched time alone, seconds and all', async () => {
+		open(stamped(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' })));
+		setField('Intake', '120');
+		expect(await fieldsWritten()).toEqual({ volume_ml: 120 });
+	});
+
+	it('writes a restated time, to the minute the Member typed', async () => {
+		open(stamped(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' })));
+		/* 15:00 Berlin becomes 14:30; the end still reads 15:10, which is still
+		   the first 15:10 after the new start, so the end is not restated. */
+		setField('Time', '14:30');
+		expect(await fieldsWritten()).toEqual({ occurred_at: Date.parse('2026-08-17T12:30:00Z') });
+	});
+
+	it('writes the end the start moved, because the end takes its date from the start', async () => {
+		open(stamped(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' })));
+		setField('Date', '2026-08-16');
+		const fields = await fieldsWritten();
+		expect(fields.occurred_at).toBe(Date.parse('2026-08-16T13:00:00Z'));
+		expect(fields.ended_at).toBe(Date.parse('2026-08-16T13:10:00Z'));
+	});
+});

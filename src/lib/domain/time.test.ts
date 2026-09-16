@@ -9,6 +9,7 @@ import {
 	offsetMinutes,
 	pastNight,
 	reachesNight,
+	sameMinute,
 	splitDuration,
 	wallPartsOf,
 	wallTimeAtOrAfter,
@@ -111,6 +112,22 @@ describe('splitDuration', () => {
 
 	it('floors rather than rounds, so a figure never reads ahead of itself', () => {
 		expect(splitDuration(119_000)).toEqual({ hours: 0, minutes: 1 });
+	});
+});
+
+describe('sameMinute', () => {
+	it('reads a stamped instant and a restated one as the same time', () => {
+		expect(sameMinute(iso('2026-09-16T17:20:00Z'), iso('2026-09-16T17:20:34.812Z'))).toBe(true);
+	});
+
+	it('separates neighbouring minutes, however close', () => {
+		expect(sameMinute(iso('2026-09-16T17:20:59.999Z'), iso('2026-09-16T17:21:00Z'))).toBe(false);
+	});
+
+	it('treats a missing instant as a value, so an end that was never set is not the end that is', () => {
+		expect(sameMinute(null, null)).toBe(true);
+		expect(sameMinute(null, iso('2026-09-16T17:20:00Z'))).toBe(false);
+		expect(sameMinute(iso('2026-09-16T17:20:00Z'), null)).toBe(false);
 	});
 });
 
