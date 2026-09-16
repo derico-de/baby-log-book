@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.30.0] - 2026-09-16
+
 ### Added
 
 - Stopping a running bottle asks what is left in it. The Stop opens a short
