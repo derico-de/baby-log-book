@@ -91,6 +91,11 @@
 	/** Set by the first Save on an old row: the question is up, and the next
 	    press writes whatever the inputs say then. */
 	let asked = $state(false);
+	/* The sheet scrolls, and the question lands above actions the thumb is
+	   already on; bringing it into view is what makes it a question at all. */
+	function scrollToAsk(el: Element) {
+		el.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+	}
 	let history = $state<Revision[]>([]);
 	/* Collapsed by default: the history is evidence for the rare dispute, not
 	   part of the everyday correction. */
@@ -544,14 +549,18 @@
 	{#if asked}
 		<!-- Which row this is, in the words the row itself uses: a Milestone's
 		     clock time is dropped at display (spec §3.6), so naming it here would
-		     state a precision the app hides everywhere else. -->
-		<p class="ask" role="status">
-			{m.sheet_old_ask({
-				when:
-					entry.type === 'milestone'
-						? dateShort(entry.occurred_at, zone)
-						: dateAndTime(entry.occurred_at, zone)
-			})}
+		     state a precision the app hides everywhere else. An alert, not a
+		     status: it appears under a thumb that is about to press again. -->
+		<p class="ask" role="alert" {@attach scrollToAsk}>
+			<Icon name="clock" size={22} />
+			<span>
+				{m.sheet_old_ask({
+					when:
+						entry.type === 'milestone'
+							? dateShort(entry.occurred_at, zone)
+							: dateAndTime(entry.occurred_at, zone)
+				})}
+			</span>
 		</p>
 	{/if}
 
@@ -582,12 +591,28 @@
 		min-height: 54px;
 		font-size: var(--fs-3);
 	}
-	/* The question the second Save answers. One line, in the warn colour the
-	   overdue figure and the aging bottle already use — no icon, no panel. */
+	/* The question the second Save answers. A panel in the accent's soft tint
+	   with the clock glyph, sitting right above the button it changes: one
+	   line in the warn colour was overlooked next to a Save in the same hue,
+	   and a question that is missed is a confirm step that was not there. */
 	.ask {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-3);
 		margin: var(--sp-3) var(--sp-4) 0;
-		font-size: var(--fs-2);
-		color: var(--warn);
+		padding: var(--sp-3) var(--sp-4);
+		border: 1px solid var(--accent);
+		border-left-width: 4px;
+		border-radius: var(--r-1);
+		background: var(--accent-soft);
+		color: var(--ink);
+		font-size: var(--fs-3);
+		font-weight: 600;
+		line-height: 1.3;
+	}
+	.ask :global(svg) {
+		flex: 0 0 auto;
+		color: var(--accent);
 	}
 	.field-label {
 		padding: 0 var(--sp-4);

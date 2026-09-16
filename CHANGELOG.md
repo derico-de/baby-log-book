@@ -9,6 +9,14 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The question before an old Entry is corrected is a panel now, not a line:
+  the accent's soft tint, the clock glyph, bold text, and it scrolls into view
+  above the button it changes. The one-line warning was overlooked beside a
+  Save in the same colour. One press still asks and the next still writes
+  ([ADR-0042](docs/adr/0042-an-old-correction-asks-once.md)).
+
 ## [1.30.1] - 2026-09-16
 
 ### Fixed
