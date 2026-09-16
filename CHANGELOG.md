@@ -9,6 +9,18 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Night no longer takes the bedtime Feed with it. Fed at 18:35 on a
+  three-and-a-half-hour interval with the Night stated at 21:00, the header
+  used to switch from *due 22:05* to *due 06:00* at the stated hour, although
+  she had not had her bedtime Feed. Now a due inside the Night moves to the
+  morning only once the bedtime Feed is behind her — the Feed nearer the stated
+  hour is the bedtime one, so a last Feed at 20:45 still reads *due 06:00*
+  once the night begins, while one at 18:35 keeps its 22:05 and goes overdue
+  like any other until the bedtime Feed is logged. The Feed Notice follows
+  ([ADR-0043](docs/adr/0043-the-night-moves-a-feed-only-once-the-bedtime-feed-is-behind-her.md)).
+
 ## [1.30.0] - 2026-09-16
 
 ### Added

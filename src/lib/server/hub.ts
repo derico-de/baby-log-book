@@ -180,8 +180,9 @@ export function hubEtag(cursor: number, household: Household, now: number): stri
 	/* *Has the Night in force begun* — which is exactly *is it night now*: an
 	   instant inside a Night that has not started yet still has the evening's
 	   Feed ahead of it, and `pastNight` leaves it where it is until the hour
-	   arrives. A Household that keeps no Night Period pins the bit at 0 and
-	   sees no extra fold. */
+	   arrives. Whether the bedtime Feed is behind her (ADR-0043) is read off
+	   the log, which the cursor already covers. A Household that keeps no
+	   Night Period pins the bit at 0 and sees no extra fold. */
 	const nightBegun = night && withinNight(now, night, household.zone) ? 1 : 0;
 	return `"${cursor}-${dayKey}-${nightBegun}"`;
 }

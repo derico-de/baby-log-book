@@ -515,18 +515,45 @@ describe('a Feed due inside the Night Period', () => {
 	});
 
 	it('holds the interval while the night has not begun — the bedtime Feed is still to come', () => {
-		// Fed at 18:33 on a three-hour interval, read at 18:43: the due lands at
-		// 21:33, inside the stated Night, but the evening is still running and
-		// there will be a Feed before bed. The morning is not the answer until
-		// the night is (ADR-0040).
-		const fed = entry({ type: 'bottle_feed', occurred_at: at(17, 18, 33), ended_at: at(17, 18, 42) });
-		const before = headerState({ ...base, now: at(17, 18, 43), entries: [fed] });
-		expect(before.feed.dueAt).toBe(at(17, 21, 33));
+		// Fed at 20:45 on a three-hour interval, read at 20:50: the due lands at
+		// 23:45, inside the stated Night, but the evening is still running. The
+		// morning is not the answer until the night is (ADR-0040).
+		const fed = entry({ type: 'bottle_feed', occurred_at: at(17, 20, 45), ended_at: at(17, 20, 55) });
+		const before = headerState({ ...base, now: at(17, 20, 50), entries: [fed] });
+		expect(before.feed.dueAt).toBe(at(17, 23, 45));
 		expect(before.feed.overdue).toBe(false);
-		// The same log read at 22:00: the night has begun, and the same due now
-		// belongs to the morning.
+		// The same log read at 22:00: the night has begun, that Feed was the
+		// bedtime one, and the same due now belongs to the morning.
 		const after = headerState({ ...base, now: at(17, 22), entries: [fed] });
 		expect(after.feed.dueAt).toBe(at(18, 7));
+	});
+
+	it('holds the interval once the night has begun while the bedtime Feed is still to come', () => {
+		// Fed at 18:35 on three hours, read at 21:30: the due at 21:35 is inside
+		// the Night and the Night has begun — but the last Feed is two and a
+		// half hours before the stated hour and the due is half an hour past
+		// it. She is fed once more before anybody sleeps, so the interval
+		// stands, and past 21:35 it is overdue like any other (ADR-0043).
+		const fed = entry({ type: 'bottle_feed', occurred_at: at(17, 18, 35), ended_at: at(17, 18, 45) });
+		const h = headerState({ ...base, now: at(17, 21, 30), entries: [fed] });
+		expect(h.feed.dueAt).toBe(at(17, 21, 35));
+		expect(h.feed.overdue).toBe(false);
+		const later = headerState({ ...base, now: at(17, 22), entries: [fed] });
+		expect(later.feed.dueAt).toBe(at(17, 21, 35));
+		expect(later.feed.overdue).toBe(true);
+		expect(later.feed.overdueMs).toBe(25 * MS.minute);
+		// Once that bedtime Feed is logged, its own due is the morning's.
+		const bedtime = entry({ type: 'bottle_feed', occurred_at: at(17, 21, 40), ended_at: at(17, 21, 50) });
+		const fedAgain = headerState({ ...base, now: at(17, 22), entries: [fed, bedtime] });
+		expect(fedAgain.feed.dueAt).toBe(at(18, 7));
+	});
+
+	it('reads the stated hour as nearer the last Feed at a tie', () => {
+		// Fed at 19:30 on three hours: the hour is ninety minutes after the last
+		// Feed and ninety minutes before the due. The last Feed is the bedtime
+		// one — a Household whose bedtime Feed is at 19:30 is not fed at 22:30.
+		const fed = entry({ type: 'breast_feed', occurred_at: at(17, 19, 30), ended_at: at(17, 19, 50) });
+		expect(headerState({ ...base, now: at(17, 21, 30), entries: [fed] }).feed.dueAt).toBe(at(18, 7));
 	});
 
 	it('moves a night waking to the same morning', () => {

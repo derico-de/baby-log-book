@@ -300,9 +300,11 @@ export function reachesNight(
     forward, and only once the night has begun. An afternoon Feed whose
     interval reaches past the stated hour still has the bedtime Feed ahead of
     it, and until that hour arrives the interval stands as stated; the moment
-    the night begins, a due inside it is the morning's (ADR-0040). Everything
-    that computes a due time for a Feed passes through here, so the sticky
-    header and the notifier can only ever agree (ADR-0032). */
+    the night begins, a due inside it is the morning's (ADR-0040). Whether
+    the bedtime Feed is behind her is the Feed's own question, asked in
+    `feedDueInstant` before this is (ADR-0043). Everything that computes a
+    due time for a Feed passes through there, so the sticky header and the
+    notifier can only ever agree (ADR-0032). */
 export function pastNight(instant: number, night: NightPeriod | null, zone: string, now: number): number {
 	if (!night || !withinNight(instant, night, zone)) return instant;
 	const began = wallTimeAtOrBefore(night.start, instant, zone);

@@ -159,6 +159,16 @@ describe('a Feed coming due', () => {
 		expect(notices.map((n) => [n.kind, n.offset_minutes])).toEqual([['feed', 15]]);
 	});
 
+	it('still speaks for the bedtime Feed once the night has begun', () => {
+		// The same 18:10 Feed read at 21:00: the night has begun, but the due at
+		// 21:10 is ten minutes past the hour and the last Feed nearly three
+		// before it — the bedtime Feed is still to come, and the Notice says so
+		// (ADR-0043).
+		const afternoon = entry({ id: 'f5', type: 'breast_feed', occurred_at: iso('2026-08-17T16:10:00Z'), ended_at: iso('2026-08-17T16:30:00Z') });
+		const notices = liveNotices([afternoon], TARGETS, { ...NIGHT, feed_notice_s: 15 * 60 }, iso('2026-08-17T19:00:00Z'));
+		expect(notices.map((n) => [n.kind, n.offset_minutes])).toEqual([['feed', 15]]);
+	});
+
 	it('still takes its head start from the moved instant', () => {
 		const evening = entry({ id: 'f4', type: 'breast_feed', occurred_at: iso('2026-08-17T19:00:00Z'), ended_at: iso('2026-08-17T19:20:00Z') });
 		const notices = liveNotices([evening], TARGETS, { ...NIGHT, feed_notice_s: 15 * 60 }, iso('2026-08-18T04:45:00Z'));

@@ -9,7 +9,16 @@
    reimplementing it, which is the whole reason push notifications need no
    schema change (spec §2). */
 
-import { dayBucketOf, ageInMonths, pastNight, withinLastDay, MS, type NightPeriod } from './time';
+import {
+	dayBucketOf,
+	ageInMonths,
+	pastNight,
+	withinLastDay,
+	withinNight,
+	wallTimeAtOrBefore,
+	MS,
+	type NightPeriod
+} from './time';
 import type { Activity, Entry, Household, NappyPayload, PendingRevision, Target } from './types';
 import { isFeed, isHour } from './entries';
 
@@ -99,13 +108,29 @@ export function nightPeriodOf(
 	return { start, end: household.day_start };
 }
 
+/** Whether the bedtime Feed is still to come — the Feed measured from
+    `anchorAt` is not it, and the one due at `dueAt` is.
+
+    The night begins somewhere in the interval, and the Feed nearer that hour
+    is the bedtime Feed: fed at 18:35 on three and a half hours with a Night
+    stated at 21:00, the due at 22:05 is an hour past the hour and the last
+    Feed is two and a half before it — she is fed once more before anybody
+    sleeps. Fed at 20:45, the last Feed *was* the bedtime one and the due at
+    00:15 is the morning's (ADR-0043). A Feed logged after the night began is
+    always past the hour, so it is never ahead of itself. */
+function bedtimeFeedAhead(anchorAt: number, dueAt: number, night: NightPeriod, zone: string): boolean {
+	const began = wallTimeAtOrBefore(night.start, dueAt, zone);
+	return began != null && began - anchorAt > dueAt - began;
+}
+
 /** The due instant of a **Feed**, which is the one Target the Night Period
     moves: a Feed that would come due at 01:00 comes due at the Day Start
     instead, because nobody has stated an interval they mean to keep to at 1am
-    (ADR-0032). Only once the night has begun, though — an afternoon Feed
-    whose interval reaches past the stated hour still has the bedtime Feed
-    ahead of it, and the morning is not the answer until the night is
-    (ADR-0040).
+    (ADR-0032). Only once the night has begun (ADR-0040), and only once the
+    bedtime Feed is behind her (ADR-0043): an afternoon Feed whose interval
+    reaches an hour past the stated hour still has the bedtime Feed ahead of
+    it, whatever the clock says, and the morning is not the answer until that
+    Feed is logged.
 
     Only the Feed. A Wake Window is *how long she is comfortably awake* and
     says nothing about the hour; a Bottle Life is how long milk stays good, and
@@ -118,7 +143,9 @@ export function feedDueInstant(
 	zone: string,
 	now: number
 ): number {
-	return pastNight(dueInstant(target, anchorAt), night, zone, now);
+	const due = dueInstant(target, anchorAt);
+	if (night && withinNight(due, night, zone) && bedtimeFeedAhead(anchorAt, due, night, zone)) return due;
+	return pastNight(due, night, zone, now);
 }
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
