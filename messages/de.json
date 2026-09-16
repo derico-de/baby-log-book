@@ -146,6 +146,8 @@
 	"sheet_time": "Uhrzeit",
 	"sheet_where": "Wo",
 	"sheet_entry_title": "Eintrag",
+	"sheet_old_ask": "Dieser Eintrag ist von {when}. Wirklich ändern?",
+	"sheet_old_ask_save": "Ändern",
 	"field_occurred_at": "die Uhrzeit",
 	"field_ended_at": "das Ende",
 	"field_note": "die Notiz",

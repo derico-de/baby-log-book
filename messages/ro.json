@@ -138,6 +138,8 @@
 	"sheet_time": "Ora",
 	"sheet_where": "Unde",
 	"sheet_entry_title": "Înregistrare",
+	"sheet_old_ask": "Această înregistrare este din {when}. O modifici?",
+	"sheet_old_ask_save": "Modifică",
 	"field_occurred_at": "ora",
 	"field_ended_at": "ora de final",
 	"field_note": "nota",

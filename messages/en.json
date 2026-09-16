@@ -146,6 +146,8 @@
 	"sheet_time": "Time",
 	"sheet_where": "Where",
 	"sheet_entry_title": "Entry",
+	"sheet_old_ask": "This entry is from {when}. Change it?",
+	"sheet_old_ask_save": "Change it",
 	"field_occurred_at": "the time",
 	"field_ended_at": "the end time",
 	"field_note": "the note",

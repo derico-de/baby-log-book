@@ -55,8 +55,13 @@ let mounted: Record<string, unknown> | null = null;
 let db: ReplicaDb;
 let names = 0;
 
+let closes = 0;
+
 function open(entry: Entry): void {
-	mounted = mount(EntrySheet, { target: host, props: { entry, onclose: () => {} } }) as Record<string, unknown>;
+	mounted = mount(EntrySheet, {
+		target: host,
+		props: { entry, onclose: () => { closes += 1; } }
+	}) as Record<string, unknown>;
 	flushSync();
 }
 
@@ -78,6 +83,7 @@ async function save(done?: () => boolean | Promise<boolean>): Promise<void> {
 }
 
 beforeEach(() => {
+	closes = 0;
 	host = document.createElement('div');
 	document.body.append(host);
 	localStorage.clear();
@@ -302,5 +308,66 @@ describe('the history of a corrected entry', () => {
 		]);
 		expect(text.some((line) => line.startsWith('logged by Mum'))).toBe(true);
 		expect(text.some((line) => line.includes('→'))).toBe(false);
+	});
+});
+
+/* A stray tap on the timeline lands on whatever was under the thumb, which is
+   usually a row from hours ago (ADR-0042). Today's corrections are untouched. */
+describe('a correction to an entry older than two hours', () => {
+	const older = (entry: Entry): Entry => ({ ...entry, occurred_at: NOW - 5 * 3600_000 });
+
+	function primary(): HTMLButtonElement {
+		const found = [...host.querySelectorAll<HTMLButtonElement>('button')].find(
+			(b) => b.getAttribute('data-primary') === '1'
+		);
+		if (!found) throw new Error('no primary action');
+		return found;
+	}
+
+	function retypeIntake(value: string): void {
+		const intake = fieldInput('Intake');
+		intake.value = value;
+		intake.dispatchEvent(new Event('input', { bubbles: true }));
+		flushSync();
+	}
+
+	it('asks before it writes, and writes on the second press', async () => {
+		open(older(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' })));
+		retypeIntake('120');
+		await save();
+		expect(await db.revisions.count()).toBe(0);
+		expect(closes).toBe(0);
+		expect(host.textContent).toContain('This entry is from');
+		expect(primary().textContent?.trim()).toBe('Change it');
+
+		await save(async () => (await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).count()) > 0);
+		const revisions = await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray();
+		expect(revisions[0].fields).toEqual({ volume_ml: 120 });
+	});
+
+	it('writes what the inputs say when the question is answered, not what they said when it was asked', async () => {
+		open(older(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' })));
+		retypeIntake('120');
+		await save();
+		retypeIntake('130');
+		await save(async () => (await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).count()) > 0);
+		const revisions = await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray();
+		expect(revisions[0].fields).toEqual({ volume_ml: 130 });
+	});
+
+	it('asks nothing when nothing was changed: reading an old row is not a correction', async () => {
+		open(older(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' })));
+		await save();
+		expect(await db.revisions.count()).toBe(0);
+		expect(closes).toBe(1);
+		expect(host.textContent).not.toContain('This entry is from');
+	});
+
+	it('leaves a row from the last two hours saving straight through', async () => {
+		open(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' }));
+		retypeIntake('120');
+		await save(async () => (await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).count()) > 0);
+		expect(host.textContent).not.toContain('This entry is from');
+		expect(closes).toBe(1);
 	});
 });

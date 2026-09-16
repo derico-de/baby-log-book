@@ -6,12 +6,17 @@
 	   confirm step. Correcting a row you are already looking at does **not** clear
 	   the filter: that write is visible by definition (spec §8.7).
 
+	   The one place this sheet does ask is a row from more than two hours ago:
+	   the Save button states what it is about to change and needs a second press
+	   (ADR-0042). Today's corrections are untouched.
+
 	   The history is the evidence a conflict leaves behind. The user never sees a
 	   conflict dialog; what they can see, here, is "edited by Oma, was 120 ml" and
 	   the app-attributed line a Session Merge leaves. */
 	import { untrack } from 'svelte';
 	import { app } from '$client/state.svelte';
 	import { correctEntry, deleteEntry, undoDelete } from '$client/mutate';
+	import { correctionAsksFirst } from '$domain/correction';
 	import { compareRevisions, foldEntity } from '$domain/revisions';
 	import {
 		clockTime,
@@ -80,6 +85,12 @@
 	   unless someone says otherwise here, rather than being read as a nappy. */
 	let where = $state((opened.payload as NappyPayload).where ?? null);
 	let busy = $state(false);
+	/* Read on open like the draft is, so a row that crosses the two-hour line
+	   while the sheet stands does not change the gesture under the thumb. */
+	const asksFirst = untrack(() => correctionAsksFirst(entry, app.now));
+	/** Set by the first Save on an old row: the question is up, and the next
+	    press writes whatever the inputs say then. */
+	let asked = $state(false);
 	let history = $state<Revision[]>([]);
 	/* Collapsed by default: the history is evidence for the rare dispute, not
 	   part of the everyday correction. */
@@ -272,9 +283,8 @@
 		return m.sheet_history_changed({ who, fields: fields || Object.keys(revision.fields).join(', ') });
 	}
 
-	async function save() {
-		if (busy) return;
-		busy = true;
+	/** The draft against the stored Entry: every field this Save would write. */
+	function changedFields(): Record<string, unknown> {
 		const fields: Record<string, unknown> = {};
 
 		if (startAt != null && startAt !== entry.occurred_at) fields.occurred_at = startAt;
@@ -317,9 +327,24 @@
 			if (written.length > 0 && written !== (entry.payload as MilestonePayload).name) fields.name = written;
 		}
 
-		if (Object.keys(fields).length > 0) {
-			await app.edit((w) => correctEntry(w, entry.id, fields));
+		return fields;
+	}
+
+	async function save() {
+		if (busy) return;
+		const fields = changedFields();
+		/* Nothing to write closes the sheet, and asks nothing: reading an old row
+		   and shutting it again is not a correction. */
+		if (Object.keys(fields).length === 0) {
+			onclose();
+			return;
 		}
+		if (asksFirst && !asked) {
+			asked = true;
+			return;
+		}
+		busy = true;
+		await app.edit((w) => correctEntry(w, entry.id, fields));
 		busy = false;
 		onclose();
 	}
@@ -511,12 +536,28 @@
 		</ul>
 	{/if}
 
+	{#if asked}
+		<!-- Which row this is, in the words the row itself uses: a Milestone's
+		     clock time is dropped at display (spec §3.6), so naming it here would
+		     state a precision the app hides everywhere else. -->
+		<p class="ask" role="status">
+			{m.sheet_old_ask({
+				when:
+					entry.type === 'milestone'
+						? dateShort(entry.occurred_at, zone)
+						: dateAndTime(entry.occurred_at, zone)
+			})}
+		</p>
+	{/if}
+
 	<div class="sheet-acts">
 		<button type="button" onclick={onclose}>{m.cancel()}</button>
 		{#if entry.deleted_at == null}
 			<button type="button" onclick={remove} disabled={busy}>{m.delete()}</button>
 		{/if}
-		<button type="button" data-primary="1" onclick={save} disabled={busy}>{m.save()}</button>
+		<button type="button" data-primary="1" onclick={save} disabled={busy}>
+			{asked ? m.sheet_old_ask_save() : m.save()}
+		</button>
 	</div>
 </Sheet>
 
@@ -535,6 +576,13 @@
 	.toggles button {
 		min-height: 54px;
 		font-size: var(--fs-3);
+	}
+	/* The question the second Save answers. One line, in the warn colour the
+	   overdue figure and the aging bottle already use — no icon, no panel. */
+	.ask {
+		margin: var(--sp-3) var(--sp-4) 0;
+		font-size: var(--fs-2);
+		color: var(--warn);
 	}
 	.field-label {
 		padding: 0 var(--sp-4);

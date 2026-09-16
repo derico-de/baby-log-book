@@ -9,6 +9,16 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- Correcting an Entry from more than two hours ago asks once: the first Save
+  states which row it is — *"This entry is from 13 Sep 08:20. Change it?"* — and
+  the second writes. A correction has no undo, and the timeline is the screen
+  the app opens on, so a stray tap while scrolling lands on an old row and can
+  overwrite it silently. Corrections to anything from the last two hours, every
+  other write in the app, and Delete — which has its Undo — are unchanged
+  ([ADR-0042](docs/adr/0042-an-old-correction-asks-once.md)).
+
 ## [1.29.0] - 2026-09-11
 
 ### Added
