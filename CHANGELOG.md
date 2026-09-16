@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.30.2] - 2026-09-16
+
 ### Changed
 
 - The question before an old Entry is corrected is a panel now, not a line:
