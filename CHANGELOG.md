@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.30.1] - 2026-09-16
+
 ### Fixed
 
 - The Night no longer takes the bedtime Feed with it. Fed at 18:35 on a
