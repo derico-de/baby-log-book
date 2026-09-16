@@ -17,10 +17,12 @@
 	   prefilled with now. *Off her tummy* writes straight through, because the
 	   stretch ends as the thumb presses it.
 
-	   While a Sleep runs the fan reflows and there is no ambiguous "Feed" item:
-	   *She's awake* ends the Sleep and the fan reflows **in place** to the awake
-	   set, so wake-then-feed is one FAB open and a few taps rather than two
-	   trips. */
+	   While a Sleep runs the fan reflows: *She's awake* takes the Sleep row,
+	   ends the Sleep and the fan reflows **in place** to the awake set, so
+	   wake-then-feed is one FAB open and a few taps rather than two trips.
+	   *Feed* stays the same row it always is — a Feed logged inside a Sleep is
+	   a Sleep Feed on the timeline, derived from the overlap, and the Sleep
+	   keeps running. */
 	import type { FacetKey } from '$domain/filter';
 	import * as m from '$lib/paraglide/messages';
 	import Icon, { type IconName } from './Icon.svelte';
@@ -46,7 +48,6 @@
 		onMeasurement: () => void;
 		onMilestone: () => void;
 		onAwake: () => void;
-		onFeedAsleep: () => void;
 		onTummyStart: () => void;
 		onTummyEnd: () => void;
 	}
@@ -106,22 +107,12 @@
 			{ key: 'milestone', icon: 'flag', t: 'milestone', label: m.fan_milestone(), run: props.onMilestone }
 		];
 
-		const middle: Action[] = props.asleep
-			? [
-					{ key: 'awake', icon: 'sleep', t: 'sleep', label: m.fan_awake(), sub: m.fan_awake_sub(), run: props.onAwake },
-					{
-						key: 'feed-asleep',
-						icon: 'feed',
-						t: 'feed',
-						label: m.fan_feed_asleep(),
-						sub: m.fan_feed_asleep_sub(),
-						run: props.onFeedAsleep
-					}
-				]
-			: [
-					{ key: 'sleep', icon: 'sleep', t: 'sleep', label: m.fan_sleep(), run: props.onSleep },
-					{ key: 'feed', icon: 'feed', t: 'feed', label: m.fan_feed(), run: props.onFeed }
-				];
+		const middle: Action[] = [
+			props.asleep
+				? { key: 'awake', icon: 'sleep', t: 'sleep', label: m.fan_awake(), sub: m.fan_awake_sub(), run: props.onAwake }
+				: { key: 'sleep', icon: 'sleep', t: 'sleep', label: m.fan_sleep(), run: props.onSleep },
+			{ key: 'feed', icon: 'feed', t: 'feed', label: m.fan_feed(), run: props.onFeed }
+		];
 
 		return [...common, ...middle, ...tail];
 	});

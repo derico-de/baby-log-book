@@ -9,6 +9,13 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- *Feed while asleep* is gone as an action. While a Sleep runs the fan keeps
+  its ordinary *Feed* row, and the running Sleep's timeline row offers only
+  *She's awake*. A Feed logged inside a Sleep is still a *sleep feed* on the
+  timeline, derived from the overlap as before, and the Sleep keeps running.
+
 ## [1.30.2] - 2026-09-16
 
 ### Changed

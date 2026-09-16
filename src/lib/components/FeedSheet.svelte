@@ -30,8 +30,8 @@
 	import Sheet from './Sheet.svelte';
 
 	interface Props {
-		/** True when a Sleep is running: the sheet was opened from *Feed while
-		    asleep*, so it must not end the Sleep unless Food is chosen. */
+		/** True when a Sleep is running: a Feed inside it is a Sleep Feed, so the
+		    sheet must not end the Sleep unless Food is chosen. */
 		asleep: boolean;
 		onclose: () => void;
 	}

@@ -33,7 +33,6 @@
 
 	type SheetName =
 		| 'feed'
-		| 'feed-asleep'
 		| 'measurement'
 		| 'milestone'
 		| 'nappy'
@@ -249,7 +248,6 @@
 							onopen={(e) => (openEntry = e)}
 							onstop={stop}
 							onawake={awakeRow}
-							onfeedasleep={() => (sheet = 'feed-asleep')}
 						/>
 					{/each}
 				</ul>
@@ -272,14 +270,13 @@
 			awakeTarget = app.runningSleep;
 			sheet = 'awake';
 		}}
-		onFeedAsleep={() => (sheet = 'feed-asleep')}
 		onTummyStart={() => (sheet = 'tummy-start')}
 		onTummyEnd={() => void endTummy()}
 	/>
 {/if}
 
-{#if sheet === 'feed' || sheet === 'feed-asleep'}
-	<FeedSheet asleep={sheet === 'feed-asleep'} onclose={() => (sheet = null)} />
+{#if sheet === 'feed'}
+	<FeedSheet asleep={app.runningSleep != null} onclose={() => (sheet = null)} />
 {:else if sheet === 'nappy'}
 	<NappySheet onclose={() => (sheet = null)} />
 {:else if sheet === 'measurement'}

@@ -25,12 +25,11 @@
 		entry: Entry;
 		onopen: (entry: Entry) => void;
 		onstop: (entry: Entry) => void;
-		/** The running Sleep's row speaks the fan's language — *She's awake* and
-		    *Feed while asleep* — instead of a bare Stop (spec §8.5). */
+		/** The running Sleep's row speaks the fan's language — *She's awake* —
+		    instead of a bare Stop (spec §8.5). */
 		onawake: (entry: Entry) => void;
-		onfeedasleep: () => void;
 	}
-	let { entry, onopen, onstop, onawake, onfeedasleep }: Props = $props();
+	let { entry, onopen, onstop, onawake }: Props = $props();
 
 	const zone = $derived(app.zone);
 	const live = $derived(entry.ended_at == null && isSession(entry.type));
@@ -159,9 +158,8 @@
 	{#if live}
 		<div class="row-live-actions">
 			{#if entry.type === 'sleep'}
-				<!-- The same two statements the fan offers while she sleeps, in the
-				     same words — *She's awake* rightmost, under the thumb. -->
-				<button class="stop-btn" type="button" onclick={onfeedasleep}>{m.fan_feed_asleep()}</button>
+				<!-- The same statement the fan makes while she sleeps, in the same
+				     words. A Feed is the fan's ordinary Feed row, not a row action. -->
 				<button class="stop-btn" type="button" onclick={() => onawake(entry)}>{m.fan_awake()}</button>
 			{:else}
 				{#if bottle}

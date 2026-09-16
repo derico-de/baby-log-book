@@ -4,7 +4,7 @@ The fan was described as *one row per entry type* — in `Fan.svelte`, in spec �
 
 So the rule the fan has actually been following is: **a row is a form.** A new entry type must justify a new *form* before it may claim a row, and folding into a form that already exists costs no row at all. Two entry types arrived in a fortnight — Tummy time and the Pee & poop rework — at a net cost of one row.
 
-This matters because the fan is the app's **only** create-from-nothing surface. Every sheet is mounted in `src/routes/+page.svelte` and nothing else opens one; the two exceptions (*She's awake*, *Feed while asleep* on a timeline row) act on a Sleep that already exists. So there is no admission test to write and never was — admission is automatic, which is why *"what earns a fan slot"* went unanswered twice ([issue 18](../../.scratch/baby-log-book/issues/18-milestones-entry-type.md) noted that frequency is not the test, but only because there was room). The question was unanswerable as posed. The obligation sits on the form, not on the row.
+This matters because the fan is the app's **only** create-from-nothing surface. Every sheet is mounted in `src/routes/+page.svelte` and nothing else opens one; the one exception (*She's awake* on a timeline row) acts on a Sleep that already exists. So there is no admission test to write and never was — admission is automatic, which is why *"what earns a fan slot"* went unanswered twice ([issue 18](../../.scratch/baby-log-book/issues/18-milestones-entry-type.md) noted that frequency is not the test, but only because there was room). The question was unanswerable as posed. The obligation sits on the form, not on the row.
 
 ## Consequences
 

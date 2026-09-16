@@ -238,7 +238,7 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('120 ml');
 		expect(text).toContain('Formula');
 		expect(text).toContain('Oma');
@@ -252,7 +252,7 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 180, leftover_ml: 30, contents: 'breast_milk' }
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('150 ml');
 		expect(text).toContain('Breast milk');
 		expect(text).not.toContain('of 180');
@@ -266,7 +266,7 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('bottle 40m left');
 		expect(text).toContain('Stop');
 	});
@@ -278,7 +278,7 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
 		});
 		app.entries = [row];
-		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).toContain('bottle 20m past');
+		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} })).toContain('bottle 20m past');
 	});
 
 	it('draws no countdown on a bottle that has been stopped, or on a running breast feed', () => {
@@ -289,29 +289,30 @@ describe('a timeline row', () => {
 			payload: { volume_ml: 120, leftover_ml: null, contents: 'formula' }
 		});
 		app.entries = [done];
-		expect(draw(TimelineRow, { entry: done, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
+		expect(draw(TimelineRow, { entry: done, onopen: () => {}, onstop: () => {}, onawake: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
 
 		if (mounted) unmount(mounted as never, { outro: false });
 		mounted = null;
 		const breast = entry({ type: 'breast_feed', occurred_at: NOW - 20 * 60_000, payload: { side: 'left' } });
 		app.entries = [breast];
-		expect(draw(TimelineRow, { entry: breast, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
+		expect(draw(TimelineRow, { entry: breast, onopen: () => {}, onstop: () => {}, onawake: () => {} })).not.toMatch(/bottle \d+\w* (left|past)/);
 	});
 
-	it('offers the fan s two statements on a running Sleep, not a bare Stop', () => {
+	it('offers She s awake on a running Sleep, not a bare Stop and no feed action', () => {
 		const row = entry({ type: 'sleep', occurred_at: NOW - 6 * 3600_000 });
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('running');
 		expect(text).toContain("She's awake");
-		expect(text).toContain('Feed while asleep');
+		expect(text).not.toContain('Feed');
 		expect(text).not.toContain('Stop');
+		expect(host.querySelectorAll('.row-live-actions button')).toHaveLength(1);
 	});
 
 	it('counts a running Sleep up under its start time', () => {
 		const row = entry({ type: 'sleep', occurred_at: NOW - 65 * 60_000 });
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('14:55');
 		expect(host.querySelector('.row-dur')?.textContent).toBe('1h05');
 	});
@@ -319,7 +320,7 @@ describe('a timeline row', () => {
 	it('leaves a running Feed without an elapsed figure — nothing depends on when it ended', () => {
 		const row = entry({ type: 'breast_feed', occurred_at: NOW - 65 * 60_000, payload: { side: 'left' } });
 		app.entries = [row];
-		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(host.querySelector('.row-dur')).toBeNull();
 	});
 
@@ -330,7 +331,7 @@ describe('a timeline row', () => {
 			ended_at: Date.parse('2026-08-17T12:05:00Z') /* 14:05 Berlin */
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('13:45 – 14:05');
 		expect(host.querySelector('.row-dur')?.textContent).toBe('20m');
 	});
@@ -343,7 +344,7 @@ describe('a timeline row', () => {
 			payload: { side: 'left' }
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('15:00');
 		expect(text).not.toContain('–');
 	});
@@ -351,7 +352,7 @@ describe('a timeline row', () => {
 	it('gives a Milestone an em dash where the clock time would be', () => {
 		const row = entry({ type: 'milestone', occurred_at: NOW - 86_400_000, payload: { name: 'First tooth' } });
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('First tooth');
 		expect(text).toContain('—');
 		expect(text).not.toMatch(/\d\d:\d\d/);
@@ -361,7 +362,7 @@ describe('a timeline row', () => {
 		const sleep = entry({ type: 'sleep', occurred_at: NOW - 4 * 3600_000 });
 		const feed = entry({ type: 'breast_feed', occurred_at: NOW - 2 * 3600_000, payload: { side: 'left' } });
 		app.entries = [sleep, feed];
-		expect(draw(TimelineRow, { entry: feed, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).toContain('sleep feed');
+		expect(draw(TimelineRow, { entry: feed, onopen: () => {}, onstop: () => {}, onawake: () => {} })).toContain('sleep feed');
 	});
 
 	it('writes the Note out under the row while a filter is armed, and keeps it behind the icon otherwise', () => {
@@ -372,12 +373,12 @@ describe('a timeline row', () => {
 			payload: { pee: true, poop: false, consistency: null, where: null }
 		});
 		app.entries = [row];
-		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).not.toContain('a little red');
+		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} })).not.toContain('a little red');
 
 		if (mounted) unmount(mounted as never, { outro: false });
 		mounted = null;
 		app.filter = { ...app.filter, types: ['nappy'] };
-		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} })).toContain('a little red');
+		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} })).toContain('a little red');
 	});
 
 	it('marks the free-text hit in the note that carries it', () => {
@@ -389,7 +390,7 @@ describe('a timeline row', () => {
 		});
 		app.entries = [row];
 		app.filter = { ...app.filter, text: 'blotches' };
-		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(host.querySelector('mark')?.textContent).toBe('blotches');
 	});
 });
@@ -402,7 +403,7 @@ describe('a pee & poop row', () => {
 			payload: { pee: true, poop: false, consistency: null, where: 'potty' }
 		});
 		app.entries = [potty];
-		let text = draw(TimelineRow, { entry: potty, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		let text = draw(TimelineRow, { entry: potty, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('Potty');
 
 		if (mounted) unmount(mounted as never, { outro: false });
@@ -417,7 +418,7 @@ describe('a pee & poop row', () => {
 			payload: { pee: true, poop: false, consistency: null, where: 'nappy' }
 		});
 		app.entries = [nappy];
-		text = draw(TimelineRow, { entry: nappy, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		text = draw(TimelineRow, { entry: nappy, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).not.toContain('Nappy');
 	});
 });
@@ -426,7 +427,7 @@ describe('a tummy time row', () => {
 	it('runs as a Live Session with a Stop button', () => {
 		const row = entry({ type: 'tummy_time', occurred_at: NOW - 8 * 60_000 });
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('Tummy time');
 		expect(text).toContain('running');
 		expect(text).toContain('Stop');
@@ -441,7 +442,7 @@ describe('a tummy time row', () => {
 			ended_at: NOW - 18 * 60_000
 		});
 		app.entries = [row];
-		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {}, onfeedasleep: () => {} });
+		const text = draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
 		expect(text).toContain('15:30');
 		expect(text).toContain('15:42');
 		expect(text).toContain('12m');
@@ -457,7 +458,6 @@ describe('the fan', () => {
 		onMeasurement: () => {},
 		onMilestone: () => {},
 		onAwake: () => {},
-		onFeedAsleep: () => {},
 		onTummyStart: () => {},
 		onTummyEnd: () => {}
 	};
@@ -517,16 +517,16 @@ describe('the fan', () => {
 		expect(labels).not.toContain('Tummy time');
 	});
 
-	it('reflows while a Sleep runs, with no ambiguous Feed item', () => {
+	it('reflows while a Sleep runs: She s awake takes the Sleep row and Feed stays plain', () => {
 		draw(Fan, { asleep: true, tummyRunning: false, ...handlers });
 		flushSync(() => (host.querySelector('.fab') as HTMLButtonElement).click());
 		const labels = [...host.querySelectorAll('.fan .fan-main')].map((el) => el.textContent?.trim() ?? '');
 		expect(labels).toContain("She's awake");
-		expect(labels).toContain('Feed while asleep');
-		/* The bare "Feed" item is gone, and so is "Sleep": three
-		   near-synonymous labels in one fan is the 3am discrimination problem. */
-		expect(labels).not.toContain('Feed');
+		expect(labels).toContain('Feed');
+		/* No "Sleep" to start twice, and no second feed wording: a Feed logged
+		   inside a Sleep is a Sleep Feed on the timeline, nothing more to pick. */
 		expect(labels).not.toContain('Sleep');
+		expect(labels).toHaveLength(6);
 	});
 
 	it.each([

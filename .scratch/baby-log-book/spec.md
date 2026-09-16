@@ -560,11 +560,11 @@ The tab bar does put a second control in the thumb zone, which is the trade the 
 - **Rejected**: a dedicated nappy button (a permanent second control beside a scrolling timeline, with poop behind a 400ms long-press nobody finds at 3am), and putting nappies inside the sheet.
 - **Measurement holds the second-to-last slot and is just as rare as Milestone.** Frequency is not the fan's admission test, and [ADR-0035](../../docs/adr/0035-a-fan-row-is-a-form-not-an-entry-type.md) says why nothing else is either: the fan is the only way to create an Entry, so admission is automatic and the test that was twice looked for does not exist.
 
-**While a Sleep runs the fan reflows** — there is no ambiguous "Feed" item:
+**While a Sleep runs the fan reflows** — *She's awake* takes the Sleep row, and *Feed* stays the row it always is:
 
 - **She's awake** ends the Sleep, and the fan **reflows in place** to the awake set, so wake-then-feed is one FAB open and three taps rather than two trips.
-- **Feed while asleep** logs the Feed and leaves the Sleep running.
-- **Rejected**: a third combined "She woke to feed" item — fewest taps, but three near-synonymous labels in one fan is the same 3am discrimination problem that killed the long-press.
+- **Feed** logs the Feed and leaves the Sleep running. It needs no second wording: the timeline names the overlap a *sleep feed*, and that is the only place the fact is stated. The running Sleep's timeline row offers *She's awake* alone.
+- **Rejected**: a dedicated *Feed while asleep* row (shipped, then removed — the sub-line said what the ordinary Feed already did) and a combined "She woke to feed" item — fewest taps, but three near-synonymous labels in one fan is the same 3am discrimination problem that killed the long-press.
 - **Picking Food inside the asleep sheet switches her to awake.** Solids and sleep are mutually exclusive, so the switch *is* the statement: the sheet becomes the ordinary feed sheet and a quiet inline line reads *"marked awake from 14:05"*. No modal, no confirm — it is a real write so it is visible, and undo covers it. The Sleep ends at the Meal's Occurred At as one ordinary revision with **no lasting linkage**; later corrections to either are independent. **Guard**: only when that Occurred At falls inside the running Sleep. A back-dated Meal predating the Sleep is "she ate, then went down" — leave the Sleep alone.
 
 **Sleep Feed needs no schema.** It is *derived* from the overlap, which also covers the manual path where a corrected Feed lands inside a Sleep without passing through the fan. `since last feed` **does** reset on a Sleep Feed, because a real Feed was logged; awake time stays "time not covered by a Sleep", so a Sleep Feed does not make her awake.
