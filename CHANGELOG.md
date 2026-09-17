@@ -11,6 +11,9 @@ release moves that section under its version number.
 
 ### Changed
 
+- Stopping a bottle asks for the leftover in one field. The *Left in the
+  bottle* sheet starts at 0 ml and drops the *Nothing left* and quick-amount
+  buttons; ending the feed with the field untouched writes the full Intake.
 - Deleting asks first. Delete on an Entry's sheet and on the stale-Sleep
   banner opens a confirm dialog — *Delete Bottle?*, Cancel or Delete — instead
   of deleting at once. It is the one confirm dialog in the app: removing a

@@ -123,7 +123,6 @@
 	"sheet_intake": "Trinkmenge",
 	"sheet_leftover": "Rest in der Flasche",
 	"sheet_leftover_poured": "Eingefüllt {value}",
-	"sheet_leftover_none": "Nichts übrig",
 	"sheet_leftover_amount": "Menge",
 	"sheet_leftover_intake": "Trinkmenge {value}",
 	"sheet_leftover_end": "Flasche beenden",

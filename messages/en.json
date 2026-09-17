@@ -123,7 +123,6 @@
 	"sheet_intake": "Intake",
 	"sheet_leftover": "Left in the bottle",
 	"sheet_leftover_poured": "Poured {value}",
-	"sheet_leftover_none": "Nothing left",
 	"sheet_leftover_amount": "Amount",
 	"sheet_leftover_intake": "Intake {value}",
 	"sheet_leftover_end": "End the feed",

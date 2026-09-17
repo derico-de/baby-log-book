@@ -115,7 +115,6 @@
 	"sheet_intake": "Cantitate băută",
 	"sheet_leftover": "Rămas în biberon",
 	"sheet_leftover_poured": "Pus în biberon {value}",
-	"sheet_leftover_none": "Nimic rămas",
 	"sheet_leftover_amount": "Cantitate",
 	"sheet_leftover_intake": "Băut {value}",
 	"sheet_leftover_end": "Încheie biberonul",

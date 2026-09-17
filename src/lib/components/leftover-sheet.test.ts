@@ -23,19 +23,15 @@ function open(intake: number): void {
 	flushSync();
 }
 
-const chips = () => [...host.querySelectorAll<HTMLButtonElement>('.amounts button')];
-
-function tapChip(label: string): void {
-	const button = chips().find((b) => b.textContent?.trim() === label);
-	if (!button) throw new Error(`no chip labelled ${label}`);
-	button.click();
-	flushSync();
-}
-
-function typeAmount(value: string): void {
+function amountField(): HTMLInputElement {
 	const label = [...host.querySelectorAll('label')].find((l) => l.textContent?.includes('Amount'));
 	const input = label?.querySelector('input');
 	if (!input) throw new Error('no amount field');
+	return input;
+}
+
+function typeAmount(value: string): void {
+	const input = amountField();
 	input.value = value;
 	input.dispatchEvent(new Event('input', { bubbles: true }));
 	flushSync();
@@ -63,25 +59,14 @@ describe('what the sheet asks', () => {
 		expect(host.textContent).toContain('Poured 170 ml');
 	});
 
-	it('offers nothing left first, then the amounts a bottle that size could hold', () => {
-		open(50);
-		expect(chips().map((b) => b.textContent?.trim())).toEqual([
-			'Nothing left',
-			'10 ml',
-			'20 ml',
-			'30 ml',
-			'40 ml'
-		]);
-	});
-
-	it('previews the Intake the Stop is about to write, and starts at the full bottle', () => {
+	it('asks with one field that starts at nothing left', () => {
 		open(170);
+		expect(host.querySelectorAll('.amounts')).toHaveLength(0);
+		expect(amountField().value).toBe('0');
 		expect(intakeLine()).toBe('Intake 170 ml');
-		tapChip('40 ml');
-		expect(intakeLine()).toBe('Intake 130 ml');
 	});
 
-	it('takes an amount the chips do not cover from the field', () => {
+	it('previews the Intake the Stop is about to write', () => {
 		open(170);
 		typeAmount('35');
 		expect(intakeLine()).toBe('Intake 135 ml');
@@ -97,15 +82,16 @@ describe('what the sheet asks', () => {
 });
 
 describe('what the sheet hands back', () => {
-	it('hands back zero for a bottle she finished', () => {
+	it('hands back zero for a bottle she finished, with the field left alone', () => {
 		open(170);
-		tapChip('Nothing left');
 		end()?.click();
 		expect(saved).toEqual([0]);
 	});
 
-	it('hands back nothing said when the question is left alone', () => {
+	it('hands back nothing said when the field is cleared', () => {
 		open(170);
+		typeAmount('');
+		expect(intakeLine()).toBe('Intake 170 ml');
 		end()?.click();
 		expect(saved).toEqual([null]);
 	});
