@@ -57,6 +57,7 @@
 	import * as m from '$lib/paraglide/messages';
 	import Icon from '$lib/components/Icon.svelte';
 	import Notices from '$lib/components/Notices.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import { activeLocale } from '$lib/i18n/locale.svelte';
 
 	/** A Claim Link this Household has out: an Invite waiting for a person, or a
@@ -105,8 +106,13 @@
 	   old has a birth weight somebody may not have to hand. */
 	let newBabyWeightKg = $state<number | null>(null);
 	let newBabyLengthCm = $state<number | null>(null);
-	let deletingBabyId = $state<string | null>(null);
-	let deleteBabyTyped = $state('');
+	/* The question on the screen, if any. Every destructive act here asks
+	   through the one dialog (ADR-0044); which act is asking is this. */
+	type Asking =
+		| { kind: 'signout'; count: number }
+		| { kind: 'member'; id: string; name: string; hub: boolean }
+		| { kind: 'baby'; id: string; name: string };
+	let asking = $state<Asking | null>(null);
 	let installed = $state(false);
 
 	const baby = $derived(app.baby);
@@ -345,7 +351,14 @@
 		const waiting = await app.outboxCount();
 		/* Explicit sign-out with a non-empty outbox warns before clearing
 		   anything (spec §5.7). */
-		if (waiting > 0 && !confirm(m.settings_signout_warn({ count: waiting }))) return;
+		if (waiting > 0) {
+			asking = { kind: 'signout', count: waiting };
+			return;
+		}
+		await signOutNow();
+	}
+
+	async function signOutNow() {
 		await fetch('/api/session', { method: 'DELETE' });
 		location.reload();
 	}
@@ -353,30 +366,23 @@
 	/* A Hub's row says what removing it does, because it is not the same act:
 	   removing "Home Assistant" unplugs the hall panel rather than removing a
 	   person from the Household (ADR-0038). */
-	async function removeThem(id: string, name: string, kind: 'person' | 'hub') {
-		const question =
-			kind === 'hub'
-				? m.settings_member_remove_hub_confirm({ name })
-				: m.settings_member_remove_confirm({ name });
-		if (!confirm(question)) return;
-		await app.edit((w) => removeMember(w, id));
+	function removeThem(id: string, name: string, kind: 'person' | 'hub') {
+		asking = { kind: 'member', id, name, hub: kind === 'hub' };
 	}
 
 	/* Deleting a Baby is the one control here that swallows months of logging,
-	   so it is gated twice: an explicit reveal, then the name typed back. A
-	   native confirm() is too easy to click through at 3am. */
+	   so its question also wants the name typed back. */
 	function babyEntryCount(babyId: string): number {
 		return app.entries.filter((e) => e.baby_id === babyId && e.deleted_at == null).length;
 	}
 
-	function nameMatches(typed: string, name: string): boolean {
-		return typed.trim().toLowerCase() === name.trim().toLowerCase();
-	}
-
-	async function confirmDeleteBaby(babyId: string) {
-		await app.edit((w) => deleteBaby(w, babyId));
-		deletingBabyId = null;
-		deleteBabyTyped = '';
+	async function answer() {
+		const q = asking;
+		if (!q) return;
+		if (q.kind === 'signout') await signOutNow();
+		else if (q.kind === 'member') await app.edit((w) => removeMember(w, q.id));
+		else await app.edit((w) => deleteBaby(w, q.id));
+		asking = null;
 	}
 
 	function showFood(id: string) {
@@ -784,47 +790,11 @@
 					</div>
 					<p class="hint">{m.settings_baby_birth_hint()}</p>
 					{#if isParent}
-						{#if deletingBabyId === child.id}
-							<div class="danger" role="group" aria-label={m.settings_baby_delete_confirm({ name: child.name })}>
-								<p>{m.settings_baby_delete_warn({ name: child.name, count: babyEntryCount(child.id) })}</p>
-								<label>
-									{m.settings_baby_delete_type()}
-									<input
-										type="text"
-										bind:value={deleteBabyTyped}
-										autocomplete="off"
-										autocapitalize="off"
-										spellcheck="false"
-									/>
-								</label>
-								<div class="danger-acts">
-									<button
-										type="button"
-										class="secondary"
-										onclick={() => {
-											deletingBabyId = null;
-											deleteBabyTyped = '';
-										}}>{m.cancel()}</button
-									>
-									<button
-										type="button"
-										disabled={!nameMatches(deleteBabyTyped, child.name)}
-										onclick={() => void confirmDeleteBaby(child.id)}
-									>
-										{m.settings_baby_delete_confirm({ name: child.name })}
-									</button>
-								</div>
-							</div>
-						{:else}
-							<button
-								type="button"
-								class="secondary baby-delete"
-								onclick={() => {
-									deletingBabyId = child.id;
-									deleteBabyTyped = '';
-								}}>{m.delete()}</button
-							>
-						{/if}
+						<button
+							type="button"
+							class="secondary baby-delete"
+							onclick={() => (asking = { kind: 'baby', id: child.id, name: child.name })}>{m.delete()}</button
+						>
 					{/if}
 				{/each}
 				{#if isParent}
@@ -1091,6 +1061,36 @@
 	</div>
 </section>
 
+{#if asking}
+	{#if asking.kind === 'signout'}
+		<ConfirmDialog
+			title={m.settings_signout_title()}
+			body={m.settings_signout_warn({ count: asking.count })}
+			confirm={m.settings_signout()}
+			onconfirm={answer}
+			oncancel={() => (asking = null)}
+		/>
+	{:else if asking.kind === 'member'}
+		<ConfirmDialog
+			title={m.settings_member_remove_title({ name: asking.name })}
+			body={asking.hub ? m.settings_member_remove_hub_confirm({ name: asking.name }) : m.settings_member_remove_confirm({ name: asking.name })}
+			confirm={m.settings_member_remove()}
+			onconfirm={answer}
+			oncancel={() => (asking = null)}
+		/>
+	{:else}
+		<ConfirmDialog
+			title={m.settings_baby_delete_title({ name: asking.name })}
+			body={m.settings_baby_delete_warn({ count: babyEntryCount(asking.id) })}
+			confirm={m.settings_baby_delete_confirm({ name: asking.name })}
+			typed={asking.name}
+			typedLabel={m.settings_baby_delete_type()}
+			onconfirm={answer}
+			oncancel={() => (asking = null)}
+		/>
+	{/if}
+{/if}
+
 <style>
 	.target {
 		display: flex;
@@ -1138,25 +1138,5 @@
 		margin: 0 0 var(--sp-4);
 		padding: 6px 10px;
 		font-size: var(--fs-1);
-	}
-	.danger {
-		border: 1px solid var(--line-strong);
-		border-radius: var(--r-1);
-		padding: var(--sp-3);
-		margin-bottom: var(--sp-4);
-	}
-	.danger p {
-		color: var(--ink-2);
-		font-size: var(--fs-1);
-		margin-bottom: var(--sp-3);
-	}
-	.danger-acts {
-		display: flex;
-		gap: var(--sp-2);
-		justify-content: flex-end;
-	}
-	.danger-acts button {
-		width: auto;
-		margin: 0;
 	}
 </style>

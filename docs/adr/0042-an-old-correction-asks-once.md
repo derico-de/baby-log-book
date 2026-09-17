@@ -13,7 +13,7 @@ The row's age is read from the latest instant it states, `ended_at ?? occurred_a
 
 ## Consequences
 
-- **Delete keeps no confirm.** A deletion is a tombstone with an Undo in its toast, which is the rule working as written — the undo exists, so the confirm is not bought.
+- **Delete keeps no confirm.** A deletion is a tombstone with an Undo in its toast, which is the rule working as written — the undo exists, so the confirm is not bought. *Superseded 2026-09-17 by [ADR-0044](0044-a-delete-asks-and-nothing-pops-up.md): the toast and its Undo are gone, and a delete asks through the app's one confirm dialog. The Save-asks-once rule here is untouched.*
 - **The question is the Save button, not a dialog.** No second sheet, no scrim over a scrim: the label becomes *Change it* and one line above the actions names the row's date and time. *Amended 2026-09-16: the line is a panel — the accent's soft tint, the clock glyph, bold — and scrolls into view. One line in the warn colour was overlooked beside a Save in the same hue, and a question nobody reads is no confirm step at all; the shape is unchanged, one press asks and the next writes.* A Milestone is named by date alone, because its clock time is dropped at display (spec §3.6) and the question must not state a precision the app hides everywhere else.
 - **The second press writes what the inputs say then**, not what they said when the question appeared. The form stays live behind the question, so the draft is read once, at the write.
 - **Age is read on open and does not change while the sheet stands.** A row that crosses the two-hour line between opening the sheet and pressing Save keeps the gesture it opened with.

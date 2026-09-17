@@ -117,11 +117,11 @@ function asIncoming(raw: unknown): PendingRevision | null {
 /** How long after logging a Member may take their own row back.
 
     Roles say deleting Entries is the Parent's (spec §6.3), and the logging design
-    says the FAB fan has no confirm step because *undo* covers a mistake — a rule
-    written about nappies, which every Member logs (spec §8.5). Both hold if a
-    Member may tombstone their own Entry for as long as the toast could plausibly
-    still be on screen, and nothing older. Any other reading breaks one of them:
-    a Caregiver whose undo silently fails would tap twice at 3am. */
+    says the FAB fan has no confirm step because a mistake is cheap to take back
+    — a rule written about nappies, which every Member logs (spec §8.5). Both
+    hold if a Member may tombstone their own Entry for a few minutes after
+    logging it, and nothing older. Any other reading breaks one of them: a
+    Caregiver whose delete silently fails would tap twice at 3am. */
 export const UNDO_WINDOW_MS = 5 * 60_000;
 
 /** Roles gate writes and management, never reads (spec §6.3). */
@@ -149,7 +149,7 @@ function refuseByRole(kind: RevisionKind, fields: Record<string, unknown>, role:
 }
 
 /** The narrow exemption from Parent-only deletion: a Member taking back the row
-    they just logged, while the toast could still be on screen. Not a
+    they just logged, within minutes of logging it. Not a
     correction-of-anything-old, and never someone else's row. */
 function withinUndoWindow(
 	db: Db,

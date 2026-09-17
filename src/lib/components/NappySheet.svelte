@@ -85,8 +85,7 @@
 					   answer with it rather than leaving it on a pee. */
 					consistency: poop ? consistency : null,
 					where
-				}),
-			{ text: m.toast_logged({ what: pee && poop ? m.nappy_both() : poop ? m.nappy_poop() : m.nappy_pee() }) }
+				})
 		);
 		busy = false;
 		if (id) onclose();

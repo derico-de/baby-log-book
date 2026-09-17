@@ -25,14 +25,6 @@ import { adoptLocale, installLocaleStrategy } from '$lib/i18n/locale.svelte';
 import { playChime } from './chime';
 
 const TICK_MS = 10_000;
-const TOAST_MS = 6000;
-
-export interface Toast {
-	text: string;
-	/** Undo, not confirm. The fan taxes nothing to prevent a mistake that is
-	    cheap to correct (spec §8.5). */
-	undo?: () => void | Promise<void>;
-}
 
 export interface Identity {
 	memberId: string;
@@ -66,7 +58,6 @@ class AppState {
 	    mode change is visible before the first chip is pressed (spec §8.7,
 	    variant A). */
 	filterOpen = $state(false);
-	toast = $state<Toast | null>(null);
 	selectedBabyId = $state<string | null>(null);
 	sync = $state<SyncStatus>({
 		state: 'idle',
@@ -92,7 +83,6 @@ class AppState {
 
 	private db: ReplicaDb | null = null;
 	private engine: SyncEngine | null = null;
-	private toastTimer: ReturnType<typeof setTimeout> | null = null;
 	/** The bottles this Device has already chimed for, so a bottle chimes once
 	    however many ticks fall inside its last ten minutes. In memory and not in
 	    the replica: it is not a fact about the Baby, and a Device that is
@@ -289,34 +279,20 @@ class AppState {
 	    the FAB is the one control that can write a row the current filter would
 	    hide, and a write with no visible row is how you log a nappy twice at 3am
 	    (spec §8.7). */
-	async log<T>(action: (w: Writer) => Promise<T>, toast: Toast | null, options: { clearsFilter?: boolean } = {}): Promise<T | null> {
+	async log<T>(action: (w: Writer) => Promise<T>, options: { clearsFilter?: boolean } = {}): Promise<T | null> {
 		const w = this.writer;
 		if (!w) return null;
 		const result = await action(w);
 		this.loggedHere = true;
 		if (options.clearsFilter ?? true) this.clearFilter();
 		await this.refresh();
-		if (toast) this.showToast(toast);
 		return result;
 	}
 
 	/** A write to a row you are already looking at — stopping or correcting it —
 	    does not clear the filter: that write is visible by definition. */
-	async edit<T>(action: (w: Writer) => Promise<T>, toast: Toast | null = null): Promise<T | null> {
-		return this.log(action, toast, { clearsFilter: false });
-	}
-
-	showToast(toast: Toast): void {
-		if (this.toastTimer) clearTimeout(this.toastTimer);
-		this.toast = toast;
-		this.toastTimer = setTimeout(() => {
-			this.toast = null;
-		}, TOAST_MS);
-	}
-
-	dismissToast(): void {
-		if (this.toastTimer) clearTimeout(this.toastTimer);
-		this.toast = null;
+	async edit<T>(action: (w: Writer) => Promise<T>): Promise<T | null> {
+		return this.log(action, { clearsFilter: false });
 	}
 
 	clearFilter(): void {

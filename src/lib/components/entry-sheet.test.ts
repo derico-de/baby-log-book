@@ -420,3 +420,53 @@ describe('the time fields of a corrected entry', () => {
 		expect(fields.ended_at).toBe(Date.parse('2026-08-16T13:10:00Z'));
 	});
 });
+
+describe('deleting an entry from the edit sheet', () => {
+	function button(text: string): HTMLButtonElement {
+		const found = [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text);
+		if (!found) throw new Error(`no button labelled ${text}`);
+		return found;
+	}
+
+	const tombstones = async () =>
+		(await db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray()).filter((r) => 'deleted_at' in r.fields);
+
+	it('asks first, and writes nothing until the question is answered', async () => {
+		open(nappyEntry({ pee: true, poop: false, consistency: null, where: 'nappy' }));
+		expect(host.querySelector('[role="alertdialog"]')).toBeNull();
+		button('Delete').click();
+		flushSync();
+		const dialog = host.querySelector('[role="alertdialog"]');
+		expect(dialog).not.toBeNull();
+		expect(dialog?.textContent).toContain('Delete Pee & poop?');
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(await tombstones()).toHaveLength(0);
+		expect(closes).toBe(0);
+	});
+
+	it('cancelling the question closes it and keeps the row', async () => {
+		open(nappyEntry({ pee: true, poop: false, consistency: null, where: 'nappy' }));
+		button('Delete').click();
+		flushSync();
+		[...host.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')]
+			.find((b) => b.textContent?.trim() === 'Cancel')
+			?.click();
+		flushSync();
+		expect(host.querySelector('[role="alertdialog"]')).toBeNull();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(await tombstones()).toHaveLength(0);
+		expect(closes).toBe(0);
+	});
+
+	it('confirming tombstones the row and closes the sheet', async () => {
+		open(nappyEntry({ pee: true, poop: false, consistency: null, where: 'nappy' }));
+		button('Delete').click();
+		flushSync();
+		[...host.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')]
+			.find((b) => b.getAttribute('data-primary') === '1')
+			?.click();
+		await landed(async () => (await tombstones()).length > 0);
+		expect((await tombstones())[0].fields.deleted_at).toBe(NOW);
+		expect(closes).toBe(1);
+	});
+});

@@ -4,16 +4,15 @@
 	import { app } from '$client/state.svelte';
 	import {
 		addBaby,
-		deleteEntry,
 		endBottleFeed,
 		endSleep,
 		startSleep,
 		startTummyTime,
 		stopSession
 	} from '$client/mutate';
-	import { asksLeftover, intakeAfterLeftover, intakeMl } from '$domain/entries';
+	import { asksLeftover, intakeMl } from '$domain/entries';
 	import { dayBucketOf, dayStartInstant, wallTimeAtOrAfter, wallTimeAtOrBefore } from '$domain/time';
-	import { dayLabel, millilitres } from '$lib/i18n/format';
+	import { dayLabel } from '$lib/i18n/format';
 	import type { BottleFeedPayload, Entry } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 	import EntrySheet from '$lib/components/EntrySheet.svelte';
@@ -75,12 +74,7 @@
 		sheet = null;
 		if (!baby) return;
 		const at = wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now;
-		const id = await app.log((w) => startSleep(w, { babyId: baby.id, occurredAt: at }), {
-			text: m.toast_sleep_started(),
-			undo: async () => {
-				if (id) await app.edit((w) => deleteEntry(w, id), { text: m.toast_undone() });
-			}
-		});
+		await app.log((w) => startSleep(w, { babyId: baby.id, occurredAt: at }));
 	}
 
 	/** Starting tummy time asks for its time the way a Sleep does, and for the
@@ -90,12 +84,7 @@
 		sheet = null;
 		if (!baby) return;
 		const at = wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now;
-		const id = await app.log((w) => startTummyTime(w, { babyId: baby.id, occurredAt: at }), {
-			text: m.toast_tummy_started(),
-			undo: async () => {
-				if (id) await app.edit((w) => deleteEntry(w, id), { text: m.toast_undone() });
-			}
-		});
+		await app.log((w) => startTummyTime(w, { babyId: baby.id, occurredAt: at }));
 	}
 
 	/** *Off her tummy* — ends the running stretch at the moment it is pressed,
@@ -104,7 +93,7 @@
 	async function endTummy() {
 		const running = app.runningTummy;
 		if (!running) return;
-		await app.edit((w) => stopSession(w, running.id, Date.now()), { text: m.toast_tummy_ended() });
+		await app.edit((w) => stopSession(w, running.id, Date.now()));
 	}
 
 	/** *She's awake* ends the Sleep at the time the sheet asked for; opened from
@@ -118,7 +107,7 @@
 		if (!target) return;
 		const at = wallTimeAtOrAfter(time, target.occurred_at, app.zone);
 		if (at == null) return;
-		await app.edit((w) => endSleep(w, target.id, at), { text: m.toast_sleep_ended() });
+		await app.edit((w) => endSleep(w, target.id, at));
 	}
 
 	/** Stopping a row you are already looking at does not clear the filter.
@@ -132,33 +121,17 @@
 			leftoverFeed = entry;
 			return;
 		}
-		await app.edit((w) => stopSession(w, entry.id, Date.now()), {
-			text:
-				entry.type === 'sleep'
-					? m.toast_sleep_ended()
-					: entry.type === 'tummy_time'
-						? m.toast_tummy_ended()
-						: m.toast_logged({
-								what: entry.type === 'bottle_feed' ? m.type_bottle_feed() : m.type_breast_feed()
-							})
-		});
+		await app.edit((w) => stopSession(w, entry.id, Date.now()));
 	}
 
 	/** The answer to that question: the end and the corrected Intake in one
-	    revision, and a toast that states the figure the row now carries — the
-	    subtraction is a number changing, so it is said out loud. */
+	    revision. */
 	async function endBottle(leftoverMl: number | null) {
 		const feed = leftoverFeed;
 		leftoverFeed = null;
 		if (!feed) return;
 		const payload = feed.payload as BottleFeedPayload;
-		const taken = intakeAfterLeftover(payload, leftoverMl);
-		await app.edit((w) => endBottleFeed(w, { id: feed.id, payload }, Date.now(), leftoverMl), {
-			text:
-				taken == null
-					? m.toast_logged({ what: m.type_bottle_feed() })
-					: m.toast_bottle_ended({ value: millilitres(taken) })
-		});
+		await app.edit((w) => endBottleFeed(w, { id: feed.id, payload }, Date.now(), leftoverMl));
 	}
 
 	/** The row's *She's awake* — the same statement the fan makes, aimed at the
@@ -171,7 +144,7 @@
 	async function createBaby(event: SubmitEvent) {
 		event.preventDefault();
 		if (newBabyName.trim().length === 0 || newBabyBirth === '') return;
-		await app.log((w) => addBaby(w, newBabyName.trim(), newBabyBirth), null);
+		await app.log((w) => addBaby(w, newBabyName.trim(), newBabyBirth));
 		newBabyName = '';
 		newBabyBirth = '';
 	}

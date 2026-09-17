@@ -73,7 +73,7 @@
 	    night it happened rather than tonight. */
 	const occurredAt = $derived(wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now);
 
-	/* The switch is a real write, so it is visible — and undo covers it. It says so
+	/* The switch is a real write, so it is visible. It says so
 	   only when it will actually happen: the guard is that the Meal's Occurred At
 	   falls inside the running Sleep, because a back-dated Meal predating it is
 	   "she ate, then went down" and leaves the Sleep alone (spec §8.5). */
@@ -108,7 +108,7 @@
 	async function createFood() {
 		const name = foodQuery.trim();
 		if (name.length === 0) return;
-		const id = await app.log(async (w) => addFood(w, name), null, { clearsFilter: false });
+		const id = await app.log(async (w) => addFood(w, name), { clearsFilter: false });
 		if (id) pickFood(id);
 	}
 
@@ -134,19 +134,13 @@
 						...target,
 						side,
 						endedAt: minutes != null && minutes > 0 ? at + minutes * 60_000 : null
-					}),
-				{ text: m.toast_logged({ what: m.type_breast_feed() }), undo: undefined }
+					})
 			);
 		} else if (mode === 'bottle') {
-			id = await app.log(
-				(w) => logBottleFeed(w, { ...target, volumeMl: intake, contents }),
-				{ text: m.toast_logged({ what: m.type_bottle_feed() }) }
-			);
+			id = await app.log((w) => logBottleFeed(w, { ...target, volumeMl: intake, contents }));
 		} else {
 			const sleep = runningSleep;
-			id = await app.log((w) => logMeal(w, { ...target, foods: picked }), {
-				text: m.toast_logged({ what: m.type_meal() })
-			});
+			id = await app.log((w) => logMeal(w, { ...target, foods: picked }));
 			if (sleep && asleep) {
 				/* Guard: only when the Occurred At falls inside the running Sleep. A
 				   back-dated Meal predating it is "she ate, then went down". */

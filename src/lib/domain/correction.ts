@@ -1,9 +1,9 @@
 /* When a correction asks before it lands.
 
-   Corrections are first-class and the app confirms almost nothing — undo covers
-   a mistake that is cheap to correct, and a confirm step on every write would
-   tax every nappy every night ([spec §8.5](../../../.scratch/baby-log-book/spec.md)).
-   A correction is the one write with no undo: it lands as a revision, and
+   Corrections are first-class and logging confirms nothing: a confirm step on
+   every write would tax every nappy every night, and a wrong row is cheap to
+   correct ([spec §8.5](../../../.scratch/baby-log-book/spec.md)). Only the
+   destructive acts ask (ADR-0044). A correction lands as a revision, and
    putting the old figure back is another correction.
 
    That matters for exactly one gesture. A row is opened by tapping it, the

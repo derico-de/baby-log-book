@@ -118,8 +118,7 @@ export function matchesFilter(entry: Entry, filter: Filter, ctx: FilterContext):
 }
 
 /** The filtered timeline: reverse-chronological, tombstones excluded. A
-    tombstoned Entry is kept forever but it is not on the timeline — undo brings
-    it back by appending a revision, not by unhiding it here. */
+    tombstoned Entry is kept forever but it is not on the timeline. */
 export function filterEntries(entries: Entry[], filter: Filter, ctx: FilterContext): Entry[] {
 	return entries
 		.filter((e) => e.deleted_at == null && e.merged_into == null && matchesFilter(e, filter, ctx))

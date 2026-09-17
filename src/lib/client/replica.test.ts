@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { applyLocal, applyRevisions } from './apply';
 import { META, resetReplica, ReplicaDb, setMeta, wipeEverything } from './db';
-import { addBaby, deleteBaby, deleteEntry, logNappy, startSleep, stopSession, undoDelete, type Writer } from './mutate';
+import { addBaby, deleteBaby, deleteEntry, logNappy, startSleep, stopSession, type Writer } from './mutate';
 import { SyncEngine, toWireRevision } from './sync';
 import { PROTOCOL_VERSION, type Revision } from '$domain/types';
 
@@ -74,14 +74,12 @@ describe('a local write', () => {
 		expect(await db.entries.get(id)).toMatchObject({ logged_by: 'oma', edited_by: 'mum' });
 	});
 
-	it('is undoable, and the tombstone keeps the payload', async () => {
+	it('is a tombstone that keeps the payload', async () => {
 		const id = await logNappy(writer(), { babyId: 'b1', pee: true, poop: true });
 		await deleteEntry(writer(), id);
 		const tombstoned = await db.entries.get(id);
 		expect(tombstoned?.deleted_at).not.toBeNull();
 		expect(tombstoned?.payload).toMatchObject({ pee: true, poop: true });
-		await undoDelete(writer(), id);
-		expect((await db.entries.get(id))?.deleted_at).toBeNull();
 	});
 });
 
@@ -476,7 +474,7 @@ describe('the sync engine', () => {
 
 	it('surfaces a refusal rather than dropping a write silently', async () => {
 		await logNappy(writer(), { babyId: 'b1', pee: true, poop: false });
-		/* The outbox is keyed by revision id; the entity id is what Undo holds. */
+		/* The outbox is keyed by revision id, not by the entity it changes. */
 		const [queued] = await db.outbox.toArray();
 		const id = queued.id;
 		const sync = engine((url) =>

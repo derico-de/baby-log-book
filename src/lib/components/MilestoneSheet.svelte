@@ -66,8 +66,7 @@
 					dayStart: app.dayStart,
 					zone: app.zone,
 					note: trimmed.length > 0 ? trimmed : null
-				}),
-			{ text: m.toast_logged({ what: m.type_milestone() }) }
+				})
 		);
 		busy = false;
 		if (id) onclose();

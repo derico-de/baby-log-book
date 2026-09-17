@@ -70,7 +70,7 @@
 		--z-scrim: 30;
 		--z-fab: 40;
 		--z-sheet: 50;
-		--z-toast: 60;
+		--z-dialog: 60;
 
 		/* One family, in several weights — a product UI does not need a display
        face, and a webfont is a request the service worker has to cache and

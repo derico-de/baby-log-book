@@ -9,7 +9,7 @@
        Nothing here awaits the network, so logging is never blocked.
 
    Each function returns the revision id, which is also the Entry id for a
-   creation — that is what the toast's Undo holds on to. */
+   creation. */
 
 import { randomId } from './id';
 import { applyLocal } from './apply';
@@ -308,15 +308,10 @@ export function correctEntry(
 	return write(w, 'entry', entryId, fields);
 }
 
-/** A tombstone hides an Entry and never purges it, so a 3am mistake is
-    recoverable on every Device. */
+/** A tombstone hides an Entry and never purges it: the history still reads
+    "deleted by Oma", and the payload stays for it to say what was deleted. */
 export function deleteEntry(w: Writer, entryId: string): Promise<string> {
 	return write(w, 'entry', entryId, { deleted_at: w.mergeAt() });
-}
-
-/** Undo, which is why the fan has no confirm step. */
-export function undoDelete(w: Writer, entryId: string): Promise<string> {
-	return write(w, 'entry', entryId, { deleted_at: null });
 }
 
 /* --- reference data --------------------------------------------------- */

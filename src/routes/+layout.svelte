@@ -12,7 +12,6 @@
 	import { requestUpdate } from '$client/pwa';
 	import { activeLocale } from '$lib/i18n/locale.svelte';
 	import TabBar from '$lib/components/TabBar.svelte';
-	import Toast from '$lib/components/Toast.svelte';
 	import * as m from '$lib/paraglide/messages';
 
 	let { children } = $props();
@@ -78,7 +77,6 @@
 		<div class="app">
 			{@render children()}
 			<TabBar />
-			<Toast />
 		</div>
 	{/if}
 {/key}

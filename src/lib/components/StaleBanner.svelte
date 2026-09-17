@@ -22,6 +22,7 @@
 	import { wallTimeAtOrAfter } from '$domain/time';
 	import type { Entry } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 
 	interface Props {
 		sleep: Entry;
@@ -49,16 +50,19 @@
 		const at = wallTimeAtOrAfter(woke, sleep.occurred_at, zone);
 		if (at == null) return;
 		busy = true;
-		await app.edit((w) => endSleep(w, sleep.id, at), { text: m.toast_sleep_ended() });
+		await app.edit((w) => endSleep(w, sleep.id, at));
 		busy = false;
 		picking = false;
 	}
 
+	let confirmingDelete = $state(false);
+
 	async function remove() {
 		if (busy) return;
 		busy = true;
-		await app.edit((w) => deleteEntry(w, sleep.id), { text: m.toast_deleted({ what: m.type_sleep() }) });
+		await app.edit((w) => deleteEntry(w, sleep.id));
 		busy = false;
+		confirmingDelete = false;
 	}
 </script>
 
@@ -81,10 +85,20 @@
 			<!-- It prompts, and it stops asking: this restarts the clock, and the
 			     Sleep stays running because it is genuine. -->
 			<button type="button" onclick={() => void app.ackStale(sleep.id)}>{m.stale_still()}</button>
-			<button type="button" data-quiet="1" onclick={remove}>{m.stale_delete()}</button>
+			<button type="button" data-quiet="1" onclick={() => (confirmingDelete = true)}>{m.stale_delete()}</button>
 		</div>
 	{/if}
 </div>
+
+{#if confirmingDelete}
+	<ConfirmDialog
+		title={m.confirm_delete_title({ what: m.type_sleep() })}
+		body={m.confirm_delete_body()}
+		confirm={m.delete()}
+		onconfirm={remove}
+		oncancel={() => (confirmingDelete = false)}
+	/>
+{/if}
 
 <style>
 	.field {

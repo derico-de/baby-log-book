@@ -2,20 +2,20 @@
 	/* One Entry, opened from the timeline: correct it, read its history, delete it.
 
 	   Corrections are first-class — any Member may fix any Member's Entry and the
-	   history stays visible (ADR-0002) — which is exactly why the fan has no
-	   confirm step. Correcting a row you are already looking at does **not** clear
-	   the filter: that write is visible by definition (spec §8.7).
+	   history stays visible (ADR-0002). Correcting a row you are already looking
+	   at does **not** clear the filter: that write is visible by definition
+	   (spec §8.7).
 
-	   The one place this sheet does ask is a row from more than two hours ago:
-	   the Save button states what it is about to change and needs a second press
-	   (ADR-0042). Today's corrections are untouched.
+	   Two things here ask. A row from more than two hours ago: the Save button
+	   states what it is about to change and needs a second press (ADR-0042).
+	   And Delete, always: it opens the app's one confirm dialog (ADR-0044).
 
 	   The history is the evidence a conflict leaves behind. The user never sees a
 	   conflict dialog; what they can see, here, is "edited by Oma, was 120 ml" and
 	   the app-attributed line a Session Merge leaves. */
 	import { untrack } from 'svelte';
 	import { app } from '$client/state.svelte';
-	import { correctEntry, deleteEntry, undoDelete } from '$client/mutate';
+	import { correctEntry, deleteEntry } from '$client/mutate';
 	import { correctionAsksFirst } from '$domain/correction';
 	import { compareRevisions, foldEntity } from '$domain/revisions';
 	import {
@@ -47,6 +47,7 @@
 		Where
 	} from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
+	import ConfirmDialog from './ConfirmDialog.svelte';
 	import Icon, { type IconName } from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
 
@@ -359,18 +360,14 @@
 		onclose();
 	}
 
+	let confirmingDelete = $state(false);
+
 	async function remove() {
 		if (busy) return;
 		busy = true;
-		await app.edit((w) => deleteEntry(w, entry.id), {
-			text: m.toast_deleted({ what: title }),
-			/* A tombstone keeps the payload permanently, so undo is a revision and
-			   not a resurrection. */
-			undo: async () => {
-				await app.edit((w) => undoDelete(w, entry.id), { text: m.toast_undone() });
-			}
-		});
+		await app.edit((w) => deleteEntry(w, entry.id));
 		busy = false;
+		confirmingDelete = false;
 		onclose();
 	}
 </script>
@@ -567,13 +564,23 @@
 	<div class="sheet-acts">
 		<button type="button" onclick={onclose}>{m.cancel()}</button>
 		{#if entry.deleted_at == null}
-			<button type="button" onclick={remove} disabled={busy}>{m.delete()}</button>
+			<button type="button" onclick={() => (confirmingDelete = true)} disabled={busy}>{m.delete()}</button>
 		{/if}
 		<button type="button" data-primary="1" onclick={save} disabled={busy}>
 			{asked ? m.sheet_old_ask_save() : m.save()}
 		</button>
 	</div>
 </Sheet>
+
+{#if confirmingDelete}
+	<ConfirmDialog
+		title={m.confirm_delete_title({ what: title })}
+		body={m.confirm_delete_body()}
+		confirm={m.delete()}
+		onconfirm={remove}
+		oncancel={() => (confirmingDelete = false)}
+	/>
+{/if}
 
 <style>
 	/* The segmented control's own state attribute is aria-selected, which is for

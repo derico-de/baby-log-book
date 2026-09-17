@@ -919,37 +919,84 @@
 		color: var(--accent-ink);
 	}
 
-	/* ---- toast ------------------------------------------------------ */
+	/* ---- confirm dialog --------------------------------------------- */
 
-	.toast {
-		position: fixed;
-		left: var(--sp-3);
-		right: var(--sp-3);
-		bottom: calc(var(--fab-bottom) + 74px);
-		z-index: var(--z-toast);
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--sp-3);
-		padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
-		border-radius: var(--r-2);
-		background: var(--ink);
-		color: var(--ground);
-		font-size: var(--fs-2);
-		box-shadow: var(--shadow);
-		animation: rise var(--dur-3) var(--ease);
+	/* One question, one look. Centred rather than a second bottom sheet: it
+	   may stand above a sheet, and a sheet over a sheet reads as the same
+	   surface twice. The scrim is the ordinary one, lifted above the sheet. */
+	.dialog-scrim {
+		z-index: var(--z-dialog);
 	}
-	.toast button {
-		border: 0;
-		background: none;
-		color: inherit;
+	.dialog {
+		position: fixed;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		z-index: var(--z-dialog);
+		width: min(calc(100% - 2 * var(--sp-4)), 400px);
+		padding: var(--sp-4);
+		border: 1px solid var(--line);
+		border-radius: var(--r-2);
+		background: var(--surface);
+		box-shadow: var(--shadow);
+		animation: settle var(--dur-2) var(--ease);
+	}
+	@keyframes settle {
+		from {
+			opacity: 0;
+			transform: translate(-50%, calc(-50% + 8px)) scale(0.97);
+		}
+	}
+	.dialog h3 {
+		margin: 0 0 var(--sp-2);
+		font-size: var(--fs-4);
 		font-weight: var(--fw-bold);
+		color: var(--ink);
+	}
+	.dialog p {
+		margin: 0 0 var(--sp-3);
+		color: var(--ink-2);
 		font-size: var(--fs-2);
+		line-height: 1.4;
+	}
+	.dialog label {
+		display: block;
+		margin-bottom: var(--sp-3);
+		font-size: var(--fs-1);
+		color: var(--ink-2);
+	}
+	.dialog label input {
+		margin-bottom: 0;
+	}
+	.dialog-acts {
+		display: flex;
+		gap: var(--sp-2);
+		justify-content: flex-end;
+		margin-top: var(--sp-3);
+	}
+	.dialog-acts button {
+		width: auto;
+		margin: 0;
+		min-height: var(--tap);
+		padding: 0 var(--sp-4);
+		border-radius: var(--r-1);
+		border: 1px solid var(--line-strong);
+		background: var(--surface);
+		color: var(--ink);
+		font-size: var(--fs-2);
+		font-weight: var(--fw-medium);
 		cursor: pointer;
-		min-height: 40px;
-		padding: 0 var(--sp-3);
-		text-decoration: underline;
-		text-underline-offset: 3px;
+	}
+	/* There is no red in this app: the confirming button is the accent one,
+	   and what makes it safe is that it is never the one focus lands on. */
+	.dialog-acts button[data-primary='1'] {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: var(--accent-ink);
+	}
+	.dialog-acts button:disabled {
+		opacity: 0.5;
+		cursor: default;
 	}
 
 	/* ---- bottom tab bar --------------------------------------------- */

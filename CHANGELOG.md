@@ -11,6 +11,19 @@ release moves that section under its version number.
 
 ### Changed
 
+- Deleting asks first. Delete on an Entry's sheet and on the stale-Sleep
+  banner opens a confirm dialog — *Delete Bottle?*, Cancel or Delete — instead
+  of deleting at once. It is the one confirm dialog in the app: removing a
+  Member or a Hub, signing out over unsynced entries and deleting a Baby all
+  use it too, in place of the browser's own prompt and the inline panel they
+  had (ADR-0044).
+
+### Removed
+
+- The pop-up after every action — *Nappy logged*, *Sleep started* — and the
+  Undo it carried. The timeline row already says what was logged, and the
+  six-second Undo was hit by accident as often as on purpose.
+
 - *Feed while asleep* is gone as an action. While a Sleep runs the fan keeps
   its ordinary *Feed* row, and the running Sleep's timeline row offers only
   *She's awake*. A Feed logged inside a Sleep is still a *sleep feed* on the

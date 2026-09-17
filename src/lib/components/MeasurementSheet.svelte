@@ -48,8 +48,7 @@
 					weightG: kg == null ? null : Math.round(kg * 1000),
 					heightMm: heightCm == null ? null : Math.round(heightCm * 10),
 					headMm: headCm == null ? null : Math.round(headCm * 10)
-				}),
-			{ text: m.toast_logged({ what: m.type_measurement() }) }
+				})
 		);
 		busy = false;
 		if (id) onclose();
