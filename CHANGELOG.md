@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-09-17
+
 ### Changed
 
 - Stopping a bottle asks for the leftover in one field. The *Left in the
