@@ -2,7 +2,7 @@
    previews the Intake the Stop is about to write, and hands the number to the
    caller. It stores nothing and ends nothing itself. */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
 import LeftoverSheet from './LeftoverSheet.svelte';
 
@@ -64,6 +64,23 @@ describe('what the sheet asks', () => {
 		expect(host.querySelectorAll('.amounts')).toHaveLength(0);
 		expect(amountField().value).toBe('0');
 		expect(intakeLine()).toBe('Intake 170 ml');
+	});
+
+	it('marks the 0 on focus so the first digit typed replaces it', () => {
+		open(170);
+		const select = vi.spyOn(HTMLInputElement.prototype, 'select');
+		try {
+			amountField().dispatchEvent(new FocusEvent('focus'));
+			expect(select).toHaveBeenCalledOnce();
+			const mouseUp = new MouseEvent('mouseup', { bubbles: true, cancelable: true });
+			amountField().dispatchEvent(mouseUp);
+			expect(mouseUp.defaultPrevented).toBe(true);
+			const later = new MouseEvent('mouseup', { bubbles: true, cancelable: true });
+			amountField().dispatchEvent(later);
+			expect(later.defaultPrevented).toBe(false);
+		} finally {
+			select.mockRestore();
+		}
 	});
 
 	it('previews the Intake the Stop is about to write', () => {

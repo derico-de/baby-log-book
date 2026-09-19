@@ -9,6 +9,11 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- The *Left in the bottle* field marks its 0 when it takes focus, so the
+  first digit typed replaces it instead of trailing it.
+
 ## [1.31.0] - 2026-09-17
 
 ### Changed

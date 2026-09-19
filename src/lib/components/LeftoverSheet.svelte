@@ -26,13 +26,35 @@
 
 	let leftover = $state<number | null>(0);
 	const taken = $derived(leftover == null ? intake : (subtractLeftover(intake, leftover) ?? intake));
+
+	/* The field opens with its value marked, so the first digit typed replaces
+	   the 0 rather than trailing it. The mouse-up that follows a click would
+	   collapse that mark, so the one right after focus is swallowed. */
+	let marked = false;
+	function mark(event: FocusEvent): void {
+		(event.currentTarget as HTMLInputElement).select();
+		marked = true;
+	}
+	function keepMark(event: MouseEvent): void {
+		if (marked) event.preventDefault();
+		marked = false;
+	}
 </script>
 
 <Sheet title={m.sheet_leftover()} icon="feed" t="feed" {onclose}>
 	<p class="note-line">{m.sheet_leftover_poured({ value: millilitres(intake) })}</p>
 	<label class="field">
 		{m.sheet_leftover_amount()}
-		<input type="number" inputmode="numeric" min="0" max="5000" step="1" bind:value={leftover} />
+		<input
+			type="number"
+			inputmode="numeric"
+			min="0"
+			max="5000"
+			step="1"
+			bind:value={leftover}
+			onfocus={mark}
+			onmouseup={keepMark}
+		/>
 	</label>
 	<!-- What the Stop is about to write, in the figure the row will show. -->
 	<p class="note-line intake">{m.sheet_leftover_intake({ value: millilitres(taken) })}</p>
