@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.31.1] - 2026-09-19
+
 ### Fixed
 
 - The *Left in the bottle* field marks its 0 when it takes focus, so the
