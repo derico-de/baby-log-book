@@ -49,6 +49,14 @@ function tap(label: string): void {
 
 const saveButton = () => host.querySelector<HTMLButtonElement>('[data-primary="1"]');
 
+function type(selector: string, value: string): void {
+	const input = host.querySelector<HTMLInputElement>(selector);
+	if (!input) throw new Error(`no ${selector}`);
+	input.value = value;
+	input.dispatchEvent(new Event('input', { bubbles: true }));
+	flushSync();
+}
+
 beforeEach(() => {
 	host = document.createElement('div');
 	document.body.append(host);
@@ -121,6 +129,28 @@ describe('the form', () => {
 		open();
 		expect(host.querySelector<HTMLInputElement>('input[type="time"]')?.value).toBe('16:00');
 	});
+
+	it('keeps the date and the note behind a chip each, beside the time', () => {
+		open();
+		expect(host.querySelector('input[type="date"]')).toBeNull();
+		expect(host.querySelector('input[type="text"]')).toBeNull();
+		expect(button('Note').getAttribute('aria-label')).toBe('Add a note');
+		expect(button('Date').getAttribute('aria-label')).toBe('Add a date');
+	});
+
+	it('opens the date on the day the time already means', () => {
+		open();
+		type('input[type="time"]', '23:45'); /* later than 16:00, so yesterday */
+		tap('Date');
+		expect(host.querySelector<HTMLInputElement>('input[type="date"]')?.value).toBe('2026-08-16');
+	});
+
+	it('moves the note chip below once the date takes its place', () => {
+		open();
+		tap('Date');
+		tap('Note');
+		expect(host.querySelector('input[type="text"]')).not.toBeNull();
+	});
 });
 
 describe('what a save writes', () => {
@@ -184,6 +214,18 @@ describe('what a save writes', () => {
 			consistency: null,
 			where: 'potty'
 		});
+	});
+
+	it('takes a stated date at its word', async () => {
+		open();
+		tap('Pee');
+		tap('Date');
+		type('input[type="date"]', '2026-08-15');
+		type('input[type="time"]', '15:40');
+		saveButton()?.click();
+		await landed(async () => (await db.entries.count()) === 1);
+		const rows = await db.entries.toArray();
+		expect(rows[0].occurred_at).toBe(Date.parse('2026-08-15T13:40:00Z'));
 	});
 
 	it('reads the time field backwards from now, like a feed does', async () => {

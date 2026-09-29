@@ -76,7 +76,7 @@
 	let endTime = $state(opened.ended_at == null ? '' : timeInputValue(opened.ended_at, app.zone));
 	let note = $state(opened.note ?? '');
 	/* The input only when there is something to read: an existing note opens
-	   visible, everything else sits behind one *Add a note* button. */
+	   visible, everything else sits behind one *+ Note* chip. */
 	let showNote = $state((opened.note ?? '').length > 0);
 	/* The amount is the Intake, on every era of row: a legacy pair opens as its
 	   derived figure, and saving a change converts the row (ADR-0018). */
@@ -541,9 +541,9 @@
 				</label>
 			{:else}
 				<div class="note-slot">
-					<button class="chip" type="button" onclick={() => (showNote = true)}>
-						<Icon name="note" />
-						{m.note_add()}
+					<button class="chip" type="button" aria-label={m.note_add()} onclick={() => (showNote = true)}>
+						<Icon name="plus" />
+						{m.note()}
 					</button>
 				</div>
 			{/if}
@@ -604,9 +604,9 @@
 			</label>
 		{:else}
 			<div class="field">
-				<button class="chip" type="button" onclick={() => (showNote = true)}>
-					<Icon name="note" />
-					{m.note_add()}
+				<button class="chip" type="button" aria-label={m.note_add()} onclick={() => (showNote = true)}>
+					<Icon name="plus" />
+					{m.note()}
 				</button>
 			</div>
 		{/if}
@@ -769,7 +769,7 @@
 		grid-template-columns: 1fr 1fr;
 		align-items: end;
 	}
-	/* Keeps the *Add a note* chip on the input's baseline when its row-mate
+	/* Keeps the *+ Note* chip on the input's baseline when its row-mate
 	   is a full labelled field. */
 	.note-slot {
 		display: flex;

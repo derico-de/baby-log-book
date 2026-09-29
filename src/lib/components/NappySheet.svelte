@@ -21,11 +21,11 @@
 	import { logNappy } from '$client/mutate';
 	import { whereDefault } from '$client/device';
 	import { timeInputValue } from '$lib/i18n/format';
-	import { wallTimeAtOrBefore } from '$domain/time';
+	import { loggedAt } from '$domain/time';
 	import type { Consistency, Where } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
-	import Icon from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
+	import WhenRow from './WhenRow.svelte';
 
 	interface Props {
 		onclose: () => void;
@@ -40,14 +40,14 @@
 	   training. Stated, never learned from what has been logged (ticket 26). */
 	let where = $state<Where>(whereDefault());
 	let note = $state('');
-	let showNote = $state(false);
 	/* Backwards from now, like a feed's time: 23:45 typed at 00:20 is
-	   thirty-five minutes ago, not tomorrow night. */
+	   thirty-five minutes ago, not tomorrow night — unless a date is stated. */
 	let time = $state(timeInputValue(app.now, app.zone));
+	let date = $state<string | null>(null);
 	let busy = $state(false);
 
 	const baby = $derived(app.baby);
-	const occurredAt = $derived(wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now);
+	const occurredAt = $derived(loggedAt(time, date, app.now, app.zone) ?? app.now);
 	const nothingSaid = $derived(!pee && !poop);
 
 	const WHERES: Array<[Where, () => string]> = [
@@ -124,25 +124,7 @@
 		</div>
 	{/if}
 
-	<div class="field pair">
-		<label>
-			{m.sheet_time()}
-			<input type="time" bind:value={time} />
-		</label>
-		{#if showNote}
-			<label>
-				{m.note()}
-				<input type="text" bind:value={note} />
-			</label>
-		{:else}
-			<div class="note-slot">
-				<button class="chip" type="button" onclick={() => (showNote = true)}>
-					<Icon name="note" />
-					{m.note_add()}
-				</button>
-			</div>
-		{/if}
-	</div>
+	<WhenRow bind:time bind:date bind:note />
 
 	<div class="sheet-acts">
 		<button type="button" onclick={onclose}>{m.cancel()}</button>
@@ -174,21 +156,5 @@
 		margin-bottom: var(--sp-2);
 		font-size: var(--fs-1);
 		color: var(--ink-2);
-	}
-	.field {
-		margin-bottom: var(--sp-3);
-		padding: 0 var(--sp-4);
-	}
-	.pair {
-		display: grid;
-		grid-template-columns: 1fr 1.3fr;
-		gap: var(--sp-3);
-		align-items: end;
-	}
-	/* Keeps the *Add a note* chip on the time input's baseline. */
-	.note-slot {
-		display: flex;
-		align-items: center;
-		min-height: 44px;
 	}
 </style>

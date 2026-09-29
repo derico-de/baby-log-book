@@ -219,6 +219,14 @@ export function wallTimeAtOrBefore(value: string, until: number, zone: string): 
 	return null;
 }
 
+/** The instant a new Entry's time names. The date stays behind a chip on the
+    add sheets: unstated, the time reads backwards from now; stated, both are
+    taken at their word, the way a correction takes them. */
+export function loggedAt(value: string, date: string | null, now: number, zone: string): number | null {
+	if (date == null || date === '') return wallTimeAtOrBefore(value, now, zone);
+	return instantOnDate(date, value, zone);
+}
+
 /** Whether two instants name the same minute — the precision a time input
     speaks. A Member states minutes; the clock stamps seconds, so an Entry
     logged straight through carries `Date.now()` to the millisecond. Comparing

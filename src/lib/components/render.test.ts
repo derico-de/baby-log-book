@@ -575,6 +575,28 @@ describe('the time sheet', () => {
 		flushSync(() => host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click());
 		expect(saved).toBe('15:40');
 	});
+
+	it('offers a start the date behind a chip, and hands it back', () => {
+		let saved: [string, string | null] | null = null;
+		draw(TimeSheet, { title: 'Fell asleep', dated: true, onsave: (t: string, d: string | null) => (saved = [t, d]), onclose: () => {} });
+		flushSync();
+		const chip = host.querySelector<HTMLButtonElement>('button[aria-label="Add a date"]');
+		if (!chip) throw new Error('no date chip');
+		flushSync(() => chip.click());
+		const input = host.querySelector<HTMLInputElement>('input[type="date"]');
+		expect(input?.value).toBe('2026-08-17');
+		if (!input) throw new Error('no date input');
+		input.value = '2026-08-15';
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+		flushSync(() => host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.click());
+		expect(saved).toEqual(['16:00', '2026-08-15']);
+	});
+
+	it('asks an end for no date: it follows from the start', () => {
+		draw(TimeSheet, { title: "She's awake", onsave: () => {}, onclose: () => {} });
+		flushSync();
+		expect(host.querySelector('button[aria-label="Add a date"]')).toBeNull();
+	});
 });
 
 describe('the stale-Sleep banner', () => {

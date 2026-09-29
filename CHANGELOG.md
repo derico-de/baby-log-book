@@ -19,6 +19,14 @@ release moves that section under its version number.
   copied, and a Measurement has no Duplicate (ADR-0045).
 - Holding a timeline row opens its sheet already on the Duplicate draft,
   instead of selecting the row's text.
+- The Feed, Pee & poop, *Fell asleep* and tummy-time sheets take a date,
+  behind a *+ Date* chip beside the time. Tapped, it opens on the day the
+  time already means and takes the chip's place, and the note moves below
+  it. Without it the time still reads backwards from now.
+
+### Changed
+
+- *Add a note* reads *+ Note* on every sheet.
 
 ## [1.31.1] - 2026-09-19
 

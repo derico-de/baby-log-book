@@ -7,36 +7,44 @@
 	   asks once, up front — confirming the prefill costs one tap, so the common
 	   path stays as fast as the silent write was.
 
-	   The sheet hands back the raw `HH:MM`; the caller decides what instant it
-	   means, because a start reads backwards from now while an end reads
-	   forwards from its Sleep's start. */
+	   The sheet hands back the raw `HH:MM`, and the date when a start asked for
+	   one; the caller decides what instant it means, because a start reads
+	   backwards from now while an end reads forwards from its Sleep's start. */
 	import { app } from '$client/state.svelte';
 	import type { FacetKey } from '$domain/filter';
 	import { timeInputValue } from '$lib/i18n/format';
 	import * as m from '$lib/paraglide/messages';
 	import Sheet from './Sheet.svelte';
+	import WhenRow from './WhenRow.svelte';
 	import type { IconName } from './Icon.svelte';
 
 	interface Props {
 		title: string;
 		icon?: IconName;
 		t?: FacetKey;
-		onsave: (time: string) => void;
+		/** Offers the date behind a chip — a start's, never an end's. */
+		dated?: boolean;
+		onsave: (time: string, date: string | null) => void;
 		onclose: () => void;
 	}
-	let { title, icon, t, onsave, onclose }: Props = $props();
+	let { title, icon, t, dated = false, onsave, onclose }: Props = $props();
 
 	let time = $state(timeInputValue(app.now, app.zone));
+	let date = $state<string | null>(null);
 </script>
 
 <Sheet {title} {icon} {t} {onclose}>
-	<label class="field">
-		{m.sheet_time()}
-		<input type="time" bind:value={time} />
-	</label>
+	{#if dated}
+		<WhenRow bind:time bind:date />
+	{:else}
+		<label class="field">
+			{m.sheet_time()}
+			<input type="time" bind:value={time} />
+		</label>
+	{/if}
 	<div class="sheet-acts">
 		<button type="button" onclick={onclose}>{m.cancel()}</button>
-		<button type="button" data-primary="1" onclick={() => onsave(time)} disabled={time === ''}>
+		<button type="button" data-primary="1" onclick={() => onsave(time, date)} disabled={time === ''}>
 			{m.save()}
 		</button>
 	</div>

@@ -11,7 +11,7 @@
 		stopSession
 	} from '$client/mutate';
 	import { asksLeftover, intakeMl } from '$domain/entries';
-	import { dayBucketOf, dayStartInstant, wallTimeAtOrAfter, wallTimeAtOrBefore } from '$domain/time';
+	import { dayBucketOf, dayStartInstant, loggedAt, wallTimeAtOrAfter } from '$domain/time';
 	import { dayLabel } from '$lib/i18n/format';
 	import type { BottleFeedPayload, Entry } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
@@ -71,21 +71,22 @@
 
 	/** Starting a Sleep asks for its time first — prefilled with now, so the
 	    common path is one confirming tap. Backwards from now, like a feed's
-	    time: 23:45 typed at 00:20 is thirty-five minutes ago. */
-	async function beginSleep(time: string) {
+	    time: 23:45 typed at 00:20 is thirty-five minutes ago — unless a date
+	    is stated. */
+	async function beginSleep(time: string, date: string | null) {
 		sheet = null;
 		if (!baby) return;
-		const at = wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now;
+		const at = loggedAt(time, date, app.now, app.zone) ?? app.now;
 		await app.log((w) => startSleep(w, { babyId: baby.id, occurredAt: at }));
 	}
 
 	/** Starting tummy time asks for its time the way a Sleep does, and for the
 	    same reason: it is normally logged a minute or two after she went down on
 	    her front, and confirming the prefill costs one tap. */
-	async function beginTummy(time: string) {
+	async function beginTummy(time: string, date: string | null) {
 		sheet = null;
 		if (!baby) return;
-		const at = wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now;
+		const at = loggedAt(time, date, app.now, app.zone) ?? app.now;
 		await app.log((w) => startTummyTime(w, { babyId: baby.id, occurredAt: at }));
 	}
 
@@ -268,13 +269,21 @@
 {:else if sheet === 'filter'}
 	<FilterSheet onclose={() => (sheet = null)} />
 {:else if sheet === 'sleep-start'}
-	<TimeSheet title={m.sheet_sleep_start_title()} icon="sleep" t="sleep" onsave={(t) => void beginSleep(t)} onclose={() => (sheet = null)} />
+	<TimeSheet
+		title={m.sheet_sleep_start_title()}
+		icon="sleep"
+		t="sleep"
+		dated
+		onsave={(t, d) => void beginSleep(t, d)}
+		onclose={() => (sheet = null)}
+	/>
 {:else if sheet === 'tummy-start'}
 	<TimeSheet
 		title={m.sheet_tummy_start_title()}
 		icon="tummy"
 		t="tummy"
-		onsave={(t) => void beginTummy(t)}
+		dated
+		onsave={(t, d) => void beginTummy(t, d)}
 		onclose={() => (sheet = null)}
 	/>
 {:else if sheet === 'awake'}

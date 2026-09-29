@@ -21,13 +21,14 @@
 	import { endFeedForFeed, logBottleFeed, logBreastFeed, logMeal, markAwakeForMeal, addFood } from '$client/mutate';
 	import { feedingDefault } from '$client/device';
 	import { clockTime, millilitres, timeInputValue } from '$lib/i18n/format';
-	import { wallTimeAtOrBefore } from '$domain/time';
+	import { loggedAt } from '$domain/time';
 	import { FORMULA_PRESETS } from '$domain/entries';
 	import { applyLeftoverInput } from './leftover';
 	import type { BottleContents, MealAmount, MealFood, Side } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from './Icon.svelte';
 	import Sheet from './Sheet.svelte';
+	import WhenRow from './WhenRow.svelte';
 
 	interface Props {
 		/** True when a Sleep is running: a Feed inside it is a Sleep Feed, so the
@@ -50,8 +51,8 @@
 	let contents = $state<BottleContents | null>(opening === 'bottle_formula' ? 'formula' : 'breast_milk');
 	let minutes = $state<number | null>(null);
 	let note = $state('');
-	let showNote = $state(false);
 	let time = $state(timeInputValue(app.now, app.zone));
+	let date = $state<string | null>(null);
 	let picked = $state<MealFood[]>([]);
 	let foodQuery = $state('');
 	let busy = $state(false);
@@ -70,8 +71,8 @@
 
 	/** The Occurred At the sheet is describing, projected back through the lens.
 	    Backwards from now, so the 23:45 feed you are logging at 00:20 lands on the
-	    night it happened rather than tonight. */
-	const occurredAt = $derived(wallTimeAtOrBefore(time, app.now, app.zone) ?? app.now);
+	    night it happened rather than tonight — unless a date is stated. */
+	const occurredAt = $derived(loggedAt(time, date, app.now, app.zone) ?? app.now);
 
 	/* The switch is a real write, so it is visible. It says so
 	   only when it will actually happen: the guard is that the Meal's Occurred At
@@ -274,25 +275,7 @@
 		{/each}
 	{/if}
 
-	<div class="field pair">
-		<label>
-			{m.sheet_time()}
-			<input type="time" bind:value={time} />
-		</label>
-		{#if showNote}
-			<label>
-				{m.note()}
-				<input type="text" bind:value={note} />
-			</label>
-		{:else}
-			<div class="note-slot">
-				<button class="chip" type="button" onclick={() => (showNote = true)}>
-					<Icon name="note" />
-					{m.note_add()}
-				</button>
-			</div>
-		{/if}
-	</div>
+	<WhenRow bind:time bind:date bind:note />
 
 	{#if mode === 'bottle'}
 		<div class="field pair">
@@ -326,13 +309,6 @@
 		grid-template-columns: 1fr 1fr;
 		gap: var(--sp-3);
 		align-items: end;
-	}
-	/* Keeps the *Add a note* chip on the input's baseline when its row-mate
-	   is a full labelled field. */
-	.note-slot {
-		display: flex;
-		align-items: center;
-		min-height: 44px;
 	}
 	.picked {
 		border-top: 1px solid var(--line);

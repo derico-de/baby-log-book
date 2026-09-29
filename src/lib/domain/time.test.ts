@@ -6,6 +6,7 @@ import {
 	dayStartInstant,
 	elapsed,
 	instantOnDate,
+	loggedAt,
 	offsetMinutes,
 	pastNight,
 	reachesNight,
@@ -208,6 +209,27 @@ describe('wallTimeAtOrBefore', () => {
 		const now = wallToInstant({ y: 2026, m: 8, d: 18, h: 14, mi: 0 }, BERLIN);
 		expect(wallTimeAtOrBefore('14:01', now, BERLIN)).toBe(iso('2026-08-18T12:01:00Z'));
 		expect(wallTimeAtOrBefore('14:30', now, BERLIN)).toBe(iso('2026-08-17T12:30:00Z'));
+	});
+});
+
+describe('loggedAt', () => {
+	const now = wallToInstant({ y: 2026, m: 8, d: 18, h: 0, mi: 20 }, BERLIN);
+
+	it('reads the time backwards from now while no date is stated', () => {
+		expect(loggedAt('23:45', null, now, BERLIN)).toBe(iso('2026-08-17T21:45:00Z'));
+	});
+
+	it('takes a stated date at its word', () => {
+		expect(loggedAt('23:45', '2026-08-15', now, BERLIN)).toBe(iso('2026-08-15T21:45:00Z'));
+		expect(loggedAt('00:10', '2026-08-18', now, BERLIN)).toBe(iso('2026-08-17T22:10:00Z'));
+	});
+
+	it('reads a cleared date as no date, not as a time that names nothing', () => {
+		expect(loggedAt('23:45', '', now, BERLIN)).toBe(iso('2026-08-17T21:45:00Z'));
+	});
+
+	it('names nothing without a time', () => {
+		expect(loggedAt('', '2026-08-15', now, BERLIN)).toBeNull();
 	});
 });
 

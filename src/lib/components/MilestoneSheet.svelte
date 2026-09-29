@@ -99,9 +99,9 @@
 		</label>
 	{:else}
 		<div class="field">
-			<button class="chip" type="button" onclick={() => (showNote = true)}>
-				<Icon name="note" />
-				{m.note_add()}
+			<button class="chip" type="button" aria-label={m.note_add()} onclick={() => (showNote = true)}>
+				<Icon name="plus" />
+				{m.note()}
 			</button>
 		</div>
 	{/if}
