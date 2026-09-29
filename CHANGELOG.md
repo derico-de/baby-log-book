@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.32.0] - 2026-09-29
+
 ### Added
 
 - *Duplicate* on an Entry's sheet logs it again as a new Entry. The values
