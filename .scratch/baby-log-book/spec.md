@@ -533,6 +533,8 @@ The tab bar does put a second control in the thumb zone, which is the trade the 
 
 **The timeline is the screen**, not a dashboard of tiles with the log demoted below the fold. Reverse-chronological, attribution on every row (`Oma · 14:05`), the Note behind an icon.
 
+**Tapping a row opens its sheet; holding it opens the sheet on Duplicate** ([ADR-0045](../../docs/adr/0045-a-copy-is-logged-now-and-holding-a-row-opens-it.md)). The copy is a new Entry timed now, with a Session's end left empty. Duplicate is also a button on every sheet except a Measurement's, so the hold is only a shortcut.
+
 **The sticky header** carries the due information and stays visible while the timeline scrolls under it, because it is the number people check constantly:
 
 - **Dominant**: `since last feed 2h10`, with the due line beneath it as a countdown against the clock face it lands on — `due -50m at 16:50`, the instant itself in bold, because that is the half people read off to plan the next hour.

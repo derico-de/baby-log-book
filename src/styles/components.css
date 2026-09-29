@@ -379,6 +379,11 @@
 		text-align: left;
 		font: inherit;
 		cursor: pointer;
+		/* A held row is the Duplicate shortcut, not the start of a text
+		   selection or the system's callout (ADR-0045). */
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
 	}
 	.row + .row::before,
 	.list li + li .row::before {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	asksLeftover,
 	coercePayload,
+	copyable,
 	intakeAfterLeftover,
 	emptyPayload,
 	feedContentKey,
@@ -132,6 +133,19 @@ describe('isSession', () => {
 		expect(isSession('tummy_time')).toBe(true);
 		expect(isSession('nappy')).toBe(false);
 		expect(isSession('milestone')).toBe(false);
+	});
+});
+
+describe('copyable (ADR-0045)', () => {
+	it('offers every type but a Measurement to be logged again', () => {
+		expect(copyable('bottle_feed')).toBe(true);
+		expect(copyable('breast_feed')).toBe(true);
+		expect(copyable('meal')).toBe(true);
+		expect(copyable('sleep')).toBe(true);
+		expect(copyable('nappy')).toBe(true);
+		expect(copyable('milestone')).toBe(true);
+		expect(copyable('tummy_time')).toBe(true);
+		expect(copyable('measurement')).toBe(false);
 	});
 });
 

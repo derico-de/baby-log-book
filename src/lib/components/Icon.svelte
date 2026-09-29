@@ -34,7 +34,8 @@
 		sliders: 'M4 7h10M18 7h2M4 17h4M12 17h8',
 		check: 'M4 12.5 9 17.5 20 6.5',
 		clock: 'M12 7v5l3.5 2',
-		download: 'M12 4v11M7.5 11 12 15.5 16.5 11M5 20h14'
+		download: 'M12 4v11M7.5 11 12 15.5 16.5 11M5 20h14',
+		copy: 'M8 8h12v12H8Z|M16 8V4H4v12h4'
 	} as const;
 
 	export type IconName = keyof typeof ICONS;

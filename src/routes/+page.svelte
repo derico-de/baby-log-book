@@ -42,6 +42,8 @@
 		| null;
 	let sheet = $state<SheetName>(null);
 	let openEntry = $state<Entry | null>(null);
+	/** The row was held rather than tapped: its sheet opens on Duplicate. */
+	let openAsCopy = $state(false);
 	/** The Sleep *She's awake* is aimed at — the row's own, or the running one
 	    when the statement comes from the fan. */
 	let awakeTarget = $state<Entry | null>(null);
@@ -218,7 +220,14 @@
 					{#each group.entries as entry (entry.id)}
 						<TimelineRow
 							{entry}
-							onopen={(e) => (openEntry = e)}
+							onopen={(e) => {
+								openEntry = e;
+								openAsCopy = false;
+							}}
+							onduplicate={(e) => {
+								openEntry = e;
+								openAsCopy = true;
+							}}
 							onstop={stop}
 							onawake={awakeRow}
 						/>
@@ -290,7 +299,7 @@
 {/if}
 
 {#if openEntry}
-	<EntrySheet entry={openEntry} onclose={() => (openEntry = null)} />
+	<EntrySheet entry={openEntry} copy={openAsCopy} onclose={() => (openEntry = null)} />
 {/if}
 
 <style>

@@ -373,3 +373,11 @@ export function feedContentKey(entry: Entry): string {
 export function isSession(type: EntryType): boolean {
 	return (SESSION_TYPES as readonly string[]).includes(type);
 }
+
+/** Whether an Entry of this type can be logged again from its sheet
+    (ADR-0045). Everything but a Measurement: that is a reading of her on one
+    day, and the same numbers on another day are a reading nobody took — nor
+    could the sheet change them before they were saved. */
+export function copyable(type: EntryType): boolean {
+	return type !== 'measurement';
+}

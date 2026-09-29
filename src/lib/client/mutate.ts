@@ -221,6 +221,24 @@ export async function logMilestone(
 	return id;
 }
 
+/** *Duplicate* on an Entry's sheet: the same type for the same Baby, logged
+    again as a new Entry with whatever the sheet held when Save was pressed.
+    An ordinary creation, attributed to whoever pressed it and linked to
+    nothing — the row it came from is where the values were read, not a
+    parent (ADR-0045). */
+export async function logCopy(
+	w: Writer,
+	target: EntryTarget & { type: EntryType; endedAt: number | null; payload: Record<string, unknown> }
+): Promise<string> {
+	const id = randomId();
+	await write(w, 'entry', id, {
+		...target.payload,
+		...creation(target.babyId, target.type, target.occurredAt ?? w.now(), target.note),
+		ended_at: target.endedAt
+	});
+	return id;
+}
+
 /* --- sessions --------------------------------------------------------- */
 
 /** Stops a Live Session at an instant a human supplied. There is deliberately no

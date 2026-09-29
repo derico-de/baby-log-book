@@ -9,6 +9,17 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- *Duplicate* on an Entry's sheet logs it again as a new Entry. The values
+  it had are kept, the date and time move to now, and a running kind (a
+  Feed, Sleep or tummy time) starts running. Everything can be changed
+  before *Create copy*, and the sheet's title reads *Duplicate Meal* while it
+  is a copy. A Meal's reactions and a legacy bottle's leftover are not
+  copied, and a Measurement has no Duplicate (ADR-0045).
+- Holding a timeline row opens its sheet already on the Duplicate draft,
+  instead of selecting the row's text.
+
 ## [1.31.1] - 2026-09-19
 
 ### Fixed

@@ -1,5 +1,6 @@
 <script lang="ts">
-	/* One Entry, opened from the timeline: correct it, read its history, delete it.
+	/* One Entry, opened from the timeline: correct it, read its history, delete
+	   it, or log it again.
 
 	   Corrections are first-class — any Member may fix any Member's Entry and the
 	   history stays visible (ADR-0002). Correcting a row you are already looking
@@ -12,10 +13,15 @@
 
 	   The history is the evidence a conflict leaves behind. The user never sees a
 	   conflict dialog; what they can see, here, is "edited by Oma, was 120 ml" and
-	   the app-attributed line a Session Merge leaves. */
+	   the app-attributed line a Session Merge leaves.
+
+	   Duplicate turns the draft into a new Entry: the values as they stand,
+	   timed now, and a Session's end left empty — a copy starts the way the
+	   fan starts one, and says what it will end the same way the feed sheet
+	   does (ADR-0045). */
 	import { untrack } from 'svelte';
 	import { app } from '$client/state.svelte';
-	import { correctEntry, deleteEntry } from '$client/mutate';
+	import { correctEntry, deleteEntry, endFeedForFeed, logCopy, markAwakeForMeal } from '$client/mutate';
 	import { correctionAsksFirst } from '$domain/correction';
 	import { compareRevisions, foldEntity } from '$domain/revisions';
 	import {
@@ -30,7 +36,7 @@
 	} from '$lib/i18n/format';
 	import { FACET_OF } from '$domain/filter';
 	import { instantOnDate, sameMinute, wallTimeAtOrAfter } from '$domain/time';
-	import { intakeMl, isSession } from '$domain/entries';
+	import { copyable, intakeMl, isSession } from '$domain/entries';
 	import { applyLeftoverInput } from './leftover';
 	import type {
 		BottleContents,
@@ -53,9 +59,11 @@
 
 	interface Props {
 		entry: Entry;
+		/** Opens straight on the Duplicate draft — the row's long-press. */
+		copy?: boolean;
 		onclose: () => void;
 	}
-	let { entry, onclose }: Props = $props();
+	let { entry, copy = false, onclose }: Props = $props();
 
 	/* Read once, on open: this sheet is mounted per Entry, and the inputs below are
 	   a draft the Member is editing rather than a mirror of the row. */
@@ -102,6 +110,18 @@
 	   part of the everyday correction. */
 	let showHistory = $state(false);
 
+	/** Set by Duplicate: Save now logs a new Entry and leaves this one alone. */
+	let copying = $state(false);
+	function startCopy() {
+		copying = true;
+		asked = false;
+		showHistory = false;
+		startDate = dateInputValue(app.now, zone);
+		startTime = timeInputValue(app.now, zone);
+		endTime = '';
+	}
+	if (untrack(() => copy && copyable(entry.type))) startCopy();
+
 	/* The date is asked for once, on the start; the end takes its date from the
 	   start, being the first time the clock reads it after she went down. */
 	const startAt = $derived(instantOnDate(startDate, startTime, zone));
@@ -111,6 +131,25 @@
 			: wallTimeAtOrAfter(endTime, startAt ?? entry.occurred_at, zone)
 	);
 	const endsOnAnotherDay = $derived(endAt != null && dateInputValue(endAt, zone) !== startDate);
+
+	/* A copy is a new feeding like any other, so it ends a running Feed and a
+	   Meal wakes her, each only from inside what is running (ADR-0019). The
+	   header's fold speaks for the selected Baby, so another Baby's copy
+	   touches neither. */
+	const forThisBaby = $derived(entry.baby_id === app.baby?.id);
+	const feedToEnd = $derived.by(() => {
+		const running = app.runningFeed;
+		const feeding = entry.type === 'breast_feed' || entry.type === 'bottle_feed' || entry.type === 'meal';
+		if (!copying || !feeding || !forThisBaby || running == null || startAt == null) return null;
+		return startAt >= running.occurred_at ? running : null;
+	});
+	const sleepToEnd = $derived.by(() => {
+		const running = app.runningSleep;
+		if (!copying || entry.type !== 'meal' || !forThisBaby || running == null || startAt == null) return null;
+		return startAt >= running.occurred_at ? running : null;
+	});
+	/* The nappy form's own rule: a nappy that held nothing is not an Entry. */
+	const copyReady = $derived(entry.type !== 'nappy' || pee || poop);
 
 	$effect(() => {
 		const db = app.dbRef;
@@ -161,7 +200,7 @@
 				return (entry.payload as MealPayload).foods
 					.map((f) => {
 						const name = app.foodName(f.food_id);
-						return f.reaction ? `${name} — ${f.reaction}` : name;
+						return f.reaction && !copying ? `${name} — ${f.reaction}` : name;
 					})
 					.join(' · ');
 			case 'measurement': {
@@ -341,8 +380,61 @@
 		return fields;
 	}
 
+	/** What a copy carries: the draft as it stands, less what only ever
+	    belonged to the row it came from — a legacy bottle's stored leftover
+	    (ADR-0018) and a Meal's reactions, which are what followed that Meal. */
+	function copyPayload(): Record<string, unknown> {
+		switch (entry.type) {
+			case 'breast_feed':
+				return { side };
+			case 'bottle_feed':
+				return { volume_ml: intake, contents };
+			case 'meal':
+				/* Field by field: IndexedDB's structured clone refuses a Proxy. */
+				return {
+					foods: (entry.payload as MealPayload).foods.map((f) => ({
+						food_id: f.food_id,
+						amount: f.amount,
+						reaction: null
+					}))
+				};
+			case 'nappy':
+				return { pee, poop, consistency: poop ? consistency : null, where };
+			case 'milestone':
+				return { name: milestoneName.trim() || (entry.payload as MilestonePayload).name };
+			default:
+				return {};
+		}
+	}
+
+	async function saveCopy() {
+		if (startAt == null || !copyReady) return;
+		busy = true;
+		const at = startAt;
+		/* Captured before the write: once the copy lands it may itself be the
+		   running Feed, and it must not be the one that gets ended. */
+		const feed = feedToEnd;
+		const sleep = sleepToEnd;
+		const trimmed = note.trim();
+		await app.log((w) =>
+			logCopy(w, {
+				babyId: entry.baby_id,
+				type: entry.type,
+				occurredAt: at,
+				endedAt: endAt,
+				note: trimmed.length > 0 ? trimmed : null,
+				payload: copyPayload()
+			})
+		);
+		if (sleep) await app.edit((w) => markAwakeForMeal(w, sleep, at));
+		if (feed) await app.edit((w) => endFeedForFeed(w, feed, at));
+		busy = false;
+		onclose();
+	}
+
 	async function save() {
 		if (busy) return;
+		if (copying) return saveCopy();
 		const fields = changedFields();
 		/* Nothing to write closes the sheet, and asks nothing: reading an old row
 		   and shutting it again is not a correction. */
@@ -372,9 +464,21 @@
 	}
 </script>
 
-<Sheet {title} icon={GLYPH[entry.type]} t={FACET_OF[entry.type]} {onclose}>
+<Sheet
+	title={copying ? m.sheet_duplicate_title({ what: title }) : title}
+	icon={GLYPH[entry.type]}
+	t={FACET_OF[entry.type]}
+	{onclose}
+>
 	{#if detail}
 		<p class="note-line">{detail}</p>
+	{/if}
+
+	{#if sleepToEnd && startAt != null}
+		<p class="note-line">{m.sheet_marked_awake({ time: clockTime(startAt, zone) })}</p>
+	{/if}
+	{#if feedToEnd && startAt != null}
+		<p class="note-line">{m.sheet_ends_feed({ time: clockTime(startAt, zone) })}</p>
 	{/if}
 
 	<div class="field pair">
@@ -508,13 +612,25 @@
 		{/if}
 	{/if}
 
-	<h4 class="history-head">
-		<button type="button" aria-expanded={showHistory} onclick={() => (showHistory = !showHistory)}>
-			{m.sheet_history()}
-			{#if history.length > 0}({history.length}){/if}
-			<Icon name="chev" size={14} />
-		</button>
-	</h4>
+	<!-- The history and Duplicate both speak for the row this sheet opened on,
+	     so a copy in the making has neither. -->
+	{#if !copying}
+		<div class="entry-row">
+			<h4 class="history-head">
+				<button type="button" aria-expanded={showHistory} onclick={() => (showHistory = !showHistory)}>
+					{m.sheet_history()}
+					{#if history.length > 0}({history.length}){/if}
+					<Icon name="chev" size={14} />
+				</button>
+			</h4>
+			{#if copyable(entry.type)}
+				<button class="chip" type="button" onclick={startCopy}>
+					<Icon name="copy" />
+					{m.sheet_duplicate()}
+				</button>
+			{/if}
+		</div>
+	{/if}
 	{#if showHistory}
 		<ul class="history">
 			{#each history as revision, index (revision.id)}
@@ -563,11 +679,11 @@
 
 	<div class="sheet-acts">
 		<button type="button" onclick={onclose}>{m.cancel()}</button>
-		{#if entry.deleted_at == null}
+		{#if entry.deleted_at == null && !copying}
 			<button type="button" onclick={() => (confirmingDelete = true)} disabled={busy}>{m.delete()}</button>
 		{/if}
-		<button type="button" data-primary="1" onclick={save} disabled={busy}>
-			{asked ? m.sheet_old_ask_save() : m.save()}
+		<button type="button" data-primary="1" onclick={save} disabled={busy || (copying && !copyReady)}>
+			{copying ? m.sheet_duplicate_save() : asked ? m.sheet_old_ask_save() : m.save()}
 		</button>
 	</div>
 </Sheet>
@@ -620,6 +736,18 @@
 	.ask :global(svg) {
 		flex: 0 0 auto;
 		color: var(--accent);
+	}
+	/* The history toggle keeps the heading's own margins; Duplicate sits at
+	   the far end of the same line, clear of the Save the thumb is on. */
+	.entry-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		padding-right: var(--sp-4);
+	}
+	.entry-row .chip {
+		margin: var(--sp-4) 0 var(--sp-2);
 	}
 	.field-label {
 		padding: 0 var(--sp-4);

@@ -57,10 +57,10 @@ let names = 0;
 
 let closes = 0;
 
-function open(entry: Entry): void {
+function open(entry: Entry, copy = false): void {
 	mounted = mount(EntrySheet, {
 		target: host,
-		props: { entry, onclose: () => { closes += 1; } }
+		props: { entry, copy, onclose: () => { closes += 1; } }
 	}) as Record<string, unknown>;
 	flushSync();
 }
@@ -108,6 +108,7 @@ beforeEach(() => {
 		kick: () => {}
 	};
 	app.edit = (async (action: (w: Writer) => Promise<unknown>) => action(writer)) as typeof app.edit;
+	app.log = (async (action: (w: Writer) => Promise<unknown>) => action(writer)) as typeof app.log;
 	/* The sheet reads the revision log straight off the replica to draw the
 	   history, so the tests hand it the same store the writer uses. */
 	(app as unknown as Record<string, unknown>).db = db;
@@ -118,6 +119,7 @@ afterEach(async () => {
 	mounted = null;
 	host.remove();
 	delete (app as unknown as Record<string, unknown>).edit;
+	delete (app as unknown as Record<string, unknown>).log;
 	delete (app as unknown as Record<string, unknown>).db;
 	await db.delete();
 });
@@ -468,5 +470,151 @@ describe('deleting an entry from the edit sheet', () => {
 		await landed(async () => (await tombstones()).length > 0);
 		expect((await tombstones())[0].fields.deleted_at).toBe(NOW);
 		expect(closes).toBe(1);
+	});
+});
+
+/* Duplicate logs the row again as a new Entry: the values the sheet holds,
+   timed now, and a Session's end left to be stated (ADR-0045). The row it
+   came from is not touched. */
+describe('duplicating an entry from its sheet', () => {
+	function button(text: string): HTMLButtonElement | undefined {
+		return [...host.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text);
+	}
+
+	function duplicate(): void {
+		const found = button('Duplicate');
+		if (!found) throw new Error('no Duplicate');
+		found.click();
+		flushSync();
+	}
+
+	const copies = async () =>
+		(await db.revisions.where({ kind: 'entry' }).toArray()).filter((r) => r.entity_id !== 'e1');
+	const onTheRow = async () => db.revisions.where({ kind: 'entry', entity_id: 'e1' }).toArray();
+
+	it('logs the row again, now, and leaves the row itself alone', async () => {
+		open(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' }));
+		duplicate();
+		expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Duplicate Bottle');
+		expect(fieldInput('Time').value).toBe('16:00');
+		await save(async () => (await copies()).length > 0);
+
+		const [copy] = await copies();
+		expect(copy.fields).toMatchObject({
+			baby_id: 'b1',
+			type: 'bottle_feed',
+			occurred_at: NOW,
+			ended_at: null,
+			volume_ml: 150,
+			contents: 'formula',
+			note: null
+		});
+		expect(copy.author_id).toBe('mum');
+		expect(await onTheRow()).toHaveLength(0);
+		expect(closes).toBe(1);
+	});
+
+	it('copies what the sheet holds when Save is pressed', async () => {
+		open(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' }));
+		duplicate();
+		const intake = fieldInput('Intake');
+		intake.value = '120';
+		intake.dispatchEvent(new Event('input', { bubbles: true }));
+		flushSync();
+		await save(async () => (await copies()).length > 0);
+		expect((await copies())[0].fields.volume_ml).toBe(120);
+	});
+
+	it('carries a legacy bottle over as its Intake, never as the old pair', async () => {
+		open(bottleEntry({ volume_ml: 170, leftover_ml: 40, contents: 'formula' }));
+		duplicate();
+		await save(async () => (await copies()).length > 0);
+		const [copy] = await copies();
+		expect(copy.fields.volume_ml).toBe(130);
+		expect('leftover_ml' in copy.fields).toBe(false);
+	});
+
+	it('leaves a Session s end to be stated, so the copy runs the way a started one does', async () => {
+		open({ ...entryOf('sleep', {}), ended_at: NOW - 1800_000 });
+		duplicate();
+		expect(fieldInput('When did she wake').value).toBe('');
+		await save(async () => (await copies()).length > 0);
+		expect((await copies())[0].fields.ended_at).toBeNull();
+	});
+
+	it('takes the Foods of a Meal and none of its reactions', async () => {
+		app.foods = [
+			{ id: 'f1', household_id: 'h1', name: 'Carrot', deleted_at: null },
+			{ id: 'f2', household_id: 'h1', name: 'Yoghurt', deleted_at: null }
+		];
+		open(
+			entryOf('meal', {
+				foods: [
+					{ food_id: 'f1', amount: 'lots', reaction: 'a little red' },
+					{ food_id: 'f2', amount: null, reaction: null }
+				]
+			})
+		);
+		expect(host.textContent).toContain('a little red');
+		duplicate();
+		expect(host.textContent).not.toContain('a little red');
+		await save(async () => (await copies()).length > 0);
+		expect((await copies())[0].fields.foods).toEqual([
+			{ food_id: 'f1', amount: 'lots', reaction: null },
+			{ food_id: 'f2', amount: null, reaction: null }
+		]);
+	});
+
+	it('writes an old row s copy straight through: logging asks nothing', async () => {
+		open({ ...nappyEntry({ pee: true, poop: false, consistency: null, where: 'potty' }), occurred_at: NOW - 5 * 3600_000 });
+		duplicate();
+		await save(async () => (await copies()).length > 0);
+		expect(host.textContent).not.toContain('This entry is from');
+		expect((await copies())[0].fields).toMatchObject({ pee: true, poop: false, consistency: null, where: 'potty' });
+	});
+
+	it('will not log a nappy that held nothing', () => {
+		open(nappyEntry({ pee: true, poop: false, consistency: null, where: null }));
+		duplicate();
+		button('Pee')?.click();
+		flushSync();
+		expect(host.querySelector<HTMLButtonElement>('[data-primary="1"]')?.disabled).toBe(true);
+	});
+
+	it('ends the running Feed at the copy s start, and says so first', async () => {
+		const running = bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' });
+		app.entries = [running];
+		open(running);
+		duplicate();
+		expect(host.textContent).toContain('ends the running feed at 16:00');
+		await save(async () => (await onTheRow()).length > 0);
+		expect((await onTheRow())[0].fields).toEqual({ ended_at: NOW });
+		expect(await copies()).toHaveLength(1);
+	});
+
+	it('has no Delete and no history while it is a copy in the making', () => {
+		open(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' }));
+		duplicate();
+		expect(button('Delete')).toBeUndefined();
+		expect(button('Duplicate')).toBeUndefined();
+		expect(host.textContent).not.toContain('History');
+	});
+
+	it('is not offered on a Measurement', () => {
+		open(entryOf('measurement', { weight_g: 7000, height_mm: null, head_mm: null }));
+		expect(button('Duplicate')).toBeUndefined();
+	});
+
+	it('opens straight on the copy when the row was held, and says so', () => {
+		open(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' }), true);
+		expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Duplicate Bottle');
+		expect(host.querySelector('[data-primary="1"]')?.textContent?.trim()).toBe('Create copy');
+		expect(button('Delete')).toBeUndefined();
+	});
+
+	it('says nothing about a copy while the sheet is correcting the row', () => {
+		open(bottleEntry({ volume_ml: 150, leftover_ml: null, contents: 'formula' }));
+		expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Bottle');
+		expect(host.querySelector('[data-primary="1"]')?.textContent?.trim()).toBe('Save');
 	});
 });

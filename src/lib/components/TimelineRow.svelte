@@ -15,11 +15,12 @@
 	import { entryTitle, GLYPH_OF } from '$lib/i18n/entry-label';
 	import { FACET_OF, highlightParts } from '$domain/filter';
 	import { classifySleep, isSleepFeed } from '$domain/sleep';
-	import { isSession } from '$domain/entries';
+	import { copyable, isSession } from '$domain/entries';
 	import { bottleLife } from '$domain/targets';
 	import type { Entry, MealPayload, NappyPayload } from '$domain/types';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from './Icon.svelte';
+	import { longPress } from './long-press';
 
 	interface Props {
 		entry: Entry;
@@ -28,10 +29,15 @@
 		/** The running Sleep's row speaks the fan's language — *She's awake* —
 		    instead of a bare Stop (spec §8.5). */
 		onawake: (entry: Entry) => void;
+		/** Holding the row opens its sheet on the Duplicate draft (ADR-0045). */
+		onduplicate?: (entry: Entry) => void;
 	}
-	let { entry, onopen, onstop, onawake }: Props = $props();
+	let { entry, onopen, onstop, onawake, onduplicate }: Props = $props();
 
 	const zone = $derived(app.zone);
+	/* A boolean, so a refresh that hands the row a new Entry object mid-hold
+	   does not tear the long-press down and restart it. */
+	const holdable = $derived(onduplicate != null && copyable(entry.type));
 	const live = $derived(entry.ended_at == null && isSession(entry.type));
 	const query = $derived(app.filter.text.trim());
 
@@ -108,7 +114,13 @@
 {/snippet}
 
 <li>
-	<button class="row" type="button" data-t={FACET_OF[entry.type]} onclick={() => onopen(entry)}>
+	<button
+		class="row"
+		type="button"
+		data-t={FACET_OF[entry.type]}
+		onclick={() => onopen(entry)}
+		{@attach holdable && longPress(() => onduplicate?.(entry))}
+	>
 		<span class="glyph"><Icon name={GLYPH_OF[entry.type]} /></span>
 		<span class="row-main">
 			<span class="row-title">
