@@ -67,6 +67,7 @@
 	"header_no_feed_yet": "nicio masă înregistrată",
 	"header_last_feed_at": "ultima masă {when}",
 	"header_due_label": "urmează",
+	"header_overdue_label": "întârziere",
 	"header_due_at": "la",
 	"header_sleep_title": "Somn",
 	"header_feed_title": "Masă",

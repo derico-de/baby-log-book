@@ -50,9 +50,10 @@
 		/* A hero figure — "2h 10m" on a stat card — is loud through size at a
        LIGHT weight; bold at that size would shout. The header's two figures
        (sleep | feed) are the same idea one step down: --fs-5 at the normal
-       weight under their state word, with bold kept for the overdue bar. */
+       weight under their state word. */
 		--hero-weight: 300;
 
+		--r-0: 4px; /* a slim bar's corners — the header's due bars */
 		--r-1: 10px;
 		--r-2: 16px;
 		--r-3: 26px;
@@ -63,7 +64,8 @@
 		--dur-1: 120ms;
 		--dur-2: 190ms;
 		--dur-3: 280ms;
-		--dur-4: 650ms; /* a fill sweeping into place on open */
+		--dur-4: 900ms; /* a fill sweeping into place on open */
+		--delay-4: 500ms; /* …once the page around it has settled */
 		--ease: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quint */
 
 		--z-header: 10;
@@ -419,6 +421,7 @@
 		*::before,
 		*::after {
 			animation-duration: 0.01ms !important;
+			animation-delay: 0ms !important;
 			animation-iteration-count: 1 !important;
 			transition-duration: 0.01ms !important;
 		}

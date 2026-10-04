@@ -23,7 +23,7 @@
 	"the_app": "die App",
 
 	"dur_h": "{h} Std",
-	"dur_hm": "{h} Std {m}",
+	"dur_hm": "{h}:{m}",
 	"dur_m": "{m} Min",
 	"ml": "{n} ml",
 	"grams": "{n} g",
@@ -73,6 +73,7 @@
 	"header_no_feed_yet": "noch keine Mahlzeit erfasst",
 	"header_last_feed_at": "letzte Mahlzeit {when}",
 	"header_due_label": "fällig",
+	"header_overdue_label": "überfällig",
 	"header_due_at": "um",
 	"header_sleep_title": "Schlaf",
 	"header_feed_title": "Mahlzeit",

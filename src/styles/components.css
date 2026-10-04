@@ -242,8 +242,7 @@
 	}
 	/* `awake` over `30m` — the state word as a quiet caption, the figure under
 	   it. The figure is the loudest thing in the header: three steps up the scale
-	   at a normal weight, never bold — bold is the overdue signal in this block,
-	   so a bold figure anywhere else in it would be a false alarm. The two stack
+	   at a normal weight, never bold: loud through size, not weight. The two stack
 	   rather than share a line because `since last feed` plus a figure at this
 	   size does not fit half of a 360px screen in any language. */
 	.live-stat {
@@ -276,16 +275,22 @@
 		--bar-fill: var(--line-strong);
 		--bar-ink: var(--ink);
 		display: grid;
+		/* Never wider than its cell: the word gives way, not the column. */
+		grid-template-columns: minmax(0, 1fr);
 		/* The foot of the cell, so both columns' bars land on one line. */
 		margin-top: auto;
 		/* The frame is the fill's colour, so the live marker and the overdue
 		   shift read on the whole bar and not only on the share that has run. */
 		border: 1px solid var(--bar-fill);
+		border-radius: var(--r-0);
+		/* Both text layers paint to the edge; the corners clip them. */
+		overflow: hidden;
 		transition: border-color var(--dur-2) var(--ease);
-		/* One step under the state word: `fällig +1h10` in bold plus its clock
-		   face is 144px at --fs-2 and a 360px phone gives the bar 139px inside
-		   its padding; at --fs-1 the German fits with room, and only Romanian's
-		   `urmează` breaks the line (the clock keeps the far end when it does). */
+		/* One step under the state word: a 360px phone gives the bar 138px
+		   inside its padding. `overdue 1h10` and `überfällig 1:34` fit; a
+		   longer word or figure (`urmează`, `întârziere`, ten hours and up)
+		   does not, and the bar stays one line by cutting the word off
+		   (`überf… 10:34 · 21:18`). */
 		font-size: var(--fs-1);
 		line-height: 1.3;
 		font-variant-numeric: tabular-nums lining-nums;
@@ -295,13 +300,26 @@
 	.live-bar-fill {
 		grid-area: 1 / 1;
 		display: flex;
-		flex-wrap: wrap;
 		justify-content: space-between;
 		align-items: baseline;
-		gap: 0 var(--sp-1);
+		gap: var(--sp-1);
 		padding: var(--sp-1) var(--sp-2);
+		white-space: nowrap;
 	}
-	/* The clock face holds the far end, even on the rare line that breaks. */
+	/* Short of room, only the word gives way: it is cut off with an ellipsis,
+	   while the countdown and the clock face always stay whole. Both layers
+	   share one width, so they cut at the same letter. */
+	.live-lead {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sp-1);
+		min-width: 0;
+	}
+	.live-word {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
 	.live-at {
 		margin-left: auto;
 	}
@@ -317,10 +335,11 @@
 			clip-path var(--dur-3) var(--ease),
 			background var(--dur-2) var(--ease),
 			color var(--dur-2) var(--ease);
-		/* On open the fill sweeps in from the left to its share. The end
-		   keyframe is left implicit, so it is the live value and the sweep hands
-		   over to the transition above without a jump. */
-		animation: fill-in var(--dur-4) var(--ease);
+		/* On open the fill sweeps in from the left to its share, after a beat
+		   so the rest of the page has painted first; it holds empty until then.
+		   The end keyframe is left implicit, so it is the live value and the
+		   sweep hands over to the transition above without a jump. */
+		animation: fill-in var(--dur-4) var(--ease) var(--delay-4) backwards;
 	}
 	@keyframes fill-in {
 		from {
@@ -331,13 +350,12 @@
 		--bar-fill: var(--t, var(--live));
 		--bar-ink: var(--t-ink, var(--accent-ink));
 	}
-	/* Overdue: the full bar takes the brand colour and its text goes bold —
-	   the one shift. Never the type's hue, which is why this out-specifies the
+	/* Overdue: the full bar takes the brand colour and its label turns to
+	   `overdue` — the one shift, at the same normal weight. Never the type's hue, which is why this out-specifies the
 	   live rule above: overdue belongs to the accent. */
 	.live-cell .live-bar[data-over='1'] {
 		--bar-fill: var(--warn);
 		--bar-ink: var(--accent-ink);
-		font-weight: var(--fw-bold);
 	}
 	/* The quiet line mirrors the grid's columns, so the last-poop fact starts
 	   exactly where the Feed column does. */

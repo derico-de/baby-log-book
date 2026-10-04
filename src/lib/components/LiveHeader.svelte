@@ -25,9 +25,8 @@
 	     - Empty state per column: nothing logged means the word alone — no
 	       elapsed figure and no bar. Never compute a due instant from nothing.
 	     - Overdue shifts once and never again: the full bar takes the brand
-	       colour, its text goes bold, and the sign flips (`due +20m`). No
-	       second colour, no red at 2h, no badge — escalation is nagging with
-	       extra steps. */
+	       colour and the label turns to `overdue 20m`. No second colour,
+	       no red at 2h, no badge — escalation is nagging with extra steps. */
 	import { app } from '$client/state.svelte';
 	import { clockTime, dateShort, duration, plural } from '$lib/i18n/format';
 	import { ageInMonths, dayBucketOf } from '$domain/time';
@@ -64,9 +63,9 @@
 		progress: number | null;
 	};
 
-	/** `-1h19` while it is still coming, `+1h19` once it has passed. */
+	/** `-1h19` while it is still coming, `1h19` once it has passed — the word says `overdue`. */
 	function countdown(state: Due): string {
-		return `${state.overdue ? '+' : '-'}${duration((state.overdue ? state.overdueMs : state.remainingMs) ?? 0)}`;
+		return state.overdue ? duration(state.overdueMs ?? 0) : `-${duration(state.remainingMs ?? 0)}`;
 	}
 
 	/* Which column is next due — the Feed and the Wake Window race on the same
@@ -111,23 +110,30 @@
      track; the upper one is the fill — the type colour, or the brand colour
      once overdue — carrying its own ink and clipped to the share that has
      run, so the words stay legible on both sides of the edge in every
-     appearance. The joiner (`at`) is read, not seen: the bar's ends say it. -->
-{#snippet bar(left: string, joiner: string | null, at: string, progress: number, overdue: boolean)}
+     appearance. The joiner (`at`) is read, not seen: the bar's ends say it.
+     The word and its figure are apart, so a bar short of room cuts the word
+     off and keeps the figure whole. -->
+{#snippet lead(word: string, figure: string)}
+	<span class="live-lead"><span class="live-word">{word}</span>{' '}<span class="live-count">{figure}</span></span>
+{/snippet}
+
+{#snippet bar(word: string, figure: string, joiner: string | null, at: string, progress: number, overdue: boolean)}
 	<div class="live-bar" data-over={overdue ? '1' : '0'} style:--p={progress}>
 		<span class="live-bar-text">
-			<span>{left}</span><span class="sr-only">{joiner == null ? ' ' : ` ${joiner} `}</span><span class="live-at">{at}</span>
+			{@render lead(word, figure)}<span class="sr-only">{joiner == null ? ' ' : ` ${joiner} `}</span><span class="live-at">{at}</span>
 		</span>
-		<span class="live-bar-fill" aria-hidden="true"><span>{left}</span><span class="live-at">{at}</span></span>
+		<span class="live-bar-fill" aria-hidden="true">{@render lead(word, figure)}<span class="live-at">{at}</span></span>
 	</div>
 {/snippet}
 
 <!-- `due -1h19 ······ 21:18`: how long is left at the near end, the clock face
      it lands on at the far end, the fill between them heading for it. Overdue
-     flips the sign and the whole bar shifts to the brand colour — the one
-     shift, no second one. -->
+     turns the label to `overdue`, and the whole bar shifts to the brand
+     colour — the one shift, no second one. -->
 {#snippet dueBar(state: Due)}
 	{@render bar(
-		`${m.header_due_label()} ${countdown(state)}`,
+		state.overdue ? m.header_overdue_label() : m.header_due_label(),
+		countdown(state),
 		m.header_due_at(),
 		clockTime(state.dueAt ?? 0, zone),
 		state.progress ?? 1,

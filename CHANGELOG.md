@@ -9,6 +9,18 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The header's due bars have slightly rounded corners, and their fill
+  sweeps in a little slower when the app is opened or reloaded, starting
+  after a short pause so the rest of the page is in place first.
+- An overdue Feed or Sleep reads `overdue 20m` in the header instead of
+  `due +20m`, at the normal weight instead of bold. When a bar is short of
+  room the word is cut off with an ellipsis, so the bar stays on one line
+  and the countdown and clock time stay whole.
+- German durations past an hour use the compact form `1:34` instead of
+  `1 Std 34`.
+
 ## [1.34.0] - 2026-10-04
 
 ### Changed

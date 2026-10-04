@@ -124,11 +124,15 @@ describe('the sticky header', () => {
 		expect(host.querySelector('.live-bar')).toBeNull();
 	});
 
-	it('fills the bar and goes bold once the feed is overdue — the one shift', () => {
+	it('fills the bar and says overdue once the feed is overdue — the one shift', () => {
 		/* Fed at 11:50 on a 3h interval, read at 16:00: 1h10 past 14:50. */
 		app.entries = [entry({ type: 'bottle_feed', occurred_at: NOW - 4 * 3600_000 - 10 * 60_000 })];
 		const text = draw(LiveHeader, { onFilter: () => {} });
-		expect(text).toContain('due +1h10 at 14:50');
+		expect(text).toContain('overdue 1h10 at 14:50');
+		/* The word stands apart from the countdown, so a short bar can cut the
+		   word off and keep the figure whole. */
+		expect(host.querySelector('.live-bar-text .live-word')?.textContent).toBe('overdue');
+		expect(host.querySelector('.live-bar-text .live-count')?.textContent).toBe('1h10');
 		const bar = host.querySelector<HTMLElement>('.live-bar');
 		expect(bar?.getAttribute('data-over')).toBe('1');
 		expect(Number(bar?.style.getPropertyValue('--p'))).toBe(1);
@@ -161,7 +165,7 @@ describe('the sticky header', () => {
 		app.entries = [entry({ type: 'sleep', occurred_at: NOW - 2 * 3600_000 })];
 		draw(LiveHeader, { onFilter: () => {} });
 		const sleepBar = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"] .live-bar');
-		expect(sleepBar?.textContent).toContain('due +30m at 15:30');
+		expect(sleepBar?.textContent).toContain('overdue 30m at 15:30');
 		expect(sleepBar?.getAttribute('data-over')).toBe('1');
 		expect(Number(sleepBar?.style.getPropertyValue('--p'))).toBe(1);
 	});
