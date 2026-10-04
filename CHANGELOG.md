@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.33.0] - 2026-10-04
+
 ### Added
 
 - *Nap length*, a fourth target per baby in Schedule settings, seeded at
