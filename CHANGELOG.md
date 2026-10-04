@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.34.0] - 2026-10-04
+
 ### Changed
 
 - The header's due bars carry a border in their fill colour, so the live
