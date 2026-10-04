@@ -149,7 +149,7 @@ The hour at which a new day begins for this Household, and the hour a Night Peri
 _Avoid_: Cutoff, day boundary, reset time
 
 **Night Period**:
-The stretch of the clock a Household does not expect to keep to its Feed Interval in. Stated as the hour the night begins; it ends at the Day Start, so it is one hour and not a pair. A Feed that would come due inside it comes due at the Day Start instead — fed at 21:00, next due at 07:00 — but only once the night has begun: until the stated hour arrives, the bedtime Feed is still to come and the interval stands as stated. It is also the evening end of a Night Sleep. Nothing else reads it: no other Target — not the Wake Window, not the Bottle Life — and not which day an Entry belongs to. Optional, and no Household has one until a Parent states it.
+The stretch of the clock a Household does not expect to keep to its Feed Interval in. Stated as the hour the night begins; it ends at the Day Start, so it is one hour and not a pair. A Feed that would come due inside it comes due at the Day Start instead — fed at 21:00, next due at 07:00 — but only once the night has begun: until the stated hour arrives, the bedtime Feed is still to come and the interval stands as stated. It is also the evening end of a Night Sleep. Nothing else reads it: no other Target — not the Wake Window, not the Bottle Life, not the Nap Length, which only applies while a Sleep is a Nap — and not which day an Entry belongs to. Optional, and no Household has one until a Parent states it.
 _Avoid_: Quiet hours, night mode, do not disturb, sleep window
 
 **Night Sleep**:
@@ -171,6 +171,10 @@ _Avoid_: Feeding schedule, feed gap
 **Wake Window**:
 The Target for sleep — how long a Baby is comfortably awake — measured from the last Sleep's end.
 _Avoid_: Awake window, sleep schedule, sleep interval
+
+**Nap Length**:
+The Target for a running Nap — how long one is allowed to run — measured from the start of the Sleep she is in. Seeded at an hour and a half with no age table, and read by one thing: the header's sleep bar, which fills toward it while she naps. A Sleep that has reached the night fills toward the Day Start instead, so the night keeps its own measure and the Nap Length never says anything about the morning (ADR-0046).
+_Avoid_: Nap limit, maximum nap, sleep cap, sleep schedule
 
 **Bottle Life**:
 The Target for a started bottle — how long the Household is willing to go on offering one — measured from the Feed's start. A number a Member typed, never a health guideline the app fetched, and the countdown it drives is on the bottle that is still open rather than on the Baby. Because the Feed's start is the only instant the model has, it reads younger than the milk whenever the bottle was made up earlier. When it runs out, the server ends the Feed at the due instant, attributed to the app (ADR-0017).

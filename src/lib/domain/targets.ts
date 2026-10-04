@@ -10,7 +10,9 @@
    schema change (spec §2). */
 
 import {
+	addDays,
 	dayBucketOf,
+	dayStartInstant,
 	ageInMonths,
 	pastNight,
 	withinLastDay,
@@ -21,6 +23,7 @@ import {
 } from './time';
 import type { Activity, Entry, Household, NappyPayload, PendingRevision, Target } from './types';
 import { isFeed, isHour } from './entries';
+import { classifySleep } from './sleep';
 
 /** The age table (spec §6.5) — seeds only, never re-applied. After twelve
     months solids take over and a feed target stops meaning anything. */
@@ -38,6 +41,14 @@ const BOTTLE_BANDS: Array<{ untilMonths: number; seconds: number }> = [
 	{ untilMonths: Infinity, seconds: 3600 }
 ];
 
+/** The Nap Length has no age table either: how long one nap runs varies more
+    between two naps of the same day than between two ages, so a table would
+    claim a precision it does not have. One band, an hour and a half, and the
+    value is the Household's to change (ADR-0046). */
+const NAP_BANDS: Array<{ untilMonths: number; seconds: number }> = [
+	{ untilMonths: Infinity, seconds: 90 * 60 }
+];
+
 const SLEEP_BANDS: Array<{ untilMonths: number; seconds: number }> = [
 	{ untilMonths: 1, seconds: 45 * 60 },
 	{ untilMonths: 3, seconds: 75 * 60 },
@@ -52,7 +63,14 @@ const SLEEP_BANDS: Array<{ untilMonths: number; seconds: number }> = [
     field in Schedule settings. No state, no dismissal flag to sync, and never
     on the home screen. */
 export function typicalFor(activity: Activity, ageMonths: number): number | null {
-	const bands = activity === 'feed' ? FEED_BANDS : activity === 'bottle' ? BOTTLE_BANDS : SLEEP_BANDS;
+	const bands =
+		activity === 'feed'
+			? FEED_BANDS
+			: activity === 'bottle'
+				? BOTTLE_BANDS
+				: activity === 'nap'
+					? NAP_BANDS
+					: SLEEP_BANDS;
 	for (const band of bands) if (ageMonths < band.untilMonths) return band.seconds;
 	return null;
 }
@@ -60,10 +78,11 @@ export function typicalFor(activity: Activity, ageMonths: number): number | null
 export const ANCHOR_FOR: Record<Activity, Target['anchor']> = {
 	feed: 'feed_start',
 	sleep: 'sleep_end',
-	bottle: 'bottle_start'
+	bottle: 'bottle_start',
+	nap: 'sleep_start'
 };
 
-export const ACTIVITIES = ['feed', 'sleep', 'bottle'] as const;
+export const ACTIVITIES = ['feed', 'sleep', 'bottle', 'nap'] as const;
 
 /** Seeded once at Baby creation, never re-derived and never averaged from the
     log (ADR-0006). */
@@ -150,10 +169,11 @@ export function feedDueInstant(
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
 
-/** The Entry a Target measures from: the previous Feed, the last Sleep, or the
-    bottle that is still open. Three anchors, because "she sleeps every 3h" is
-    not a Wake Window — how long she stays comfortably awake is a different
-    anchor, and getting it wrong would have made the sleep number useless.
+/** The Entry a Target measures from: the previous Feed, the last Sleep, the
+    bottle that is still open, or the Sleep she is in. Four anchors, because
+    "she sleeps every 3h" is not a Wake Window — how long she stays comfortably
+    awake is a different anchor, and getting it wrong would have made the
+    sleep number useless.
 
     The Entry rather than only its instant, because a Notice has to be said
     once per anchor and the anchor's id is the only key that survives a server
@@ -179,6 +199,17 @@ export function anchorEntry(target: Pick<Target, 'anchor'>, entries: Entry[]): E
 		}
 		return latest;
 	}
+	if (target.anchor === 'sleep_start') {
+		/* The Sleep she is in, not the last one she had. Two open at once is a
+		   Session Merge waiting to happen (spec §5.3), and until it does the
+		   earlier start is the one the header already reads as running. */
+		let earliest: Entry | null = null;
+		for (const e of entries) {
+			if (!live(e) || e.type !== 'sleep' || e.ended_at != null) continue;
+			if (earliest == null || e.occurred_at < earliest.occurred_at) earliest = e;
+		}
+		return earliest;
+	}
 	let latest: Entry | null = null;
 	for (const e of entries) {
 		if (!live(e) || e.type !== 'sleep' || e.ended_at == null) continue;
@@ -187,8 +218,8 @@ export function anchorEntry(target: Pick<Target, 'anchor'>, entries: Entry[]): E
 	return latest;
 }
 
-/** The instant that anchor sits at — a Sleep is measured from its end, and
-    everything else from its start. */
+/** The instant that anchor sits at — the Wake Window is measured from a
+    Sleep's end, and everything else from its Entry's start. */
 export function anchorInstant(target: Pick<Target, 'anchor'>, entries: Entry[]): number | null {
 	const entry = anchorEntry(target, entries);
 	if (!entry) return null;
@@ -208,6 +239,23 @@ export function bottleTargetOf(targets: Target[], babyId: string): Target {
 		activity: 'bottle',
 		duration_s: typicalFor('bottle', 0) ?? 3600,
 		anchor: 'bottle_start',
+		deleted_at: null
+	};
+}
+
+/** The Nap Length a Household has stated, or the seeded hour and a half if
+    this Baby predates the field. Synthetic and never written, exactly as the
+    Bottle Life's is (ADR-0016, ADR-0046). */
+export function napTargetOf(targets: Target[], babyId: string): Target {
+	const stored = targets.find((t) => t.activity === 'nap' && t.deleted_at == null);
+	if (stored) return stored;
+	return {
+		id: '',
+		household_id: '',
+		baby_id: babyId,
+		activity: 'nap',
+		duration_s: typicalFor('nap', 0) ?? 90 * 60,
+		anchor: 'sleep_start',
 		deleted_at: null
 	};
 }
@@ -357,16 +405,25 @@ export interface SleepHeader {
 	/** The running Sleep, if there is one — the Live Session everyone's Device
 	    can see. */
 	running: Entry | null;
+	/** What the running Sleep is read as, against `now` — a Nap, measured
+	    against the Nap Length, or a Night Sleep, measured against the Day
+	    Start (ADR-0046). Null while she is awake. */
+	kind: 'nap' | 'night' | null;
 	asleepMs: number | null;
 	/** Awake time is "time not covered by a Sleep", so a Sleep Feed does not
 	    make her awake (spec §8.5). Null while a Sleep runs: the Wake Window is
 	    simply not shown when it cannot apply. */
 	awakeMs: number | null;
+	/** The instant the column's bar fills toward: the end of the Wake Window
+	    while she is awake, and the end of what the running Sleep is allowed
+	    while she sleeps — the Nap Length from the instant she went down, or
+	    the Day Start that closes a Night Sleep. */
 	dueAt: number | null;
 	remainingMs: number | null;
 	overdue: boolean;
 	overdueMs: number | null;
-	/** How much of the Wake Window has run, 0..1 — see `FeedHeader.progress`. */
+	/** How much of the interval to `dueAt` has run, 0..1 — see
+	    `FeedHeader.progress`. */
 	progress: number | null;
 }
 
@@ -405,6 +462,13 @@ function progressOf(anchorAt: number, dueAt: number, now: number): number {
 	const span = dueAt - anchorAt;
 	if (span <= 0) return 1;
 	return Math.min(1, Math.max(0, (now - anchorAt) / span));
+}
+
+/** The Day Start that closes the day a Sleep began in — the morning end of
+    the night the Household keeps (ADR-0032), and the instant a running Night
+    Sleep's bar fills toward (ADR-0046). */
+function morningAfter(start: number, dayStart: string, zone: string): number {
+	return dayStartInstant(addDays(dayBucketOf(start, dayStart, zone), 1), dayStart, zone);
 }
 
 /** Everything the sticky header prints, computed from the replica on every
@@ -450,6 +514,7 @@ export function headerState(input: HeaderInput): HeaderState {
 
 	const sleep: SleepHeader = {
 		running,
+		kind: null,
 		asleepMs: running ? now - running.occurred_at : null,
 		awakeMs: null,
 		dueAt: null,
@@ -458,7 +523,26 @@ export function headerState(input: HeaderInput): HeaderState {
 		overdueMs: null,
 		progress: null
 	};
-	if (!running) {
+	if (running) {
+		/* While she sleeps the bar fills toward the end of what this Sleep is
+		   allowed: the Nap Length from the instant she went down, or, once the
+		   Sleep has reached the night, the Day Start that closes it — the night
+		   the Household already keeps, read once more (ADR-0046). Classified
+		   against `now`, so a bedtime's bar turns from the one to the other as
+		   the evening reaches the stated hour (ADR-0033). The Nap Length is
+		   synthesised when unstated, so this is never unknown for lack of a
+		   Target. */
+		sleep.kind = classifySleep(running, { dayStart, zone, night }, now);
+		sleep.dueAt =
+			sleep.kind === 'night'
+				? morningAfter(running.occurred_at, dayStart, zone)
+				: dueInstant(napTargetOf(input.targets, babyId), running.occurred_at);
+		const remaining = sleep.dueAt - now;
+		sleep.remainingMs = Math.max(0, remaining);
+		sleep.overdue = remaining < 0;
+		sleep.overdueMs = remaining < 0 ? -remaining : null;
+		sleep.progress = progressOf(running.occurred_at, sleep.dueAt, now);
+	} else {
 		const lastSleepEnd = anchorInstant({ anchor: 'sleep_end' } as Target, mine);
 		if (lastSleepEnd != null) {
 			sleep.awakeMs = now - lastSleepEnd;

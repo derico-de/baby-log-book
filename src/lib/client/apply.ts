@@ -31,8 +31,8 @@ import { META, OUTBOX_VERSION, type ReplicaDb } from './db';
 const num = (v: unknown) => (v == null ? null : Number(v));
 const str = (v: unknown, fallback = '') => (v == null ? fallback : String(v));
 
-const ACTIVITIES = ['feed', 'sleep', 'bottle'] as const;
-const ANCHORS = ['feed_start', 'sleep_end', 'bottle_start'] as const;
+const ACTIVITIES = ['feed', 'sleep', 'bottle', 'nap'] as const;
+const ANCHORS = ['feed_start', 'sleep_end', 'bottle_start', 'sleep_start'] as const;
 
 /** Narrows a stored string back to its union, falling back rather than
     throwing: the fold has already been validated at the sync edge, and a

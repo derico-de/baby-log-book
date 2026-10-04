@@ -165,9 +165,9 @@ const HOUSEHOLD_FIELD_CHECKS: Record<string, Check> = {
 
 const TARGET_FIELD_CHECKS: Record<string, Check> = {
 	baby_id: isId,
-	activity: isOneOf(['feed', 'sleep', 'bottle']),
+	activity: isOneOf(['feed', 'sleep', 'bottle', 'nap']),
 	duration_s: (v) => isFiniteNumber(v) && Number.isInteger(v) && (v as number) > 0 && (v as number) <= 24 * 3600,
-	anchor: isOneOf(['feed_start', 'sleep_end', 'bottle_start']),
+	anchor: isOneOf(['feed_start', 'sleep_end', 'bottle_start', 'sleep_start']),
 	deleted_at: isNullableInstant
 };
 

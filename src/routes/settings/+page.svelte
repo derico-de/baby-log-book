@@ -44,7 +44,7 @@
 	import { canPromptInstall, isStandalone, promptInstall, requestUpdate } from '$client/pwa';
 	import { playChime, primeChime } from '$client/chime';
 	import { disablePush, enablePush, type PushOutcome } from '$client/push';
-	import { ANCHOR_FOR, bottleTargetOf, typicalFor } from '$domain/targets';
+	import { ANCHOR_FOR, bottleTargetOf, napTargetOf, typicalFor } from '$domain/targets';
 	import { noticeOffset } from '$domain/notices';
 	import { ageInMonths, dayStartInstant } from '$domain/time';
 	import { birthMeasurementOf } from '$domain/growth';
@@ -52,7 +52,7 @@
 	import { EMPTY_FILTER } from '$domain/filter';
 	import { LOCALE_NAMES, LOCALES, switchLocale } from '$lib/i18n/locale.svelte';
 	import { dateAndTime, plural, targetDuration } from '$lib/i18n/format';
-	import { DEFAULT_FEED_NOTICE_S, DEFAULT_SLEEP_NOTICE_S, type Activity, type Where } from '$domain/types';
+	import { DEFAULT_FEED_NOTICE_S, DEFAULT_SLEEP_NOTICE_S, type Activity, type Target, type Where } from '$domain/types';
 	import type { Locale } from '$lib/paraglide/runtime';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from '$lib/components/Icon.svelte';
@@ -270,14 +270,20 @@
 		}
 	}
 
-	/** A Target is a duration; these two inputs are hours and minutes of it.
+	/** The Bottle Life and the Nap Length fall back to their seeded values
+	    rather than to zero, so a Baby added before either field existed shows
+	    the number she is already counted against instead of a blank pair of
+	    boxes. */
+	function seededTarget(activity: Activity, babyId: string): Target | null {
+		if (activity === 'bottle') return bottleTargetOf([], babyId);
+		if (activity === 'nap') return napTargetOf([], babyId);
+		return null;
+	}
 
-	    The Bottle Life falls back to its seeded value rather than to zero, so a
-	    Baby added before the field existed shows the hour her countdown is
-	    already running against instead of a blank pair of boxes. */
+	/** A Target is a duration; these two inputs are hours and minutes of it. */
 	function targetParts(activity: Activity): { hours: number; minutes: number; id: string | null } {
 		const stored = app.babyTargets.find((t) => t.activity === activity);
-		const target = stored ?? (activity === 'bottle' && baby ? bottleTargetOf([], baby.id) : null);
+		const target = stored ?? (baby ? seededTarget(activity, baby.id) : null);
 		if (!target) return { hours: 0, minutes: 0, id: null };
 		return {
 			hours: Math.floor(target.duration_s / 3600),
@@ -501,7 +507,7 @@
 				<section>
 					<h3>{m.settings_targets({ name: baby.name })}</h3>
 					<div class="pair">
-						{#each [['feed', m.settings_feed_interval()], ['sleep', m.settings_wake_window()], ['bottle', m.settings_bottle_life()]] as [activity, label] (activity)}
+						{#each [['feed', m.settings_feed_interval()], ['sleep', m.settings_wake_window()], ['nap', m.settings_nap_length()], ['bottle', m.settings_bottle_life()]] as [activity, label] (activity)}
 							{@const parts = targetParts(activity as Activity)}
 							<label>
 								{label}
@@ -546,6 +552,10 @@
 					     countdown starts at the Feed, not at the kettle, so it can only
 					     ever read younger than the milk (ADR-0016). -->
 					<small class="hint">{m.settings_bottle_life_hint()}</small>
+					<!-- What the Nap Length drives: the sleep bar while she naps. A
+					     Sleep that has reached the night fills toward the Day Start
+					     instead, so the night keeps its own measure (ADR-0046). -->
+					<small class="hint">{m.settings_nap_length_hint()}</small>
 				</section>
 			{/if}
 

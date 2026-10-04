@@ -134,7 +134,7 @@ describe('the sticky header', () => {
 		expect(Number(bar?.style.getPropertyValue('--p'))).toBe(1);
 	});
 
-	it('shows asleep instead of a Wake Window while a Sleep runs', () => {
+	it('shows asleep instead of a Wake Window while a Sleep runs, the bar filling toward the Nap Length', () => {
 		app.entries = [
 			entry({ type: 'bottle_feed', occurred_at: NOW - 3600_000 }),
 			entry({ type: 'sleep', occurred_at: NOW - 65 * 60_000 })
@@ -142,16 +142,28 @@ describe('the sticky header', () => {
 		const text = draw(LiveHeader, { onFilter: () => {} });
 		expect(text).toContain('asleep');
 		expect(text).toContain('1h05');
-		expect(text).toContain('since 14:55');
 		expect(text).not.toContain('awake');
-		/* No Wake Window while she sleeps: the sleep column's bar stands full
-		   and names the instant she went down; only the feed column counts
-		   down to a due instant. */
+		/* No Wake Window while she sleeps: the sleep column's bar fills from
+		   the instant she went down toward the seeded hour and a half, and
+		   prints the instant that lands on (ADR-0046). */
 		const sleepBar = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"] .live-bar');
-		expect(sleepBar?.textContent).not.toContain('due');
-		expect(Number(sleepBar?.style.getPropertyValue('--p'))).toBe(1);
+		expect(sleepBar?.textContent).toContain('due -25m at 16:25');
+		expect(Number(sleepBar?.style.getPropertyValue('--p'))).toBeCloseTo(65 / 90);
 		expect(sleepBar?.getAttribute('data-over')).toBe('0');
+		/* The feed column still counts down to its own instant and keeps the
+		   next-due marker: a sleeping Baby's allowance is not a due. */
 		expect(host.querySelector('.live-cell[data-t="feed"] .live-bar-text .live-at')?.textContent).toBe('18:00');
+		expect(host.querySelector('.live-cell[data-t="feed"]')?.getAttribute('data-live')).toBe('1');
+	});
+
+	it('flips the sleep bar once she has slept past the Nap Length — the same one shift', () => {
+		/* Down at 14:00 on the seeded hour and a half, read at 16:00. */
+		app.entries = [entry({ type: 'sleep', occurred_at: NOW - 2 * 3600_000 })];
+		draw(LiveHeader, { onFilter: () => {} });
+		const sleepBar = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"] .live-bar');
+		expect(sleepBar?.textContent).toContain('due +30m at 15:30');
+		expect(sleepBar?.getAttribute('data-over')).toBe('1');
+		expect(Number(sleepBar?.style.getPropertyValue('--p'))).toBe(1);
 	});
 
 	it('shows the awake time and when the nap is due once she is up', () => {

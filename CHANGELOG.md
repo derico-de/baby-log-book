@@ -9,6 +9,12 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- *Nap length*, a fourth target per baby in Schedule settings, seeded at
+  1h30 with no age table. A baby added before it existed counts against the
+  same 1h30 until a parent types a number (ADR-0046).
+
 ### Changed
 
 - The header's due line is a bar. It fills from the left toward the clock
@@ -16,8 +22,15 @@ release moves that section under its version number.
   left (`due -55m ······ 21:18`), and it is also the live marker: grey while
   the column is idle, the type colour while its session runs or it is next
   due. Once overdue it stands full in the brand colour with bold text. The
-  5px bar under each column is gone; a running Sleep's bar stands full and
-  reads `since ······ 22:05`.
+  5px bar under each column is gone.
+- While a Sleep runs, the sleep bar fills toward the end of what the Sleep
+  is allowed instead of standing full: the nap length from the instant she
+  went down (`due -25m ······ 16:25`), or the day start once the Sleep
+  counts as night — the night the household already keeps. Past it the bar
+  flips once, as the feed's does. The feed column keeps the next-due marker
+  while she sleeps (ADR-0046).
+- The sync protocol is at version 3. A device that predates the nap target
+  keeps logging locally and stops pushing until its app update lands.
 - The header's figures (`30m`, `2h10`) are three steps larger at a normal
   weight, each under its state word. Bold is kept for overdue.
 - The German feed label reads *seit letzter Mahlzeit*, so it fits its

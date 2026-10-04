@@ -121,6 +121,9 @@ describe('validateFields', () => {
 		expect(validateFields('target', { activity: 'sleep', duration_s: 7200, anchor: 'sleep_end' }).ok).toBe(
 			true
 		);
+		expect(validateFields('target', { activity: 'nap', duration_s: 5400, anchor: 'sleep_start' }).ok).toBe(
+			true
+		);
 		expect(validateFields('target', { anchor: 'whenever' }).ok).toBe(false);
 	});
 });

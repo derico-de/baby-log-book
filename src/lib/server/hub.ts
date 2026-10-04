@@ -266,8 +266,10 @@ function hubBaby(input: {
 		   not covered by a Sleep. */
 		awake_since: header.sleep.running ? null : anchorInstant({ anchor: 'sleep_end' }, mine),
 		/* Deliberately not night-shifted: a Wake Window is how long she is
-		   comfortably awake and says nothing about the hour (ADR-0032). */
-		wake_window_up: header.sleep.dueAt,
+		   comfortably awake and says nothing about the hour (ADR-0032). Unknown
+		   while she sleeps: the header's `dueAt` then names the end of the
+		   running Sleep's allowance, which is a different fact (ADR-0046). */
+		wake_window_up: header.sleep.running ? null : header.sleep.dueAt,
 		bottle_runs_out: openBottle
 			? dueInstant(bottleTargetOf(targets, baby.id), openBottle.occurred_at)
 			: null,

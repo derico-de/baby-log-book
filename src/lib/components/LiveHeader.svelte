@@ -19,8 +19,9 @@
 	       heading for the instant printed at its end. The bar is also the live
 	       marker: grey while the column is idle, the type colour while its
 	       session runs or it is the next due. A running Sleep has no Wake
-	       Window, so its bar stands full and states the instant it started
-	       (`since ······ 22:05`).
+	       Window; its bar fills toward the end of what the Sleep is allowed
+	       instead — the Nap Length from the instant she went down, or the Day
+	       Start once it counts as a Night Sleep (ADR-0046).
 	     - Empty state per column: nothing logged means the word alone — no
 	       elapsed figure and no bar. Never compute a due instant from nothing.
 	     - Overdue shifts once and never again: the full bar takes the brand
@@ -71,9 +72,11 @@
 	/* Which column is next due — the Feed and the Wake Window race on the same
 	   clock, and the nearer instant wins. It is a separate fact from a running
 	   session: while a Sleep runs the Sleep column is live and the Feed column
-	   may still be the one about to come up, so both can carry the marker. */
+	   may still be the one about to come up, so both can carry the marker. The
+	   running Sleep's own instant is left out of the race — it is the end of
+	   her allowance, not something due, and its column is already marked. */
 	const nextDue = $derived.by(() => {
-		const sleepAt = header?.sleep.dueAt ?? null;
+		const sleepAt = header?.sleep.running ? null : (header?.sleep.dueAt ?? null);
 		const feedAt = header?.feed.dueAt ?? null;
 		if (feedAt == null) return sleepAt == null ? null : 'sleep';
 		if (sleepAt == null) return 'feed';
@@ -170,9 +173,11 @@
 				<div class="live-title">{m.header_sleep_title()}</div>
 				{#if header.sleep.running}
 					<!-- While a Sleep runs there is no Wake Window to show: the bar
-					     stands full and names the instant she went down. -->
+					     fills toward the end of the Sleep's allowance instead — the
+					     Nap Length, or the Day Start for a Night Sleep — and flips
+					     once she has slept past it, exactly as the Feed's does. -->
 					{@render stat(m.header_asleep_label(), duration(header.sleep.asleepMs ?? 0))}
-					{@render bar(m.header_since_label(), null, clockTime(header.sleep.running.occurred_at, zone), 1, false)}
+					{@render dueBar(header.sleep)}
 				{:else if header.sleep.awakeMs != null}
 					{@render stat(m.header_awake_label(), duration(header.sleep.awakeMs))}
 					{#if header.sleep.dueAt != null}

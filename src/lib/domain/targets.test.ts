@@ -8,6 +8,7 @@ import {
 	dueInstant,
 	pastBottleRevision,
 	headerState,
+	napTargetOf,
 	nightPeriodOf,
 	nightStartValue,
 	planPastBottles,
@@ -58,13 +59,14 @@ describe('the age table', () => {
 		expect(seeds.map((s) => [s.activity, s.duration_s, s.anchor])).toEqual([
 			['feed', 3 * 3600, 'feed_start'],
 			['sleep', 75 * 60, 'sleep_end'],
-			['bottle', 3600, 'bottle_start']
+			['bottle', 3600, 'bottle_start'],
+			['nap', 90 * 60, 'sleep_start']
 		]);
 	});
 
 	it('stops seeding a feed Target after twelve months, when solids take over', () => {
 		const seeds = seedTargets('2025-01-17', iso('2026-08-17T12:00:00Z'), BERLIN);
-		expect(seeds.map((s) => s.activity)).toEqual(['sleep', 'bottle']);
+		expect(seeds.map((s) => s.activity)).toEqual(['sleep', 'bottle', 'nap']);
 		expect(seeds[0].duration_s).toBe(5 * 3600);
 	});
 
@@ -77,6 +79,38 @@ describe('the age table', () => {
 	it('gives the Bottle Life no age table, because milk does not care how old she is', () => {
 		expect(typicalFor('bottle', 0)).toBe(3600);
 		expect(typicalFor('bottle', 24)).toBe(3600);
+	});
+
+	it('gives the Nap Length no age table either — one nap varies more than one age does', () => {
+		expect(typicalFor('nap', 0)).toBe(90 * 60);
+		expect(typicalFor('nap', 24)).toBe(90 * 60);
+	});
+});
+
+describe('the Nap Length', () => {
+	it('falls back to the seeded hour and a half for a Baby added before the Target existed', () => {
+		expect(napTargetOf([feedTarget, sleepTarget], 'b1')).toMatchObject({
+			baby_id: 'b1',
+			activity: 'nap',
+			duration_s: 90 * 60,
+			anchor: 'sleep_start'
+		});
+	});
+
+	it('is the stored Target once a Parent has typed one', () => {
+		const nap: Target = { ...feedTarget, id: 't4', activity: 'nap', duration_s: 45 * 60, anchor: 'sleep_start' };
+		expect(napTargetOf([feedTarget, nap], 'b1')).toBe(nap);
+	});
+
+	it('measures from the start of the Sleep she is in, never from one that ended', () => {
+		const ended = entry({
+			type: 'sleep',
+			occurred_at: iso('2026-08-17T08:00:00Z'),
+			ended_at: iso('2026-08-17T09:00:00Z')
+		});
+		const open = entry({ type: 'sleep', occurred_at: iso('2026-08-17T13:00:00Z') });
+		expect(anchorInstant({ anchor: 'sleep_start' }, [ended, open])).toBe(iso('2026-08-17T13:00:00Z'));
+		expect(anchorInstant({ anchor: 'sleep_start' }, [ended])).toBeNull();
 	});
 });
 
@@ -376,7 +410,7 @@ describe('headerState', () => {
 		expect(h.feed.overdue).toBe(true);
 	});
 
-	it('does not show a Wake Window while a Sleep runs', () => {
+	it('does not show a Wake Window while a Sleep runs — the bar fills toward the Nap Length instead', () => {
 		const h = headerState({
 			...base,
 			entries: [
@@ -389,8 +423,50 @@ describe('headerState', () => {
 		});
 		expect(h.sleep.asleepMs).toBe(65 * 60_000);
 		expect(h.sleep.awakeMs).toBeNull();
-		expect(h.sleep.dueAt).toBeNull();
-		expect(h.sleep.progress).toBeNull();
+		expect(h.sleep.kind).toBe('nap');
+		// No nap Target is stored here, so the seeded hour and a half counts
+		// from the instant she went down (ADR-0046).
+		expect(h.sleep.dueAt).toBe(iso('2026-08-17T14:35:00Z'));
+		expect(h.sleep.remainingMs).toBe(25 * 60_000);
+		expect(h.sleep.overdue).toBe(false);
+		expect(h.sleep.progress).toBeCloseTo(65 / 90);
+	});
+
+	it('reads the Nap Length the Household typed', () => {
+		const nap: Target = { ...feedTarget, id: 't4', activity: 'nap', duration_s: 45 * 60, anchor: 'sleep_start' };
+		const h = headerState({
+			...base,
+			targets: [...base.targets, nap],
+			entries: [entry({ type: 'sleep', occurred_at: iso('2026-08-17T13:40:00Z') })]
+		});
+		expect(h.sleep.dueAt).toBe(iso('2026-08-17T14:25:00Z'));
+		expect(h.sleep.progress).toBeCloseTo(30 / 45);
+	});
+
+	it('pins the bar full once a Nap runs past its length, and says how long by', () => {
+		const h = headerState({
+			...base,
+			entries: [entry({ type: 'sleep', occurred_at: iso('2026-08-17T12:00:00Z') })]
+		});
+		expect(h.sleep.kind).toBe('nap');
+		expect(h.sleep.overdue).toBe(true);
+		expect(h.sleep.overdueMs).toBe(40 * 60_000);
+		expect(h.sleep.remainingMs).toBe(0);
+		expect(h.sleep.progress).toBe(1);
+	});
+
+	it('measures a Sleep that crossed the Day Start against it, with no Night Period stated', () => {
+		// Down at 02:00 Berlin and still asleep at 16:10: the crossing alone
+		// makes it a Night Sleep (spec §7.2), and the 05:00 it crossed is the
+		// end of what it was allowed.
+		const h = headerState({
+			...base,
+			entries: [entry({ type: 'sleep', occurred_at: wallToInstant({ y: 2026, m: 8, d: 17, h: 2, mi: 0 }, BERLIN) })]
+		});
+		expect(h.sleep.kind).toBe('night');
+		expect(h.sleep.dueAt).toBe(wallToInstant({ y: 2026, m: 8, d: 17, h: 5, mi: 0 }, BERLIN));
+		expect(h.sleep.overdue).toBe(true);
+		expect(h.sleep.progress).toBe(1);
 	});
 
 	it('shows awake time and when she is due down once she is up', () => {
@@ -592,6 +668,45 @@ describe('a Feed due inside the Night Period', () => {
 		});
 		expect(h.feed.overdue).toBe(true);
 		expect(h.feed.overdueMs).toBe(20 * MS.minute);
+	});
+
+	it('fills a running Night Sleep s bar toward the Day Start — the night the Household already keeps', () => {
+		// Down at 19:30 and read at 23:30: the Sleep has reached the night, so
+		// its allowance ends at 07:00 and four of those eleven and a half hours
+		// have run.
+		const h = headerState({ ...base, now: at(17, 23, 30), entries: [entry({ type: 'sleep', occurred_at: at(17, 19, 30) })] });
+		expect(h.sleep.kind).toBe('night');
+		expect(h.sleep.dueAt).toBe(at(18, 7));
+		expect(h.sleep.remainingMs).toBe(7.5 * 3600_000);
+		expect(h.sleep.overdue).toBe(false);
+		expect(h.sleep.progress).toBeCloseTo(4 / 11.5);
+	});
+
+	it('reads a bedtime as a Nap until the evening reaches the stated hour', () => {
+		// The same 19:30 Sleep read at 20:30: the night has not begun, so an
+		// hour of the hour-and-a-half Nap Length has run (ADR-0033).
+		const h = headerState({ ...base, now: at(17, 20, 30), entries: [entry({ type: 'sleep', occurred_at: at(17, 19, 30) })] });
+		expect(h.sleep.kind).toBe('nap');
+		expect(h.sleep.dueAt).toBe(at(17, 21));
+		expect(h.sleep.progress).toBeCloseTo(60 / 90);
+	});
+
+	it('is still asleep past the Day Start, and says how long by', () => {
+		const h = headerState({ ...base, now: at(18, 7, 30), entries: [entry({ type: 'sleep', occurred_at: at(17, 19, 30) })] });
+		expect(h.sleep.kind).toBe('night');
+		expect(h.sleep.overdue).toBe(true);
+		expect(h.sleep.overdueMs).toBe(30 * 60_000);
+		expect(h.sleep.progress).toBe(1);
+	});
+
+	it('measures a small-hours Sleep against the same Day Start', () => {
+		// Back down at 03:40, inside the night: the allowance ends at 07:00,
+		// not an hour and a half later. The Day Start is the bucket boundary
+		// and not her wake time, which is the cost ADR-0046 carries.
+		const h = headerState({ ...base, now: at(18, 4, 40), entries: [entry({ type: 'sleep', occurred_at: at(18, 3, 40) })] });
+		expect(h.sleep.kind).toBe('night');
+		expect(h.sleep.dueAt).toBe(at(18, 7));
+		expect(h.sleep.progress).toBeCloseTo(60 / 200);
 	});
 
 	it('does not touch the Wake Window — a night is not a reason to stay asleep', () => {

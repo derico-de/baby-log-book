@@ -42,11 +42,12 @@ export type Role = 'parent' | 'caregiver';
     created, stamped by the server, and never changed (ADR-0038). */
 export const MEMBER_KINDS = ['person', 'hub'] as const;
 export type MemberKind = (typeof MEMBER_KINDS)[number];
-export type Activity = 'feed' | 'sleep' | 'bottle';
+export type Activity = 'feed' | 'sleep' | 'bottle' | 'nap';
 /** The Feed Interval runs from the previous Feed's start; the Wake Window
     from the last Sleep's end; the Bottle Life from the start of the bottle
-    that is still open. Three anchors, deliberately (spec §6.5). */
-export type Anchor = 'feed_start' | 'sleep_end' | 'bottle_start';
+    that is still open; the Nap Length from the start of the Sleep she is in.
+    Four anchors, deliberately (spec §6.5, ADR-0046). */
+export type Anchor = 'feed_start' | 'sleep_end' | 'bottle_start' | 'sleep_start';
 
 export interface BreastFeedPayload {
 	side: Side;
@@ -304,5 +305,9 @@ export const MAX_NOTICE_OFFSET_S = 6 * 3600;
     activity to `feed`, and then `targetFor(targets, 'feed')` can pick it: the
     header would print the wrong Feed Interval, and a Parent editing that field
     in Settings would overwrite the Bottle Life record. That is an old client
-    writing something wrong, which is exactly what this number is for. */
-export const PROTOCOL_VERSION = 2;
+    writing something wrong, which is exactly what this number is for.
+
+    3 — the Nap Length Target, for the same reason: an unknown `nap` activity
+    coerced to `feed` is a second Feed Interval record an old client can pick
+    and overwrite (ADR-0046). */
+export const PROTOCOL_VERSION = 3;
