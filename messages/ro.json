@@ -73,7 +73,7 @@
 	"header_awake_label": "trează",
 	"header_asleep_label": "doarme",
 	"header_no_sleep_yet": "niciun somn înregistrat",
-	"header_since_time": "de la {time}",
+	"header_since_label": "de la",
 	"header_nappies_one": "{count} scutec",
 	"header_nappies_few": "{count} scutece",
 	"header_nappies_other": "{count} de scutece",

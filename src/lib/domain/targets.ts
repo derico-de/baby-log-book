@@ -348,6 +348,9 @@ export interface FeedHeader {
 	remainingMs: number | null;
 	overdue: boolean;
 	overdueMs: number | null;
+	/** How much of the interval to `dueAt` has run, 0..1 — the header's bar.
+	    Pinned at 1 once overdue; null without a due instant. */
+	progress: number | null;
 }
 
 export interface SleepHeader {
@@ -363,6 +366,8 @@ export interface SleepHeader {
 	remainingMs: number | null;
 	overdue: boolean;
 	overdueMs: number | null;
+	/** How much of the Wake Window has run, 0..1 — see `FeedHeader.progress`. */
+	progress: number | null;
 }
 
 export interface HeaderState {
@@ -392,6 +397,16 @@ function targetFor(targets: Target[], activity: Activity): Target | null {
 	return targets.find((t) => t.activity === activity && t.deleted_at == null) ?? null;
 }
 
+/** The share of the interval from `anchorAt` to `dueAt` that has run at `now`,
+    clamped to 0..1: once the instant has passed the bar is full and stays
+    full — overdue is reported by the figure, not by a bar growing past its
+    track. */
+function progressOf(anchorAt: number, dueAt: number, now: number): number {
+	const span = dueAt - anchorAt;
+	if (span <= 0) return 1;
+	return Math.min(1, Math.max(0, (now - anchorAt) / span));
+}
+
 /** Everything the sticky header prints, computed from the replica on every
     paint. Nothing here is stored and nothing here is written. */
 export function headerState(input: HeaderInput): HeaderState {
@@ -415,7 +430,8 @@ export function headerState(input: HeaderInput): HeaderState {
 		dueAt: null,
 		remainingMs: null,
 		overdue: false,
-		overdueMs: null
+		overdueMs: null,
+		progress: null
 	};
 	if (lastFeedAt != null && feedTarget) {
 		feed.dueAt = feedDueInstant(feedTarget, lastFeedAt, night, zone, now);
@@ -423,6 +439,7 @@ export function headerState(input: HeaderInput): HeaderState {
 		feed.remainingMs = Math.max(0, remaining);
 		feed.overdue = remaining < 0;
 		feed.overdueMs = remaining < 0 ? -remaining : null;
+		feed.progress = progressOf(lastFeedAt, feed.dueAt, now);
 	}
 
 	/* --- sleep: defined by its end -------------------------------------- */
@@ -438,7 +455,8 @@ export function headerState(input: HeaderInput): HeaderState {
 		dueAt: null,
 		remainingMs: null,
 		overdue: false,
-		overdueMs: null
+		overdueMs: null,
+		progress: null
 	};
 	if (!running) {
 		const lastSleepEnd = anchorInstant({ anchor: 'sleep_end' } as Target, mine);
@@ -450,6 +468,7 @@ export function headerState(input: HeaderInput): HeaderState {
 				sleep.remainingMs = Math.max(0, remaining);
 				sleep.overdue = remaining < 0;
 				sleep.overdueMs = remaining < 0 ? -remaining : null;
+				sleep.progress = progressOf(lastSleepEnd, sleep.dueAt, now);
 			}
 		}
 	}

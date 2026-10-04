@@ -537,11 +537,11 @@ The tab bar does put a second control in the thumb zone, which is the trade the 
 
 **The sticky header** carries the due information and stays visible while the timeline scrolls under it, because it is the number people check constantly:
 
-- **Dominant**: `since last feed 2h10`, with the due line beneath it as a countdown against the clock face it lands on — `due -50m at 16:50`, the instant itself in bold, because that is the half people read off to plan the next hour.
+- **Dominant**: `since last feed` over `2h10` — the figure two steps up the scale at a normal weight — with the due bar beneath it: the share of the interval that has run, filled from the left toward the clock face at its right end, the countdown at its left (`due -50m ······ 16:50`). The instant sits where the fill is heading, because that is the half people read off to plan the next hour.
 - **Quiet line**, swapping on state: `awake 1h20 · down after 1h30` when she is up, `asleep 1h05` while a Sleep runs — the Wake Window is simply **not shown when it cannot apply**. Nappy count stays on that line.
 - **Empty state**: no Feed logged yet means no elapsed figure and no due figure. **Never compute a due instant from nothing.**
-- **Overdue shifts colour once and never again.** The due line flips the sign to `due +50m at 15:10`. No second colour, no red at 2h, no badge — escalation is nagging with extra steps. Same for the Wake Window.
-- **The column to watch carries the live marker** — its bottom bar takes the live colour. A running session marks its column, and so does whichever column is next due: if the Feed's instant is nearer than the Wake Window's, Feeding takes the marker. Both can carry it at once.
+- **Overdue shifts once and never again.** The bar stands full in the brand colour, its text goes bold, and the sign flips to `due +50m ······ 15:10`. No second colour, no red at 2h, no badge — escalation is nagging with extra steps. Same for the Wake Window.
+- **The column to watch carries the live marker** — its due bar takes the type colour; the other column's stays grey. A running session marks its column (a running Sleep's bar stands full and reads `since ······ 22:05`), and so does whichever column is next due: if the Feed's instant is nearer than the Wake Window's, Feed takes the marker. Both can carry it at once.
 - **Past 24h, elapsed is replaced by the absolute time** (`last feed yesterday 14:05`). Beyond a day the figure has stopped being a number anyone reads.
 
 **The feed clock does not pause for sleep.** `since last feed` keeps counting while a Sleep runs and still shifts colour past the Target. A Baby who has slept three hours still has not eaten for three hours — precisely the fact the app was opened for, and plenty of newborns are woken to feed.

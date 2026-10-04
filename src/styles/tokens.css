@@ -48,9 +48,9 @@
 		--fw-bold: 650;
 
 		/* A hero figure — "2h 10m" on a stat card — is loud through size at a
-       LIGHT weight; bold at that size would shout. The header used to set two
-       of them side by side (sleep | feed) and no longer does: its figures ride
-       inline with their state word instead, so only the weight is a token. */
+       LIGHT weight; bold at that size would shout. The header's two figures
+       (sleep | feed) are the same idea one step down: --fs-5 at the normal
+       weight under their state word, with bold kept for the overdue bar. */
 		--hero-weight: 300;
 
 		--r-1: 10px;

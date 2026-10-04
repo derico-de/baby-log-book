@@ -299,6 +299,7 @@ describe('headerState', () => {
 		expect(h.feed.elapsedMs).toBeNull();
 		expect(h.feed.dueAt).toBeNull();
 		expect(h.feed.overdue).toBe(false);
+		expect(h.feed.progress).toBeNull();
 	});
 
 	it('reports elapsed since the last Feed and when the next is due', () => {
@@ -310,6 +311,8 @@ describe('headerState', () => {
 		expect(h.feed.dueAt).toBe(iso('2026-08-17T15:00:00Z'));
 		expect(h.feed.overdue).toBe(false);
 		expect(h.feed.remainingMs).toBe(50 * 60_000);
+		// 2h10 of a 3h interval has run — the share the header's bar fills to.
+		expect(h.feed.progress).toBeCloseTo(130 / 180);
 	});
 
 	it('surfaces the running Feed — the latest started when two are open at once', () => {
@@ -345,6 +348,8 @@ describe('headerState', () => {
 		});
 		expect(h.feed.overdue).toBe(true);
 		expect(h.feed.overdueMs).toBe(70 * 60_000);
+		// The bar is full and stays full: the figure reports how far past.
+		expect(h.feed.progress).toBe(1);
 	});
 
 	it('replaces elapsed with an absolute time past a day', () => {
@@ -385,6 +390,7 @@ describe('headerState', () => {
 		expect(h.sleep.asleepMs).toBe(65 * 60_000);
 		expect(h.sleep.awakeMs).toBeNull();
 		expect(h.sleep.dueAt).toBeNull();
+		expect(h.sleep.progress).toBeNull();
 	});
 
 	it('shows awake time and when she is due down once she is up', () => {
@@ -402,6 +408,8 @@ describe('headerState', () => {
 		expect(h.sleep.awakeMs).toBe(80 * 60_000);
 		expect(h.sleep.dueAt).toBe(iso('2026-08-17T14:50:00Z'));
 		expect(h.sleep.overdue).toBe(false);
+		// 80 of the Wake Window's 120 minutes have run.
+		expect(h.sleep.progress).toBeCloseTo(80 / 120);
 	});
 
 	it('counts today s nappies, split, with no target of any kind', () => {
@@ -512,6 +520,8 @@ describe('a Feed due inside the Night Period', () => {
 		expect(h.feed.dueAt).toBe(at(18, 7));
 		expect(h.feed.remainingMs).toBe(9 * MS.hour);
 		expect(h.feed.overdue).toBe(false);
+		// The bar runs to the morning, not to the Target: one of ten hours.
+		expect(h.feed.progress).toBeCloseTo(1 / 10);
 	});
 
 	it('holds the interval while the night has not begun — the bedtime Feed is still to come', () => {

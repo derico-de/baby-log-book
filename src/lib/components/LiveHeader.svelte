@@ -3,27 +3,30 @@
 
 	   It carries the due information and stays visible while the timeline scrolls
 	   under it, because it is the numbers people check constantly — a two-column
-	   grid, sleep on the left, feed on the right, four short lines deep:
+	   grid, sleep on the left, feed on the right, three short rows deep:
 
 	     - Title per column: what the column reports.
-	     - State line per column: the state word and its elapsed figure on one
-	       line (`asleep: 5m`, `since last feed: 22m`). The word is the quiet
-	       half, the figure the one being read — the step between them is weight
-	       and ink, not size, because two hero figures cost two full lines of a
-	       header the timeline has to scroll under. The sleep column swaps its
-	       word on state (`asleep` / `awake`); while a Sleep runs the Wake Window
-	       is simply not shown, because it cannot apply.
-	     - Due line per column: the due figure as a countdown against the clock
-	       face it lands on (`due -55m at 21:18`), set at the same size as the
-	       state line above it, with the instant itself the bold half, because
-	       that is the part people read off to plan the next hour. A running
-	       Sleep states the instant it started instead (`since 22:05`).
+	     - State per column: the state word as a caption over its elapsed
+	       figure (`asleep` / `5m`, `since last feed` / `22m`). The figure is
+	       the loudest thing in the header — loud through size at a normal
+	       weight, never through boldness — and the word above it stays small
+	       and quiet. The sleep column swaps its word on state (`asleep` /
+	       `awake`); while a Sleep runs the Wake Window is simply not shown,
+	       because it cannot apply.
+	     - Due bar per column: the share of the interval that has run, filled
+	       from the left, with the countdown at its left end and the clock face
+	       it lands on at its right (`due -55m ······ 21:18`) — the fill is
+	       heading for the instant printed at its end. The bar is also the live
+	       marker: grey while the column is idle, the type colour while its
+	       session runs or it is the next due. A running Sleep has no Wake
+	       Window, so its bar stands full and states the instant it started
+	       (`since ······ 22:05`).
 	     - Empty state per column: nothing logged means the word alone — no
-	       elapsed figure and no due figure. Never compute a due instant from
-	       nothing.
-	     - Overdue shifts colour once and never again, and flips the sign
-	       (`due +20m at 19:40`). No second colour, no red at 2h, no badge —
-	       escalation is nagging with extra steps. */
+	       elapsed figure and no bar. Never compute a due instant from nothing.
+	     - Overdue shifts once and never again: the full bar takes the brand
+	       colour, its text goes bold, and the sign flips (`due +20m`). No
+	       second colour, no red at 2h, no badge — escalation is nagging with
+	       extra steps. */
 	import { app } from '$client/state.svelte';
 	import { clockTime, dateShort, duration, plural } from '$lib/i18n/format';
 	import { ageInMonths, dayBucketOf } from '$domain/time';
@@ -51,8 +54,14 @@
 		return `${baby.name} · ${age}`;
 	});
 
-	/** The four figures the due line reads — both column shapes carry them. */
-	type Due = { dueAt: number | null; remainingMs: number | null; overdue: boolean; overdueMs: number | null };
+	/** The figures the due bar reads — both column shapes carry them. */
+	type Due = {
+		dueAt: number | null;
+		remainingMs: number | null;
+		overdue: boolean;
+		overdueMs: number | null;
+		progress: number | null;
+	};
 
 	/** `-1h19` while it is still coming, `+1h19` once it has passed. */
 	function countdown(state: Due): string {
@@ -84,26 +93,43 @@
 	});
 </script>
 
-<!-- `asleep: 5m` — the state word and the figure it belongs to on one line.
-     The word keeps the quiet ink, the figure takes the full ink and tabular
-     digits so it does not jitter as it ticks. A column with nothing logged
-     prints the word alone: there is no figure to hang a colon on. -->
+<!-- `awake` over `30m` — the state word as a quiet caption, the figure under
+     it in the full ink, three steps up the scale and tabular digits so it does
+     not jitter as it ticks. A column with nothing logged prints the word
+     alone. -->
 {#snippet stat(label: string, value: string | null)}
 	<div class="live-stat">
-		<span class="live-label">{label}{value == null ? '' : ':'}</span>
+		<span class="live-label">{label}</span>
 		{#if value != null}<span class="live-num">{value}</span>{/if}
 	</div>
 {/snippet}
 
-<!-- `due -1h19 at 21:18`: what the line is about, how long is left, then the
-     clock face it lands on. The instant is bold because it is the half people
-     plan against; the word and the countdown stay plain so the two never
-     compete. Overdue flips the sign and takes the warn colour — the one shift,
-     no second one. -->
-{#snippet dueLine(state: Due)}
-	<div class="live-sub" data-over={state.overdue ? '1' : '0'}>
-		{m.header_due_label()} {countdown(state)} {m.header_due_at()} <b class="live-at">{clockTime(state.dueAt ?? 0, zone)}</b>
+<!-- The bar is two layers of the same two words. The lower one is ink on the
+     track; the upper one is the fill — the type colour, or the brand colour
+     once overdue — carrying its own ink and clipped to the share that has
+     run, so the words stay legible on both sides of the edge in every
+     appearance. The joiner (`at`) is read, not seen: the bar's ends say it. -->
+{#snippet bar(left: string, joiner: string | null, at: string, progress: number, overdue: boolean)}
+	<div class="live-bar" data-over={overdue ? '1' : '0'} style:--p={progress}>
+		<span class="live-bar-text">
+			<span>{left}</span><span class="sr-only">{joiner == null ? ' ' : ` ${joiner} `}</span><span class="live-at">{at}</span>
+		</span>
+		<span class="live-bar-fill" aria-hidden="true"><span>{left}</span><span class="live-at">{at}</span></span>
 	</div>
+{/snippet}
+
+<!-- `due -1h19 ······ 21:18`: how long is left at the near end, the clock face
+     it lands on at the far end, the fill between them heading for it. Overdue
+     flips the sign and the whole bar shifts to the brand colour — the one
+     shift, no second one. -->
+{#snippet dueBar(state: Due)}
+	{@render bar(
+		`${m.header_due_label()} ${countdown(state)}`,
+		m.header_due_at(),
+		clockTime(state.dueAt ?? 0, zone),
+		state.progress ?? 1,
+		state.overdue
+	)}
 {/snippet}
 
 <header class="head">
@@ -135,23 +161,22 @@
 
 	{#if header}
 		<div class="live-grid">
-			<!-- The column to watch takes the live colour in its bottom bar —
-			     a running session, and whichever column is next due; the other
-			     keeps the quiet grey bar, so the marker is a colour shift on a
-			     line that is always there — no badge, no extra word, and no
-			     text moves or resizes for it. -->
+			<!-- The column to watch takes the live colour in its bar — a running
+			     session, and whichever column is next due; the other keeps the
+			     quiet grey fill, so the marker is a colour shift on a bar that is
+			     always there — no badge, no extra word, and no text moves or
+			     resizes for it. -->
 			<div class="live-cell" data-t="sleep" data-live={header.sleep.running || nextDue === 'sleep' ? '1' : '0'}>
 				<div class="live-title">{m.header_sleep_title()}</div>
 				{#if header.sleep.running}
-					<!-- While a Sleep runs there is no Wake Window to show. -->
+					<!-- While a Sleep runs there is no Wake Window to show: the bar
+					     stands full and names the instant she went down. -->
 					{@render stat(m.header_asleep_label(), duration(header.sleep.asleepMs ?? 0))}
-					<div class="live-sub">
-						{m.header_since_time({ time: clockTime(header.sleep.running.occurred_at, zone) })}
-					</div>
+					{@render bar(m.header_since_label(), null, clockTime(header.sleep.running.occurred_at, zone), 1, false)}
 				{:else if header.sleep.awakeMs != null}
 					{@render stat(m.header_awake_label(), duration(header.sleep.awakeMs))}
 					{#if header.sleep.dueAt != null}
-						{@render dueLine(header.sleep)}
+						{@render dueBar(header.sleep)}
 					{/if}
 				{:else}
 					{@render stat(m.header_no_sleep_yet(), null)}
@@ -174,7 +199,7 @@
 					{@render stat(m.header_since_last_feed(), duration(header.feed.elapsedMs))}
 				{/if}
 				{#if header.feed.dueAt != null}
-					{@render dueLine(header.feed)}
+					{@render dueBar(header.feed)}
 				{/if}
 			</div>
 		</div>

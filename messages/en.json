@@ -79,7 +79,7 @@
 	"header_awake_label": "awake",
 	"header_asleep_label": "asleep",
 	"header_no_sleep_yet": "no sleep logged yet",
-	"header_since_time": "since {time}",
+	"header_since_label": "since",
 	"header_nappies_one": "{count} nappy",
 	"header_nappies_other": "{count} nappies",
 	"header_last_poop_today": "last poop today",

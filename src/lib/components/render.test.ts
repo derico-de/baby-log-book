@@ -108,15 +108,30 @@ describe('the sticky header', () => {
 		expect([...host.querySelectorAll('.live-title')].map((e) => e.textContent)).toEqual(['Sleep', 'Feed']);
 		expect(text).toContain('since last feed');
 		expect(text).toContain('2h10');
-		/* The due line is a countdown against the clock face it lands on. */
+		/* The due bar: the countdown at its near end, the clock face it lands
+		   on at its far end, the joiner read but not seen. */
 		expect(text).toContain('due -50m at 16:50');
-		expect(host.querySelector('.live-at')?.textContent).toBe('16:50');
+		expect(host.querySelector('.live-bar-text .live-at')?.textContent).toBe('16:50');
+		/* 2h10 of the 3h interval has run, so the fill stands at that share. */
+		const bar = host.querySelector<HTMLElement>('.live-bar');
+		expect(Number(bar?.style.getPropertyValue('--p'))).toBeCloseTo(130 / 180);
+		expect(bar?.getAttribute('data-over')).toBe('0');
 	});
 
 	it('says nothing about a due instant before anything has been logged', () => {
 		const text = draw(LiveHeader, { onFilter: () => {} });
 		expect(text).toContain('no feed logged yet');
-		expect(host.querySelector('.live-sub')).toBeNull();
+		expect(host.querySelector('.live-bar')).toBeNull();
+	});
+
+	it('fills the bar and goes bold once the feed is overdue — the one shift', () => {
+		/* Fed at 11:50 on a 3h interval, read at 16:00: 1h10 past 14:50. */
+		app.entries = [entry({ type: 'bottle_feed', occurred_at: NOW - 4 * 3600_000 - 10 * 60_000 })];
+		const text = draw(LiveHeader, { onFilter: () => {} });
+		expect(text).toContain('due +1h10 at 14:50');
+		const bar = host.querySelector<HTMLElement>('.live-bar');
+		expect(bar?.getAttribute('data-over')).toBe('1');
+		expect(Number(bar?.style.getPropertyValue('--p'))).toBe(1);
 	});
 
 	it('shows asleep instead of a Wake Window while a Sleep runs', () => {
@@ -129,10 +144,14 @@ describe('the sticky header', () => {
 		expect(text).toContain('1h05');
 		expect(text).toContain('since 14:55');
 		expect(text).not.toContain('awake');
-		/* No Wake Window while she sleeps: the sleep column carries no due
-		   instant, only the feed column does. */
-		expect(host.querySelector('.live-cell[data-t="sleep"] .live-at')).toBeNull();
-		expect(host.querySelector('.live-cell[data-t="feed"] .live-at')?.textContent).toBe('18:00');
+		/* No Wake Window while she sleeps: the sleep column's bar stands full
+		   and names the instant she went down; only the feed column counts
+		   down to a due instant. */
+		const sleepBar = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"] .live-bar');
+		expect(sleepBar?.textContent).not.toContain('due');
+		expect(Number(sleepBar?.style.getPropertyValue('--p'))).toBe(1);
+		expect(sleepBar?.getAttribute('data-over')).toBe('0');
+		expect(host.querySelector('.live-cell[data-t="feed"] .live-bar-text .live-at')?.textContent).toBe('18:00');
 	});
 
 	it('shows the awake time and when the nap is due once she is up', () => {
@@ -143,6 +162,9 @@ describe('the sticky header', () => {
 		expect(text).toContain('awake');
 		expect(text).toContain('30m');
 		expect(text).toContain('due -1h30 at 17:30');
+		/* 30 of the Wake Window's 120 minutes have run. */
+		const bar = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"] .live-bar');
+		expect(Number(bar?.style.getPropertyValue('--p'))).toBeCloseTo(30 / 120);
 	});
 
 	it('counts today s nappies and states the last poop', () => {
@@ -166,7 +188,7 @@ describe('the sticky header', () => {
 		expect(draw(LiveHeader, { onFilter: () => {} })).toContain('Lina · 6 months');
 	});
 
-	it('marks both columns live while their sessions run — the underline, no extra word', () => {
+	it('marks both columns live while their sessions run — the bar, no extra word', () => {
 		app.entries = [
 			entry({ type: 'breast_feed', occurred_at: NOW - 10 * 60_000 }),
 			entry({ type: 'sleep', occurred_at: NOW - 30 * 60_000 })

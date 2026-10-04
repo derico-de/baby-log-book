@@ -9,6 +9,25 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The header's due line is a bar. It fills from the left toward the clock
+  face at its right end as the interval runs, with the countdown at its
+  left (`due -55m ······ 21:18`), and it is also the live marker: grey while
+  the column is idle, the type colour while its session runs or it is next
+  due. Once overdue it stands full in the brand colour with bold text. The
+  5px bar under each column is gone; a running Sleep's bar stands full and
+  reads `since ······ 22:05`.
+- The header's figures (`30m`, `2h10`) are three steps larger at a normal
+  weight, each under its state word. Bold is kept for overdue.
+- The German feed label reads *seit letzter Mahlzeit*, so it fits its
+  column on a 360px phone.
+
+### Fixed
+
+- The header's top row carried Pico's 16px button margin under the search
+  button, so the baby row sat 16px too tall and off centre.
+
 ## [1.32.0] - 2026-09-29
 
 ### Added
