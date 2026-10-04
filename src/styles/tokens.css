@@ -63,6 +63,7 @@
 		--dur-1: 120ms;
 		--dur-2: 190ms;
 		--dur-3: 280ms;
+		--dur-4: 650ms; /* a fill sweeping into place on open */
 		--ease: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quint */
 
 		--z-header: 10;

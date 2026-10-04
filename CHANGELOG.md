@@ -9,6 +9,12 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The header's due bars carry a border in their fill colour, so the live
+  marker and the overdue shift read on the whole bar, and the fill sweeps
+  in from the left when the app is opened or reloaded.
+
 ## [1.33.0] - 2026-10-04
 
 ### Added

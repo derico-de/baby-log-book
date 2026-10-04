@@ -278,6 +278,10 @@
 		display: grid;
 		/* The foot of the cell, so both columns' bars land on one line. */
 		margin-top: auto;
+		/* The frame is the fill's colour, so the live marker and the overdue
+		   shift read on the whole bar and not only on the share that has run. */
+		border: 1px solid var(--bar-fill);
+		transition: border-color var(--dur-2) var(--ease);
 		/* One step under the state word: `fällig +1h10` in bold plus its clock
 		   face is 144px at --fs-2 and a 360px phone gives the bar 139px inside
 		   its padding; at --fs-1 the German fits with room, and only Romanian's
@@ -296,7 +300,6 @@
 		align-items: baseline;
 		gap: 0 var(--sp-1);
 		padding: var(--sp-1) var(--sp-2);
-		border-radius: var(--r-1);
 	}
 	/* The clock face holds the far end, even on the rare line that breaks. */
 	.live-at {
@@ -314,6 +317,15 @@
 			clip-path var(--dur-3) var(--ease),
 			background var(--dur-2) var(--ease),
 			color var(--dur-2) var(--ease);
+		/* On open the fill sweeps in from the left to its share. The end
+		   keyframe is left implicit, so it is the live value and the sweep hands
+		   over to the transition above without a jump. */
+		animation: fill-in var(--dur-4) var(--ease);
+	}
+	@keyframes fill-in {
+		from {
+			clip-path: inset(0 100% 0 0);
+		}
 	}
 	.live-cell[data-live='1'] .live-bar {
 		--bar-fill: var(--t, var(--live));
