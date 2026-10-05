@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.37.0] - 2026-10-05
+
 ### Changed
 
 - While a Sleep runs, the sleep bar reads `wake up in 25m ······ 16:25`
