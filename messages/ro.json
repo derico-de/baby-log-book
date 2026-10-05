@@ -392,6 +392,8 @@
 	"sync_client_behind": "Acest dispozitiv trebuie actualizat înainte să poată trimite",
 	"sync_client_ahead": "Serverul rulează o versiune mai veche de Baby Log Book decât acest dispozitiv. Nimic nu se pierde — se va trimite după ce serverul este actualizat.",
 	"sync_update_now": "Actualizează acum",
+	"update_downloading": "Actualizarea încă se descarcă. Încearcă din nou peste puțin timp.",
+	"update_unreachable": "Serverul nu a putut fi accesat pentru actualizare. Încearcă din nou când dispozitivul este online.",
 	"sync_refused": "Serverul a respins o modificare: {reason}",
 	"install_banner": "Adaugi Baby Log Book pe ecranul principal?",
 	"install_banner_yes": "Instalează",

@@ -403,6 +403,8 @@
 	"sync_client_behind": "Dieses Gerät muss aktualisiert werden, bevor es senden kann",
 	"sync_client_ahead": "Auf dem Server läuft eine ältere Version von Baby Log Book als auf diesem Gerät. Nichts geht verloren — es wird gesendet, sobald der Server aktualisiert ist.",
 	"sync_update_now": "Jetzt aktualisieren",
+	"update_downloading": "Das Update wird noch geladen. Versuche es gleich noch einmal.",
+	"update_unreachable": "Der Server war für das Update nicht erreichbar. Versuche es noch einmal, sobald dieses Gerät online ist.",
 	"sync_refused": "Der Server hat eine Änderung abgelehnt: {reason}",
 
 	"install_banner": "Baby Log Book zum Startbildschirm hinzufügen?",

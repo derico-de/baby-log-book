@@ -10,12 +10,17 @@
 	import { app } from '$client/state.svelte';
 	import { plural } from '$lib/i18n/format';
 	import { installBannerDismissed, dismissInstallBanner } from '$client/device';
-	import { requestUpdate, promptInstall, canPromptInstall, isStandalone } from '$client/pwa';
+	import { requestUpdate, updateNote, promptInstall, canPromptInstall, isStandalone } from '$client/pwa';
 	import * as m from '$lib/paraglide/messages';
 
 	const sync = $derived(app.sync);
 	let installHidden = $state(false);
 	let installed = $state(false);
+	let updateSaid = $state<string | null>(null);
+
+	async function update() {
+		updateSaid = updateNote(await requestUpdate({ force: true }));
+	}
 
 	$effect(() => {
 		installHidden = installBannerDismissed();
@@ -37,10 +42,11 @@
 {:else if sync.state === 'client_behind'}
 	<p class="notice">
 		{m.sync_client_behind()}
-		<!-- Update now reloads immediately, Live Session or not: the rule is never
+		<!-- Update now does not wait for a Live Session: the rule is never
 		     reload a screen nobody asked to reload, and they asked. -->
-		<button type="button" onclick={() => void requestUpdate({ force: true })}>{m.sync_update_now()}</button>
+		<button type="button" onclick={update}>{m.sync_update_now()}</button>
 	</p>
+	{#if updateSaid}<p class="notice">{updateSaid}</p>{/if}
 {:else if sync.state === 'client_ahead'}
 	<p class="notice">{m.sync_client_ahead()}</p>
 {:else if sync.state === 'signed_out'}

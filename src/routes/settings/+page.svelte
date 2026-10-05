@@ -41,7 +41,7 @@
 		type AppearanceOverride,
 		type FeedingDefault
 	} from '$client/device';
-	import { canPromptInstall, isStandalone, promptInstall, requestUpdate } from '$client/pwa';
+	import { canPromptInstall, isStandalone, promptInstall, requestUpdate, updateNote } from '$client/pwa';
 	import { playChime, primeChime } from '$client/chime';
 	import { disablePush, enablePush, type PushOutcome } from '$client/push';
 	import { ANCHOR_FOR, bottleTargetOf, napTargetOf, typicalFor } from '$domain/targets';
@@ -100,6 +100,7 @@
 	let copied = $state(false);
 	let exporting = $state(false);
 	let resetNote = $state<string | null>(null);
+	let updateSaid = $state<string | null>(null);
 	let newBabyName = $state('');
 	let newBabyBirth = $state('');
 	/* Optional on the add form, because a Baby joining this log at four months
@@ -1042,7 +1043,12 @@
 				     purpose: a waiting worker holds the old shell until a cold launch,
 				     and this button is the door for whoever will not wait for one. -->
 				<small class="hint">{m.settings_update_hint()}</small>
-				<button type="button" class="secondary" onclick={() => void requestUpdate({ force: true })}>
+				{#if updateSaid}<p class="hint">{updateSaid}</p>{/if}
+				<button
+					type="button"
+					class="secondary"
+					onclick={async () => (updateSaid = updateNote(await requestUpdate({ force: true })))}
+				>
 					{m.sync_update_now()}
 				</button>
 

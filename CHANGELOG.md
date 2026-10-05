@@ -9,6 +9,16 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- A phone short of storage could not install a new version, so it stayed on
+  the old one and, after a protocol change, could not send. It now updates
+  without an offline copy and saves the copy once there is room (ADR-0047).
+- *Update now* waits for an update that is still downloading instead of
+  reloading the old version, says when it is still downloading or the server
+  cannot be reached, and loads a version that will not install straight from
+  the server.
+
 ## [1.35.0] - 2026-10-04
 
 ### Changed

@@ -13,25 +13,29 @@
    is no progress UI: there is no moment to show. */
 
 import { build, files, prerendered, version } from '$service-worker';
+import { CACHE_PREFIX, precache, refill } from '$lib/client/precache';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
-const CACHE = `blb-${version}`;
+const CACHE = `${CACHE_PREFIX}${version}`;
 
 /* `build` carries the hashed chunks — including the compiled message modules, so
    offline language switching is a consequence of the architecture rather than a
    feature anyone configures (spec §9.5). */
 const PRECACHE = [...build, ...files, ...prerendered];
 
+/* Deliberately NOT skipWaiting: the new worker waits for a moment
+   indistinguishable from a cold launch (spec §9.3). Short of room, it waits
+   without a copy rather than fail (ADR-0047). */
 sw.addEventListener('install', (event) => {
-	event.waitUntil(
-		(async () => {
-			const cache = await caches.open(CACHE);
-			await cache.addAll(PRECACHE);
-			/* Deliberately NOT skipWaiting: the new worker waits for a moment
-			   indistinguishable from a cold launch (spec §9.3). */
-		})()
-	);
+	event.waitUntil(precache(caches, CACHE, PRECACHE));
 });
+
+/** A copy deferred at install is filled once the old one is gone. */
+let refilling: Promise<boolean> | null = null;
+function refillOnce(): Promise<boolean> {
+	refilling ??= refill(caches, CACHE, PRECACHE);
+	return refilling;
+}
 
 sw.addEventListener('activate', (event) => {
 	event.waitUntil(
@@ -119,28 +123,31 @@ sw.addEventListener('fetch', (event) => {
 
 	event.respondWith(
 		(async () => {
-			const cache = await caches.open(CACHE);
+			/* A cache that cannot be opened or written, on a full phone, must never
+			   cost the answer the network can still give. */
+			const cache = await caches.open(CACHE).catch(() => null);
 
 			/* Navigations are answered from the precached shell, which is what makes
 			   the app open at 3am with no network at all. */
 			if (request.mode === 'navigate') {
-				const shell = (await cache.match('/')) ?? (await cache.match(url.pathname));
+				const shell = (await cache?.match('/')) ?? (await cache?.match(url.pathname));
 				if (shell) return shell;
+				event.waitUntil(refillOnce());
 			}
 
-			const hit = await cache.match(request, { ignoreSearch: false });
+			const hit = await cache?.match(request, { ignoreSearch: false });
 			if (hit) return hit;
 
 			try {
 				const response = await fetch(request);
 				/* Only ever store what this version asked for; the precache is the
 				   contract. */
-				if (response.ok && PRECACHE.includes(url.pathname)) {
-					await cache.put(request, response.clone());
+				if (cache && response.ok && PRECACHE.includes(url.pathname)) {
+					await cache.put(request, response.clone()).catch(() => {});
 				}
 				return response;
 			} catch (error) {
-				const fallback = await cache.match('/');
+				const fallback = await cache?.match('/');
 				if (fallback) return fallback;
 				throw error;
 			}

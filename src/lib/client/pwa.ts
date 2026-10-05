@@ -16,9 +16,25 @@
        deadlock is already solved — a Stale Session stops counting as running — so
        no new state and no new threshold.
      - There is no progress UI, because there is no moment to show: the worker
-       finishes precaching before it enters `waiting`. */
+       finishes precaching before it enters `waiting`.
+     - A version that will not install is downloaded clean on Update now
+       (ADR-0047). */
+
+import * as m from '$lib/paraglide/messages';
+import { CACHE_PREFIX } from './precache';
 
 const BACKGROUND_LIMIT_MS = 30 * 60_000;
+/** How long Update now waits on a download before saying it is still running. */
+const INSTALL_WAIT_MS = 30_000;
+
+/** What Update now did, so the button can say why nothing happened. */
+export type UpdateOutcome = 'reloading' | 'downloading' | 'unreachable' | 'deferred';
+
+export function updateNote(outcome: UpdateOutcome): string | null {
+	if (outcome === 'downloading') return m.update_downloading();
+	if (outcome === 'unreachable') return m.update_unreachable();
+	return null;
+}
 
 let waiting: ServiceWorker | null = null;
 let hiddenSince: number | null = null;
@@ -59,12 +75,7 @@ export async function registerWorker(): Promise<void> {
 	try {
 		const registration = await navigator.serviceWorker.register('/service-worker.js', { type: 'module' });
 
-		const track = () => {
-			if (registration.waiting) waiting = registration.waiting;
-		};
-		track();
-		registration.addEventListener('updatefound', () => {
-			const installing = registration.installing;
+		const watch = (installing: ServiceWorker | null) => {
 			installing?.addEventListener('statechange', () => {
 				if (installing.state === 'installed' && navigator.serviceWorker.controller) {
 					waiting = installing;
@@ -72,7 +83,12 @@ export async function registerWorker(): Promise<void> {
 					void maybeTakeOver();
 				}
 			});
-		});
+		};
+		if (registration.waiting) waiting = registration.waiting;
+		/* An install the previous page started is still running: its
+		   updatefound fired before this page existed. */
+		watch(registration.installing);
+		registration.addEventListener('updatefound', () => watch(registration.installing));
 
 		navigator.serviceWorker.addEventListener('controllerchange', () => {
 			if (!reloading) return;
@@ -90,28 +106,71 @@ export async function registerWorker(): Promise<void> {
 
 /** Called from the sync loop when the server reports a different version, and
     from the "Update now" button with `force`. */
-export async function requestUpdate(options: { force?: boolean } = {}): Promise<void> {
-	if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
-		if (options.force) location.reload();
-		return;
-	}
-	const registration = await navigator.serviceWorker.getRegistration();
+export async function requestUpdate(options: { force?: boolean } = {}): Promise<UpdateOutcome> {
+	const registration =
+		typeof navigator !== 'undefined' && 'serviceWorker' in navigator
+			? await navigator.serviceWorker.getRegistration()
+			: undefined;
 	if (!registration) {
-		if (options.force) location.reload();
-		return;
+		if (!options.force) return 'deferred';
+		location.reload();
+		return 'reloading';
 	}
 	await registration.update().catch(() => {});
+	/* update() resolves once a new worker starts installing, not once it has
+	   finished, and a reload now would land on the old copy. */
+	const installing = registration.installing;
+	const installed = installing ? await settled(installing, INSTALL_WAIT_MS) : null;
 	if (registration.waiting) waiting = registration.waiting;
-	if (options.force) {
-		/* They asked. The rule is *never reload a screen nobody asked to reload*. */
-		await takeOver();
-		return;
+	if (!options.force) {
+		await maybeTakeOver();
+		return 'deferred';
 	}
-	await maybeTakeOver();
+	if (installed === 'installing') return 'downloading';
+	if (installed === 'redundant') return downloadClean(registration);
+	/* They asked. The rule is *never reload a screen nobody asked to reload*. */
+	await takeOver();
+	return 'reloading';
+}
+
+function settled(worker: ServiceWorker, timeoutMs: number): Promise<ServiceWorkerState> {
+	return new Promise((resolve) => {
+		const done = () => {
+			clearTimeout(timer);
+			worker.removeEventListener('statechange', check);
+			resolve(worker.state);
+		};
+		const check = () => {
+			if (worker.state !== 'installing') done();
+		};
+		const timer = setTimeout(done, timeoutMs);
+		worker.addEventListener('statechange', check);
+		check();
+	});
+}
+
+/** The new version would not install, so drop the offline copy and load it
+    from the server. The replica and the outbox live in IndexedDB, untouched. */
+async function downloadClean(registration: ServiceWorkerRegistration): Promise<UpdateOutcome> {
+	try {
+		/* Never cached by the worker, so this is the network answering. */
+		const health = await fetch('/health', { cache: 'no-store' });
+		if (!health.ok) return 'unreachable';
+	} catch {
+		return 'unreachable';
+	}
+	await registration.unregister();
+	for (const key of await caches.keys()) {
+		if (key.startsWith(CACHE_PREFIX)) await caches.delete(key);
+	}
+	reloading = true;
+	location.reload();
+	return 'reloading';
 }
 
 async function takeOver(): Promise<void> {
 	reloading = true;
+	if (waiting?.state === 'redundant') waiting = null;
 	if (waiting) {
 		waiting.postMessage({ type: 'skip-waiting' });
 		/* controllerchange reloads; if the worker never answers, the page is still
