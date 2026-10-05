@@ -21,7 +21,9 @@
 	       session runs or it is the next due. A running Sleep has no Wake
 	       Window; its bar fills toward the end of what the Sleep is allowed
 	       instead — the Nap Length from the instant she went down, or the Day
-	       Start once it counts as a Night Sleep (ADR-0046).
+	       Start once it counts as a Night Sleep (ADR-0046) — and reads
+	       `wake up in 25m ······ 16:25`, because her allowance is not a due;
+	       past it, `woke up due 30m ago`.
 	     - Empty state per column: nothing logged means the word alone — no
 	       elapsed figure and no bar. Never compute a due instant from nothing.
 	     - Overdue shifts once and never again: the full bar takes the brand
@@ -63,9 +65,18 @@
 		progress: number | null;
 	};
 
-	/** `-1h19` while it is still coming, `1h19` once it has passed — the word says `overdue`. */
-	function countdown(state: Due): string {
-		return state.overdue ? duration(state.overdueMs ?? 0) : `-${duration(state.remainingMs ?? 0)}`;
+	/** The bar's near end as word and figure: `due -1h19`, then `overdue 1h19`.
+	    A running Sleep's instant is her wake-up, not a due: `wake up in 25m`,
+	    then `woke up due 30m ago` — `ago` rides with the figure so it is never cut. */
+	function nearEnd(state: Due, asleep: boolean): [word: string, figure: string] {
+		const left = duration(state.remainingMs ?? 0);
+		const past = duration(state.overdueMs ?? 0);
+		if (asleep) {
+			return state.overdue
+				? [m.header_woke_label(), m.header_woke_ago({ elapsed: past })]
+				: [m.header_wake_label(), left];
+		}
+		return state.overdue ? [m.header_overdue_label(), past] : [m.header_due_label(), `-${left}`];
 	}
 
 	/* Which column is next due — the Feed and the Wake Window race on the same
@@ -129,11 +140,14 @@
 <!-- `due -1h19 ······ 21:18`: how long is left at the near end, the clock face
      it lands on at the far end, the fill between them heading for it. Overdue
      turns the label to `overdue`, and the whole bar shifts to the brand
-     colour — the one shift, no second one. -->
-{#snippet dueBar(state: Due)}
+     colour — the one shift, no second one. While she sleeps the instant is
+     her wake-up, not a due: `wake up in 25m ······ 16:25`, then
+     `woke up due 30m ago ······ 15:30`. -->
+{#snippet dueBar(state: Due, asleep = false)}
+	{@const [word, figure] = nearEnd(state, asleep)}
 	{@render bar(
-		state.overdue ? m.header_overdue_label() : m.header_due_label(),
-		countdown(state),
+		word,
+		figure,
 		m.header_due_at(),
 		clockTime(state.dueAt ?? 0, zone),
 		state.progress ?? 1,
@@ -183,7 +197,7 @@
 					     Nap Length, or the Day Start for a Night Sleep — and flips
 					     once she has slept past it, exactly as the Feed's does. -->
 					{@render stat(m.header_asleep_label(), duration(header.sleep.asleepMs ?? 0))}
-					{@render dueBar(header.sleep)}
+					{@render dueBar(header.sleep, true)}
 				{:else if header.sleep.awakeMs != null}
 					{@render stat(m.header_awake_label(), duration(header.sleep.awakeMs))}
 					{#if header.sleep.dueAt != null}

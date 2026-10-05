@@ -149,9 +149,11 @@ describe('the sticky header', () => {
 		expect(text).not.toContain('awake');
 		/* No Wake Window while she sleeps: the sleep column's bar fills from
 		   the instant she went down toward the seeded hour and a half, and
-		   prints the instant that lands on (ADR-0046). */
+		   prints the instant that lands on (ADR-0046). Her allowance is not a
+		   due, so the bar says when she wakes rather than what is due. */
 		const sleepBar = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"] .live-bar');
-		expect(sleepBar?.textContent).toContain('due -25m at 16:25');
+		expect(sleepBar?.textContent).toContain('wake up in 25m at 16:25');
+		expect(sleepBar?.textContent).not.toContain('due');
 		expect(Number(sleepBar?.style.getPropertyValue('--p'))).toBeCloseTo(65 / 90);
 		expect(sleepBar?.getAttribute('data-over')).toBe('0');
 		/* The feed column still counts down to its own instant and keeps the
@@ -165,7 +167,11 @@ describe('the sticky header', () => {
 		app.entries = [entry({ type: 'sleep', occurred_at: NOW - 2 * 3600_000 })];
 		draw(LiveHeader, { onFilter: () => {} });
 		const sleepBar = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"] .live-bar');
-		expect(sleepBar?.textContent).toContain('overdue 30m at 15:30');
+		expect(sleepBar?.textContent).toContain('woke up due 30m ago at 15:30');
+		/* `ago` rides with the figure, so a short bar cuts the word and keeps
+		   `30m ago` whole. */
+		expect(sleepBar?.querySelector('.live-bar-text .live-word')?.textContent).toBe('woke up due');
+		expect(sleepBar?.querySelector('.live-bar-text .live-count')?.textContent).toBe('30m ago');
 		expect(sleepBar?.getAttribute('data-over')).toBe('1');
 		expect(Number(sleepBar?.style.getPropertyValue('--p'))).toBe(1);
 	});

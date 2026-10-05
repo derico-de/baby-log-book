@@ -9,6 +9,13 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- While a Sleep runs, the sleep bar reads `wake up in 25m ······ 16:25`
+  instead of `due -25m`, and `woke up due 30m ago` instead of `overdue 30m`
+  once she sleeps past it: the end of her nap is when she wakes, not
+  something due.
+
 ## [1.36.0] - 2026-10-05
 
 ### Fixed
