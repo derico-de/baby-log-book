@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.36.0] - 2026-10-05
+
 ### Fixed
 
 - A phone short of storage could not install a new version, so it stayed on
