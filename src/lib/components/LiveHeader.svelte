@@ -17,15 +17,16 @@
 	       `wake up in:`, `overdue:`), and under it the bar — the share of the
 	       interval that has run, filled from the left, with the countdown at
 	       its left end and the clock face it lands on at its right
-	       (`55m ······ 21:18`) — the fill is heading for the instant printed
-	       at its end. The bar is also the live marker: grey while the column
+	       (`55m ······ → 21:18`) — the fill is heading for the instant
+	       printed at its end, and the arrow says so in every language. The
+	       bar is also the live marker: grey while the column
 	       is idle, the type colour while its session runs or it is the next
 	       due. A running Sleep has no Wake
 	       Window; its bar fills toward the end of what the Sleep is allowed
 	       instead — the Nap Length from the instant she went down, or the Day
 	       Start once it counts as a Night Sleep (ADR-0046) — and reads
-	       `wake up in 25m ······ 16:25`, because her allowance is not a due;
-	       past it, `woke up due 30m ago`.
+	       `wake up in:` over `25m ······ → 16:25`, because her allowance is
+	       not a due; past it, `woke up due:` over `30m ago ······ → 15:30`.
 	     - Empty state per column: nothing logged means the word alone — no
 	       elapsed figure and no bar. Never compute a due instant from nothing.
 	     - Overdue shifts once and never again: the full bar takes the brand
@@ -124,26 +125,28 @@
 {/snippet}
 
 <!-- The word over the bar, a colon pointing it at the bar's two figures: the
-     countdown at its left end, the clock face at its right, the joiner (`at`)
-     read, not seen — the bar's ends say it. The bar is two layers of the same two figures.
-     The lower one is ink on the track; the upper one is the fill — the type
+     countdown at its left end, the clock face at its right behind an arrow
+     (`→ 21:18`) — one glyph that reads the same in every language and is
+     not read aloud; the reader hears the joiner (`at`) instead, which is not
+     seen. The bar is two layers of the same two figures. The lower one is
+     ink on the track; the upper one is the fill — the type
      colour, or the brand colour once overdue — carrying its own ink and
      clipped to the share that has run, so the figures stay legible on both
      sides of the edge in every appearance. -->
 {#snippet bar(word: string, figure: string, joiner: string | null, at: string, progress: number, overdue: boolean)}
 	<div class="live-due"><span class="live-word">{word}:</span></div>
 	<div class="live-bar" data-over={overdue ? '1' : '0'} style:--p={progress}>
-		<span class="live-bar-text"><span class="live-count">{figure}</span><span class="sr-only">{joiner == null ? ' ' : ` ${joiner} `}</span><span class="live-at">{at}</span></span>
-		<span class="live-bar-fill" aria-hidden="true"><span class="live-count">{figure}</span><span class="live-at">{at}</span></span>
+		<span class="live-bar-text"><span class="live-count">{figure}</span><span class="sr-only">{joiner == null ? ' ' : ` ${joiner} `}</span><span class="live-at"><span aria-hidden="true">→</span>{' '}{at}</span></span>
+		<span class="live-bar-fill" aria-hidden="true"><span class="live-count">{figure}</span><span class="live-at">→ {at}</span></span>
 	</div>
 {/snippet}
 
-<!-- `due:` over `1h19 ······ 21:18`: how long is left at the near end, the
+<!-- `due:` over `1h19 ······ → 21:18`: how long is left at the near end, the
      clock face it lands on at the far end, the fill between them heading for
      it. Overdue turns the word to `overdue`, and the whole bar shifts to the
      brand colour — the one shift, no second one. While she sleeps the instant
-     is her wake-up, not a due: `wake up in:` over `25m ······ 16:25`, then
-     `woke up due:` over `30m ago ······ 15:30`. -->
+     is her wake-up, not a due: `wake up in:` over `25m ······ → 16:25`, then
+     `woke up due:` over `30m ago ······ → 15:30`. -->
 {#snippet dueBar(state: Due, asleep = false)}
 	{@const [word, figure] = nearEnd(state, asleep)}
 	{@render bar(

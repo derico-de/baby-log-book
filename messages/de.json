@@ -23,7 +23,7 @@
 	"the_app": "die App",
 
 	"dur_h": "{h} Std",
-	"dur_hm": "{h}:{m}",
+	"dur_hm": "{h}:{m} Std",
 	"dur_m": "{m} Min",
 	"ml": "{n} ml",
 	"grams": "{n} g",

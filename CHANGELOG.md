@@ -9,6 +9,15 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The clock face in the header's bars stands behind an arrow:
+  `50m ······ → 20:30`.
+- German durations past an hour carry their unit again, `1:34 Std` instead
+  of `1:34`, now that the word is out of the bar.
+- The header's bars keep their figures a little closer to their ends, so
+  `seit 1:12 Std ······ → 19:33` fits on a 360px phone.
+
 ## [1.39.0] - 2026-10-06
 
 ### Changed

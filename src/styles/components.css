@@ -283,7 +283,7 @@
 	}
 	/* The due bar — the share of the interval that has run, filled from the
 	   left toward the clock face printed at its right end, the countdown at
-	   its left (`55m ······ 21:18`). Two layers of the same two figures: the
+	   its left (`55m ······ → 21:18`). Two layers of the same two figures: the
 	   lower one is ink on the track, the upper one is the fill with its own
 	   ink, clipped to the share, so the figures stay legible on both sides of
 	   the edge in every appearance. It doubles as the live marker: grey while
@@ -302,8 +302,9 @@
 		/* Both text layers paint to the edge; the corners clip them. */
 		overflow: hidden;
 		transition: border-color var(--dur-2) var(--ease);
-		/* The figures alone — `30m ago ······ 15:30` at the longest — fit the
-		   bar in every language with the word out of it. */
+		/* The figures alone fit the bar in every language with the word out
+		   of it: `seit 1:12 Std ······ → 19:33` is the longest and needs the
+		   slim side inset below on a 360px phone. */
 		font-size: var(--fs-1);
 		line-height: 1.3;
 		font-variant-numeric: tabular-nums lining-nums;
@@ -316,7 +317,7 @@
 		justify-content: space-between;
 		align-items: baseline;
 		gap: var(--sp-1);
-		padding: var(--sp-1) var(--sp-2);
+		padding: var(--sp-1);
 		white-space: nowrap;
 	}
 	.live-bar-text {

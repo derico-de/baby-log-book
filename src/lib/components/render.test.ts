@@ -113,8 +113,8 @@ describe('the sticky header', () => {
 		   but not seen. */
 		expect(host.querySelector('.live-due')?.textContent).toBe('due:');
 		const bar = host.querySelector<HTMLElement>('.live-bar');
-		expect(bar?.querySelector('.live-bar-text')?.textContent).toBe('50m at 16:50');
-		expect(bar?.querySelector('.live-bar-text .live-at')?.textContent).toBe('16:50');
+		expect(bar?.querySelector('.live-bar-text')?.textContent).toBe('50m at → 16:50');
+		expect(bar?.querySelector('.live-bar-text .live-at')?.textContent).toBe('→ 16:50');
 		/* 2h10 of the 3h interval has run, so the fill stands at that share. */
 		expect(Number(bar?.style.getPropertyValue('--p'))).toBeCloseTo(130 / 180);
 		expect(bar?.getAttribute('data-over')).toBe('0');
@@ -132,7 +132,7 @@ describe('the sticky header', () => {
 		draw(LiveHeader, { onFilter: () => {} });
 		/* The word stands over the bar; the figures are in it. */
 		expect(host.querySelector('.live-due .live-word')?.textContent).toBe('overdue:');
-		expect(host.querySelector('.live-bar-text')?.textContent).toBe('1h10 at 14:50');
+		expect(host.querySelector('.live-bar-text')?.textContent).toBe('1h10 at → 14:50');
 		expect(host.querySelector('.live-bar-text .live-count')?.textContent).toBe('1h10');
 		const bar = host.querySelector<HTMLElement>('.live-bar');
 		expect(bar?.getAttribute('data-over')).toBe('1');
@@ -155,12 +155,12 @@ describe('the sticky header', () => {
 		const sleepCell = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"]');
 		const sleepBar = sleepCell?.querySelector<HTMLElement>('.live-bar');
 		expect(sleepCell?.querySelector('.live-due')?.textContent).toBe('wake up in:');
-		expect(sleepBar?.querySelector('.live-bar-text')?.textContent).toBe('25m at 16:25');
+		expect(sleepBar?.querySelector('.live-bar-text')?.textContent).toBe('25m at → 16:25');
 		expect(Number(sleepBar?.style.getPropertyValue('--p'))).toBeCloseTo(65 / 90);
 		expect(sleepBar?.getAttribute('data-over')).toBe('0');
 		/* The feed column still counts down to its own instant and keeps the
 		   next-due marker: a sleeping Baby's allowance is not a due. */
-		expect(host.querySelector('.live-cell[data-t="feed"] .live-bar-text .live-at')?.textContent).toBe('18:00');
+		expect(host.querySelector('.live-cell[data-t="feed"] .live-bar-text .live-at')?.textContent).toBe('→ 18:00');
 		expect(host.querySelector('.live-cell[data-t="feed"]')?.getAttribute('data-live')).toBe('1');
 	});
 
@@ -172,7 +172,7 @@ describe('the sticky header', () => {
 		const sleepBar = sleepCell?.querySelector<HTMLElement>('.live-bar');
 		/* `ago` rides with the figure, inside the bar. */
 		expect(sleepCell?.querySelector('.live-due .live-word')?.textContent).toBe('woke up due:');
-		expect(sleepBar?.querySelector('.live-bar-text')?.textContent).toBe('30m ago at 15:30');
+		expect(sleepBar?.querySelector('.live-bar-text')?.textContent).toBe('30m ago at → 15:30');
 		expect(sleepBar?.querySelector('.live-bar-text .live-count')?.textContent).toBe('30m ago');
 		expect(sleepBar?.getAttribute('data-over')).toBe('1');
 		expect(Number(sleepBar?.style.getPropertyValue('--p'))).toBe(1);
@@ -186,7 +186,7 @@ describe('the sticky header', () => {
 		expect(text).toContain('awake');
 		expect(text).toContain('30m');
 		expect(host.querySelector('.live-cell[data-t="sleep"] .live-due')?.textContent).toBe('due:');
-		expect(host.querySelector('.live-cell[data-t="sleep"] .live-bar-text')?.textContent).toBe('1h30 at 17:30');
+		expect(host.querySelector('.live-cell[data-t="sleep"] .live-bar-text')?.textContent).toBe('1h30 at → 17:30');
 		/* 30 of the Wake Window's 120 minutes have run. */
 		const bar = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"] .live-bar');
 		expect(Number(bar?.style.getPropertyValue('--p'))).toBeCloseTo(30 / 120);
