@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.39.0] - 2026-10-06
+
 ### Changed
 
 - The countdown in the header's bar reads `50m` instead of `-50m`: the word
