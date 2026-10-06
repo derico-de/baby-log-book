@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.38.0] - 2026-10-06
+
 ### Changed
 
 - The header's state lines read `asleep 1h05` and `since last feed 2h10`
