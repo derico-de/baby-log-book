@@ -240,45 +240,61 @@
 		line-height: 1.3;
 		color: var(--ink);
 	}
-	/* `awake` over `30m` — the state word as a quiet caption, the figure under
-	   it. The figure is the loudest thing in the header: three steps up the scale
-	   at a normal weight, never bold: loud through size, not weight. The two stack
-	   rather than share a line because `since last feed` plus a figure at this
-	   size does not fit half of a 360px screen in any language. */
+	/* `awake 30m` — the state word as a quiet caption, the figure beside it on
+	   the same baseline. The figure is the loudest thing in the header: two
+	   steps up the scale at a normal weight, never bold: loud through size,
+	   not weight. The row wraps rather than cuts: `since last feed 2h10` fits
+	   half of a 360px screen at these sizes, `seit letzter Mahlzeit` does not,
+	   and there the figure drops to a line of its own, whole. */
 	.live-stat {
-		font-size: var(--fs-2);
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		column-gap: var(--sp-1);
+		font-size: var(--fs-1);
 		line-height: 1.3;
 	}
 	.live-label {
-		display: block;
 		color: var(--ink-2);
 	}
 	.live-num {
-		display: block;
 		font-family: var(--font-num);
 		font-variant-numeric: tabular-nums lining-nums;
 		font-feature-settings: var(--num-feature);
-		font-size: var(--fs-5);
+		font-size: var(--fs-4);
 		font-weight: var(--fw-normal);
 		line-height: 1.2;
 		letter-spacing: -0.01em;
 		color: var(--ink);
 	}
+	/* The due word over the bar — `due:`, `wake up in:`, `overdue:` — a quiet
+	   caption at the foot of the cell with its bar, a step of air above it,
+	   so both columns' bars land on one line even when a state line above
+	   wraps. */
+	.live-due {
+		margin-top: auto;
+		padding-top: var(--sp-1);
+		font-size: var(--fs-1);
+		line-height: 1.3;
+		color: var(--ink-2);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
 	/* The due bar — the share of the interval that has run, filled from the
-	   left toward the clock face printed at its right end. Two layers of the
-	   same text: the lower one is ink on the track, the upper one is the fill
-	   with its own ink, clipped to the share, so the words stay legible on
-	   both sides of the edge in every appearance. It doubles as the live
-	   marker: grey while the column is idle, the type colour while its session
-	   runs or it is next due. Text never moves or resizes for it. */
+	   left toward the clock face printed at its right end, the countdown at
+	   its left (`-55m ······ 21:18`). Two layers of the same two figures: the
+	   lower one is ink on the track, the upper one is the fill with its own
+	   ink, clipped to the share, so the figures stay legible on both sides of
+	   the edge in every appearance. It doubles as the live marker: grey while
+	   the column is idle, the type colour while its session runs or it is
+	   next due. Figures never move or resize for it. */
 	.live-bar {
 		--bar-fill: var(--line-strong);
 		--bar-ink: var(--ink);
 		display: grid;
-		/* Never wider than its cell: the word gives way, not the column. */
+		/* Never wider than its cell. */
 		grid-template-columns: minmax(0, 1fr);
-		/* The foot of the cell, so both columns' bars land on one line. */
-		margin-top: auto;
 		/* The frame is the fill's colour, so the live marker and the overdue
 		   shift read on the whole bar and not only on the share that has run. */
 		border: 1px solid var(--bar-fill);
@@ -286,11 +302,8 @@
 		/* Both text layers paint to the edge; the corners clip them. */
 		overflow: hidden;
 		transition: border-color var(--dur-2) var(--ease);
-		/* One step under the state word: a 360px phone gives the bar 138px
-		   inside its padding. `overdue 1h10` and `überfällig 1:34` fit; a
-		   longer word or figure (`urmează`, `întârziere`, ten hours and up)
-		   does not, and the bar stays one line by cutting the word off
-		   (`überf… 10:34 · 21:18`). */
+		/* The figures alone — `30m ago ······ 15:30` at the longest — fit the
+		   bar in every language with the word out of it. */
 		font-size: var(--fs-1);
 		line-height: 1.3;
 		font-variant-numeric: tabular-nums lining-nums;
@@ -305,23 +318,6 @@
 		gap: var(--sp-1);
 		padding: var(--sp-1) var(--sp-2);
 		white-space: nowrap;
-	}
-	/* Short of room, only the word gives way: it is cut off with an ellipsis,
-	   while the countdown and the clock face always stay whole. Both layers
-	   share one width, so they cut at the same letter. */
-	.live-lead {
-		display: flex;
-		align-items: baseline;
-		gap: var(--sp-1);
-		min-width: 0;
-	}
-	.live-word {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.live-at {
-		margin-left: auto;
 	}
 	.live-bar-text {
 		background: var(--surface-2);
@@ -350,9 +346,10 @@
 		--bar-fill: var(--t, var(--live));
 		--bar-ink: var(--t-ink, var(--accent-ink));
 	}
-	/* Overdue: the full bar takes the brand colour and its label turns to
-	   `overdue` — the one shift, at the same normal weight. Never the type's hue, which is why this out-specifies the
-	   live rule above: overdue belongs to the accent. */
+	/* Overdue: the full bar takes the brand colour and the word above it turns
+	   to `overdue` — the one shift, at the same normal weight. Never the type's
+	   hue, which is why this out-specifies the live rule above: overdue belongs
+	   to the accent. */
 	.live-cell .live-bar[data-over='1'] {
 		--bar-fill: var(--warn);
 		--bar-ink: var(--accent-ink);

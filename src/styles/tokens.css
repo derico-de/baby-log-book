@@ -49,8 +49,8 @@
 
 		/* A hero figure — "2h 10m" on a stat card — is loud through size at a
        LIGHT weight; bold at that size would shout. The header's two figures
-       (sleep | feed) are the same idea one step down: --fs-5 at the normal
-       weight under their state word. */
+       (sleep | feed) are the same idea two steps down: --fs-4 at the normal
+       weight beside their state word. */
 		--hero-weight: 300;
 
 		--r-0: 4px; /* a slim bar's corners — the header's due bars */

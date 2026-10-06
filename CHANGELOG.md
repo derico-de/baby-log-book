@@ -9,6 +9,16 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The header's state lines read `asleep 1h05` and `since last feed 2h10`
+  on one line, the figure a step smaller than before, and the due word
+  (`due:`, `wake up in:`, `overdue:`) has moved out of the bars to a line
+  above them, leaving the countdown and the clock face in the bar
+  (`-55m ······ 21:18`), so `wake up in` is no longer cut off. Where a state
+  word is too long for the line (`seit letzter Mahlzeit`) the figure drops
+  to a line of its own.
+
 ## [1.37.0] - 2026-10-05
 
 ### Changed

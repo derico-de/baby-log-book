@@ -6,19 +6,21 @@
 	   grid, sleep on the left, feed on the right, three short rows deep:
 
 	     - Title per column: what the column reports.
-	     - State per column: the state word as a caption over its elapsed
-	       figure (`asleep` / `5m`, `since last feed` / `22m`). The figure is
-	       the loudest thing in the header — loud through size at a normal
-	       weight, never through boldness — and the word above it stays small
-	       and quiet. The sleep column swaps its word on state (`asleep` /
-	       `awake`); while a Sleep runs the Wake Window is simply not shown,
-	       because it cannot apply.
-	     - Due bar per column: the share of the interval that has run, filled
-	       from the left, with the countdown at its left end and the clock face
-	       it lands on at its right (`due -55m ······ 21:18`) — the fill is
-	       heading for the instant printed at its end. The bar is also the live
-	       marker: grey while the column is idle, the type colour while its
-	       session runs or it is the next due. A running Sleep has no Wake
+	     - State per column: the state word and its elapsed figure on one line
+	       (`asleep 5m`, `since last feed 22m`). The figure is the loudest
+	       thing in the header — loud through size at a normal weight, never
+	       through boldness — and the word beside it stays small and quiet.
+	       The sleep column swaps its word on state (`asleep` / `awake`);
+	       while a Sleep runs the Wake Window is simply not shown, because it
+	       cannot apply.
+	     - Due word and bar per column: the word on a line of its own (`due:`,
+	       `wake up in:`, `overdue:`), and under it the bar — the share of the
+	       interval that has run, filled from the left, with the countdown at
+	       its left end and the clock face it lands on at its right
+	       (`-55m ······ 21:18`) — the fill is heading for the instant printed
+	       at its end. The bar is also the live marker: grey while the column
+	       is idle, the type colour while its session runs or it is the next
+	       due. A running Sleep has no Wake
 	       Window; its bar fills toward the end of what the Sleep is allowed
 	       instead — the Nap Length from the instant she went down, or the Day
 	       Start once it counts as a Night Sleep (ADR-0046) — and reads
@@ -65,9 +67,10 @@
 		progress: number | null;
 	};
 
-	/** The bar's near end as word and figure: `due -1h19`, then `overdue 1h19`.
-	    A running Sleep's instant is her wake-up, not a due: `wake up in 25m`,
-	    then `woke up due 30m ago` — `ago` rides with the figure so it is never cut. */
+	/** The word over the bar and the figure at its near end: `due` / `-1h19`,
+	    then `overdue` / `1h19`. A running Sleep's instant is her wake-up, not a
+	    due: `wake up in` / `25m`, then `woke up due` / `30m ago` — `ago` rides
+	    with the figure, inside the bar. */
 	function nearEnd(state: Due, asleep: boolean): [word: string, figure: string] {
 		const left = duration(state.remainingMs ?? 0);
 		const past = duration(state.overdueMs ?? 0);
@@ -106,10 +109,12 @@
 	});
 </script>
 
-<!-- `awake` over `30m` — the state word as a quiet caption, the figure under
-     it in the full ink, three steps up the scale and tabular digits so it does
-     not jitter as it ticks. A column with nothing logged prints the word
-     alone. -->
+<!-- `awake 30m` — the state word as a quiet caption, the figure beside it in
+     the full ink, two steps up the scale and tabular digits so it does not
+     jitter as it ticks. Where the word is too long to share the line
+     (`seit letzter Mahlzeit`) the figure drops to a line of its own, whole,
+     rather than the word being cut. A column with nothing logged prints the
+     word alone. -->
 {#snippet stat(label: string, value: string | null)}
 	<div class="live-stat">
 		<span class="live-label">{label}</span>
@@ -117,32 +122,27 @@
 	</div>
 {/snippet}
 
-<!-- The bar is two layers of the same two words. The lower one is ink on the
-     track; the upper one is the fill — the type colour, or the brand colour
-     once overdue — carrying its own ink and clipped to the share that has
-     run, so the words stay legible on both sides of the edge in every
-     appearance. The joiner (`at`) is read, not seen: the bar's ends say it.
-     The word and its figure are apart, so a bar short of room cuts the word
-     off and keeps the figure whole. -->
-{#snippet lead(word: string, figure: string)}
-	<span class="live-lead"><span class="live-word">{word}</span>{' '}<span class="live-count">{figure}</span></span>
-{/snippet}
-
+<!-- The word over the bar, a colon pointing it at the bar's two figures: the
+     countdown at its left end, the clock face at its right, the joiner (`at`)
+     read, not seen — the bar's ends say it. The bar is two layers of the same two figures.
+     The lower one is ink on the track; the upper one is the fill — the type
+     colour, or the brand colour once overdue — carrying its own ink and
+     clipped to the share that has run, so the figures stay legible on both
+     sides of the edge in every appearance. -->
 {#snippet bar(word: string, figure: string, joiner: string | null, at: string, progress: number, overdue: boolean)}
+	<div class="live-due"><span class="live-word">{word}:</span></div>
 	<div class="live-bar" data-over={overdue ? '1' : '0'} style:--p={progress}>
-		<span class="live-bar-text">
-			{@render lead(word, figure)}<span class="sr-only">{joiner == null ? ' ' : ` ${joiner} `}</span><span class="live-at">{at}</span>
-		</span>
-		<span class="live-bar-fill" aria-hidden="true">{@render lead(word, figure)}<span class="live-at">{at}</span></span>
+		<span class="live-bar-text"><span class="live-count">{figure}</span><span class="sr-only">{joiner == null ? ' ' : ` ${joiner} `}</span><span class="live-at">{at}</span></span>
+		<span class="live-bar-fill" aria-hidden="true"><span class="live-count">{figure}</span><span class="live-at">{at}</span></span>
 	</div>
 {/snippet}
 
-<!-- `due -1h19 ······ 21:18`: how long is left at the near end, the clock face
-     it lands on at the far end, the fill between them heading for it. Overdue
-     turns the label to `overdue`, and the whole bar shifts to the brand
-     colour — the one shift, no second one. While she sleeps the instant is
-     her wake-up, not a due: `wake up in 25m ······ 16:25`, then
-     `woke up due 30m ago ······ 15:30`. -->
+<!-- `due:` over `-1h19 ······ 21:18`: how long is left at the near end, the
+     clock face it lands on at the far end, the fill between them heading for
+     it. Overdue turns the word to `overdue`, and the whole bar shifts to the
+     brand colour — the one shift, no second one. While she sleeps the instant
+     is her wake-up, not a due: `wake up in:` over `25m ······ 16:25`, then
+     `woke up due:` over `30m ago ······ 15:30`. -->
 {#snippet dueBar(state: Due, asleep = false)}
 	{@const [word, figure] = nearEnd(state, asleep)}
 	{@render bar(
