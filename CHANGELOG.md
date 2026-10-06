@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.40.0] - 2026-10-06
+
 ### Changed
 
 - The clock face in the header's bars stands behind an arrow:
