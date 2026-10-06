@@ -9,6 +9,11 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The countdown in the header's bar reads `50m` instead of `-50m`: the word
+  `due:` above it already says the figure is how long is left.
+
 ## [1.38.0] - 2026-10-06
 
 ### Changed

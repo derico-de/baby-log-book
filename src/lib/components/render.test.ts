@@ -113,7 +113,7 @@ describe('the sticky header', () => {
 		   but not seen. */
 		expect(host.querySelector('.live-due')?.textContent).toBe('due:');
 		const bar = host.querySelector<HTMLElement>('.live-bar');
-		expect(bar?.querySelector('.live-bar-text')?.textContent).toBe('-50m at 16:50');
+		expect(bar?.querySelector('.live-bar-text')?.textContent).toBe('50m at 16:50');
 		expect(bar?.querySelector('.live-bar-text .live-at')?.textContent).toBe('16:50');
 		/* 2h10 of the 3h interval has run, so the fill stands at that share. */
 		expect(Number(bar?.style.getPropertyValue('--p'))).toBeCloseTo(130 / 180);
@@ -186,7 +186,7 @@ describe('the sticky header', () => {
 		expect(text).toContain('awake');
 		expect(text).toContain('30m');
 		expect(host.querySelector('.live-cell[data-t="sleep"] .live-due')?.textContent).toBe('due:');
-		expect(host.querySelector('.live-cell[data-t="sleep"] .live-bar-text')?.textContent).toBe('-1h30 at 17:30');
+		expect(host.querySelector('.live-cell[data-t="sleep"] .live-bar-text')?.textContent).toBe('1h30 at 17:30');
 		/* 30 of the Wake Window's 120 minutes have run. */
 		const bar = host.querySelector<HTMLElement>('.live-cell[data-t="sleep"] .live-bar');
 		expect(Number(bar?.style.getPropertyValue('--p'))).toBeCloseTo(30 / 120);

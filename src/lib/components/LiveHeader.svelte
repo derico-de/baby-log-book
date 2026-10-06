@@ -17,7 +17,7 @@
 	       `wake up in:`, `overdue:`), and under it the bar — the share of the
 	       interval that has run, filled from the left, with the countdown at
 	       its left end and the clock face it lands on at its right
-	       (`-55m ······ 21:18`) — the fill is heading for the instant printed
+	       (`55m ······ 21:18`) — the fill is heading for the instant printed
 	       at its end. The bar is also the live marker: grey while the column
 	       is idle, the type colour while its session runs or it is the next
 	       due. A running Sleep has no Wake
@@ -67,8 +67,9 @@
 		progress: number | null;
 	};
 
-	/** The word over the bar and the figure at its near end: `due` / `-1h19`,
-	    then `overdue` / `1h19`. A running Sleep's instant is her wake-up, not a
+	/** The word over the bar and the figure at its near end: `due:` / `1h19`,
+	    then `overdue:` / `1h19` — the word says which way the figure counts,
+	    so it carries no sign. A running Sleep's instant is her wake-up, not a
 	    due: `wake up in` / `25m`, then `woke up due` / `30m ago` — `ago` rides
 	    with the figure, inside the bar. */
 	function nearEnd(state: Due, asleep: boolean): [word: string, figure: string] {
@@ -79,7 +80,7 @@
 				? [m.header_woke_label(), m.header_woke_ago({ elapsed: past })]
 				: [m.header_wake_label(), left];
 		}
-		return state.overdue ? [m.header_overdue_label(), past] : [m.header_due_label(), `-${left}`];
+		return state.overdue ? [m.header_overdue_label(), past] : [m.header_due_label(), left];
 	}
 
 	/* Which column is next due — the Feed and the Wake Window race on the same
@@ -137,7 +138,7 @@
 	</div>
 {/snippet}
 
-<!-- `due:` over `-1h19 ······ 21:18`: how long is left at the near end, the
+<!-- `due:` over `1h19 ······ 21:18`: how long is left at the near end, the
      clock face it lands on at the far end, the fill between them heading for
      it. Overdue turns the word to `overdue`, and the whole bar shifts to the
      brand colour — the one shift, no second one. While she sleeps the instant

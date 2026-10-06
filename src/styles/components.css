@@ -283,7 +283,7 @@
 	}
 	/* The due bar — the share of the interval that has run, filled from the
 	   left toward the clock face printed at its right end, the countdown at
-	   its left (`-55m ······ 21:18`). Two layers of the same two figures: the
+	   its left (`55m ······ 21:18`). Two layers of the same two figures: the
 	   lower one is ink on the track, the upper one is the fill with its own
 	   ink, clipped to the share, so the figures stay legible on both sides of
 	   the edge in every appearance. It doubles as the live marker: grey while
