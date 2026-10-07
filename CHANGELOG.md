@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.41.0] - 2026-10-07
+
 ### Added
 
 - `pnpm release 1.4.2` cuts a release: it moves Unreleased under the version,
