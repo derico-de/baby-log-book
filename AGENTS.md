@@ -5,7 +5,7 @@
 - keep release number in sync with docker container tags
 - every change lands with an entry under **Unreleased** in `CHANGELOG.md`; a release moves that section under its version number — no commit that changes behavior, UI, or docs ships without its changelog line
 - in this sandbox: commit only, never `git push` — the maintainer pushes from outside the sandbox, unless they explicitly say otherwise
-- cut a release with `pnpm release X.Y.Z --no-push`; the maintainer pushes it with `pnpm release`, which waits until `docker pull` gets it
+- releases go through `pnpm release` only, following `.claude/skills/release/SKILL.md`
 
 ## Tenancy
 
