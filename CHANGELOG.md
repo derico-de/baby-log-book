@@ -9,6 +9,18 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- `pnpm release 1.4.2` cuts a release: it moves Unreleased under the version,
+  bumps `package.json`, commits, tags, pushes and waits until `docker pull`
+  gets the new image.
+
+### Fixed
+
+- Release tags pushed together no longer leave `:latest` and `:1` on an older
+  release. Those tags go only to the newest version, whichever build finishes
+  last; 1.38.0 to 1.40.0 were pushed at once and `:latest` stayed on 1.38.0.
+
 ## [1.40.0] - 2026-10-06
 
 ### Changed

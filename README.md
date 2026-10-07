@@ -367,15 +367,19 @@ development loop: nothing hot-reloads and every change costs a rebuild.
 
 `.github/workflows/publish.yml` builds the multi-arch image and pushes it to
 `ghcr.io/derico-de/baby-log-book`. A push to `main` publishes `:edge`; a version
-tag publishes `:1`, `:1.4`, `:1.4.2` and `:latest`. Nothing is published unless
-`pnpm check` and `pnpm test` pass first.
+tag publishes `:1.4.2`, and `:1`, `:1.4` and `:latest` when it is the newest
+release they cover, so tags pushed together cannot leave `:latest` behind.
+Nothing is published unless `pnpm check` and `pnpm test` pass first.
 
 ```sh
-# The version in package.json is baked into the UI, so it has to be bumped in
-# the same commit the tag points at.
-pnpm version 1.4.2 -m 'Release %s'
-git push --follow-tags
+pnpm release 1.4.2
 ```
+
+It moves the **Unreleased** section of `CHANGELOG.md` under 1.4.2, bumps the
+version in `package.json` (it is baked into the UI), commits, tags `v1.4.2`,
+pushes `main` with its tags and waits until `docker pull` gets 1.4.2. With
+`--no-push` it stops after tagging, and a later `pnpm release` with no version
+pushes what is tagged and waits.
 
 The package is public and needs no secrets: the workflow pushes with the
 built-in `GITHUB_TOKEN`. The very first release creates the package as private,

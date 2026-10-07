@@ -2,9 +2,9 @@
 # GitHub Container Registry attached to this repository.
 #
 # A version tag publishes the four tags the README promises — `:1`, `:1.4`,
-# `:1.4.2` and `:latest` — so `git tag v1.4.2 && git push --tags` is the whole
-# release procedure. Every push to main publishes `:edge` instead, which is
-# never referenced by the docs and exists so there is something current to test
+# `:1.4.2` and `:latest` — and `pnpm release 1.4.2` is the whole release
+# procedure. Every push to main publishes `:edge` instead, which is never
+# referenced by the docs and exists so there is something current to test
 # against between releases.
 name: Publish image
 
@@ -85,17 +85,38 @@ jobs:
       - id: sha
         run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
+      # Tags pushed together build in parallel and finish in any order, so a
+      # shared tag goes only to the newest release it covers. Without this,
+      # pushing v1.38.0, v1.39.0 and v1.40.0 at once left :latest and :1 on
+      # 1.38.0, because that build happened to finish last.
+      - id: floating
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          releases=$(git ls-remote --tags --refs origin | sed 's|.*refs/tags/||' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$')
+          version=${GITHUB_REF_NAME#v}
+          major=${version%%.*}
+          minor=${version#*.}
+          minor=${minor%%.*}
+          newest_of() {
+            [ "$(grep -E "^v$1" <<<"$releases" | sort -V | tail -n1)" = "$GITHUB_REF_NAME" ] && echo true || echo false
+          }
+          {
+            echo "latest=$(newest_of '')"
+            echo "major=$(newest_of "$major\.")"
+            echo "minor=$(newest_of "$major\.$minor\.")"
+          } | tee -a "$GITHUB_OUTPUT"
+
       - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
-          # "auto" means :latest moves on version tags and never on a main
-          # push, which is what the README's update instructions assume.
-          flavor: latest=auto
+          # :latest never moves on a main push, which is what the README's
+          # update instructions assume.
+          flavor: latest=${{ steps.floating.outputs.latest == 'true' }}
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.floating.outputs.minor == 'true' }}
+            type=semver,pattern={{major}},enable=${{ steps.floating.outputs.major == 'true' }}
             type=raw,value=edge,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.title=Baby Log Book

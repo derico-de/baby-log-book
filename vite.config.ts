@@ -72,6 +72,14 @@ export default defineConfig({
 			{
 				extends: true,
 				test: {
+					name: 'scripts',
+					environment: 'node',
+					include: ['scripts/**/*.test.ts']
+				}
+			},
+			{
+				extends: true,
+				test: {
 					name: 'client',
 					environment: 'node',
 					setupFiles: ['src/lib/client/test-setup.ts'],

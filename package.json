@@ -16,7 +16,8 @@
 		"start": "node build/index.js",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"release": "node scripts/release.mjs"
 	},
 	"dependencies": {
 		"better-sqlite3": "^13.0.3"

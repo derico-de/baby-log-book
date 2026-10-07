@@ -20,6 +20,8 @@
 		"src/**/*.ts",
 		"src/**/*.svelte",
 		"bin/**/*.js",
+		"scripts/release*.mjs",
+		"scripts/**/*.test.ts",
 		"vite.config.ts",
 		"svelte.config.js"
 	]
