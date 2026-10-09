@@ -1,8 +1,8 @@
 /* Growth — the one trend that is not a week.
 
    Every other stat on this screen is a rolling seven days, because every other
-   question is *is this week going better than the last*. Weight and height are
-   not that question. A Baby is weighed at a check-up, which is monthly at
+   question is *is this week going better than the last*. Weight, height and
+   head circumference are not that question. A Baby is weighed at a check-up, which is monthly at
    best, so seven bars of a measurement would be seven empty days and one
    column — a chart that is right and says nothing.
 
@@ -23,7 +23,7 @@
 import { dayBucketOf } from './time';
 import type { Entry, MeasurementPayload } from './types';
 
-export type GrowthKind = 'weight' | 'height';
+export type GrowthKind = 'weight' | 'height' | 'head';
 
 /** Canonical units throughout — grams and millimetres, exactly as stored
     (spec §3.4). They become kilograms and centimetres at display, and not one
@@ -51,8 +51,8 @@ export interface GrowthInput {
 
 const live = (e: Entry) => e.deleted_at == null && e.merged_into == null;
 
-/** Weight and height over the whole log, in that order — the order a
-    paediatrician says them in, and the order the cards are drawn.
+/** Weight, height and head circumference over the whole log, in that order —
+    the order a paediatrician says them in, and the order the cards are drawn.
 
     A series appears only when something was measured, which is the same
     admission rule the trend cards follow: a Household that has never entered a
@@ -63,7 +63,7 @@ export function growthFor(input: GrowthInput): GrowthSeries[] {
 		.sort((a, b) => a.occurred_at - b.occurred_at || a.logged_at - b.logged_at);
 
 	const out: GrowthSeries[] = [];
-	for (const kind of ['weight', 'height'] as const) {
+	for (const kind of ['weight', 'height', 'head'] as const) {
 		/* Two measurements at the same instant is one of them corrected twice
 		   over, or two Members entering the same check-up. A line cannot go
 		   backwards in time, so the later-logged one wins the instant — the same
@@ -71,7 +71,7 @@ export function growthFor(input: GrowthInput): GrowthSeries[] {
 		const byInstant = new Map<number, number>();
 		for (const e of mine) {
 			const p = e.payload as MeasurementPayload;
-			const value = kind === 'weight' ? p.weight_g : p.height_mm;
+			const value = kind === 'weight' ? p.weight_g : kind === 'height' ? p.height_mm : p.head_mm;
 			if (value == null) continue;
 			byInstant.set(e.occurred_at, value);
 		}

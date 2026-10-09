@@ -25,11 +25,17 @@ function entry(p: Partial<Entry> & { type: Entry['type']; occurred_at: number })
 	} as Entry;
 }
 
-const measure = (at: string, weight_g: number | null, height_mm: number | null = null, extra: Partial<Entry> = {}) =>
+const measure = (
+	at: string,
+	weight_g: number | null,
+	height_mm: number | null = null,
+	extra: Partial<Entry> = {},
+	head_mm: number | null = null
+) =>
 	entry({
 		type: 'measurement',
 		occurred_at: iso(at),
-		payload: { weight_g, height_mm, head_mm: null },
+		payload: { weight_g, height_mm, head_mm },
 		...extra
 	});
 
@@ -47,6 +53,15 @@ describe('the growth series', () => {
 		expect(series[0].first.value).toBe(3400);
 		expect(series[0].latest.value).toBe(8000);
 		expect(series[1].points.map((p) => p.value)).toEqual([510, 620, 690]);
+	});
+
+	it('draws the head circumference after weight and height', () => {
+		const series = growth([
+			measure('2026-02-17T09:00:00Z', 3400, 510, {}, 350),
+			measure('2026-05-17T09:00:00Z', 6100, 620, {}, 405)
+		]);
+		expect(series.map((s) => s.kind)).toEqual(['weight', 'height', 'head']);
+		expect(series[2].points.map((p) => p.value)).toEqual([350, 405]);
 	});
 
 	it('leaves out a measure nobody entered rather than plotting a zero', () => {

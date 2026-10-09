@@ -1,5 +1,5 @@
 <script lang="ts">
-	/* One growth card — weight, or height.
+	/* One growth card — weight, height, or head circumference.
 
 	   The five trend cards next to it are seven bars of a rolling week. This one
 	   is a line over the whole log, because a Baby is weighed at a check-up and
@@ -37,7 +37,8 @@
 
 	const NAME: Record<GrowthSeries['kind'], () => string> = {
 		weight: () => m.stats_card_weight(),
-		height: () => m.stats_card_height()
+		height: () => m.stats_card_height(),
+		head: () => m.stats_card_head()
 	};
 
 	/* Grams and millimetres in, a paediatrician's sentence out. */

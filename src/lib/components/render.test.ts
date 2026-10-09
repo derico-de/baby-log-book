@@ -428,6 +428,28 @@ describe('a timeline row', () => {
 		expect(draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} })).toContain('a little red');
 	});
 
+	it('says how much of each Food she ate', () => {
+		app.foods = [
+			{ id: 'carrot', household_id: 'h1', name: 'Carrot', deleted_at: null },
+			{ id: 'pear', household_id: 'h1', name: 'Pear', deleted_at: null },
+			{ id: 'rice', household_id: 'h1', name: 'Rice', deleted_at: null }
+		];
+		const row = entry({
+			type: 'meal',
+			occurred_at: NOW - 3600_000,
+			payload: {
+				foods: [
+					{ food_id: 'carrot', amount: 'lots', reaction: null },
+					{ food_id: 'pear', amount: 'tasted', reaction: null },
+					{ food_id: 'rice', amount: null, reaction: null }
+				]
+			}
+		});
+		app.entries = [row];
+		draw(TimelineRow, { entry: row, onopen: () => {}, onstop: () => {}, onawake: () => {} });
+		expect(host.querySelector('.row-title')?.textContent?.trim()).toBe('Carrot (lots), Pear (tasted), Rice');
+	});
+
 	it('marks the free-text hit in the note that carries it', () => {
 		const row = entry({
 			type: 'nappy',
@@ -793,6 +815,16 @@ describe('a growth card', () => {
 		/* The whole series is readable, not only the drawing. */
 		expect(host.querySelectorAll('ul.sr-only li')).toHaveLength(2);
 		expect(heightSeries.kind).toBe('height');
+	});
+
+	it('names the head circumference card', () => {
+		app.entries = [
+			entry({ type: 'measurement', occurred_at: Date.parse('2026-08-10T09:00:00Z'), payload: { weight_g: null, height_mm: null, head_mm: 412 } })
+		];
+		const [series] = growthFor({ entries: app.entries, babyId: 'b1' });
+		const text = draw(GrowthCard, { series });
+		expect(text).toContain('Head');
+		expect(text).toContain('41.2 cm');
 	});
 
 	it('says nothing about a change when there is only one measurement', () => {

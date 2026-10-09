@@ -16,6 +16,7 @@ import type {
 	BreastFeedPayload,
 	Entry,
 	EntryType,
+	MealFood,
 	MealPayload,
 	MeasurementPayload,
 	MilestonePayload,
@@ -38,6 +39,23 @@ export const GLYPH_OF: Record<EntryType, IconName> = {
 /** A Meal names its Foods, so the caller supplies the lookup rather than this
     module reaching for app state. */
 export type FoodName = (id: string) => string;
+
+/** A Food as eaten — `Carrot (lots)` — or its bare name when nobody said how
+    much. Empty when the Food is unknown to this replica. */
+export function mealFoodLabel(food: MealFood, foodName: FoodName): string {
+	const name = foodName(food.food_id);
+	if (!name) return '';
+	switch (food.amount) {
+		case 'tasted':
+			return m.food_amount_tasted({ food: name });
+		case 'some':
+			return m.food_amount_some({ food: name });
+		case 'lots':
+			return m.food_amount_lots({ food: name });
+		default:
+			return name;
+	}
+}
 
 /** What a run of Feeds is called, in pieces, so both the whole title and the
     shortened one in a Combined Feed come out of the same place.
@@ -85,7 +103,7 @@ export function entryTitle(entry: Entry, foodName: FoodName): string {
 		case 'bottle_feed':
 			return feedParts([entry], false).join(' · ');
 		case 'meal': {
-			const foods = (entry.payload as MealPayload).foods.map((f) => foodName(f.food_id)).filter(Boolean);
+			const foods = (entry.payload as MealPayload).foods.map((f) => mealFoodLabel(f, foodName)).filter(Boolean);
 			return foods.length > 0 ? foods.join(', ') : m.type_meal();
 		}
 		case 'sleep':

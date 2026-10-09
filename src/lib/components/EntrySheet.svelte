@@ -38,12 +38,14 @@
 	import { instantOnDate, sameMinute, wallTimeAtOrAfter } from '$domain/time';
 	import { copyable, intakeMl, isSession } from '$domain/entries';
 	import { applyLeftoverInput } from './leftover';
+	import { mealFoodLabel } from '$lib/i18n/entry-label';
 	import type {
 		BottleContents,
 		BottleFeedPayload,
 		BreastFeedPayload,
 		Consistency,
 		Entry,
+		MealFood,
 		MealPayload,
 		MeasurementPayload,
 		MilestonePayload,
@@ -199,7 +201,7 @@
 			case 'meal':
 				return (entry.payload as MealPayload).foods
 					.map((f) => {
-						const name = app.foodName(f.food_id);
+						const name = mealFoodLabel(f, (id) => app.foodName(id));
 						return f.reaction && !copying ? `${name} — ${f.reaction}` : name;
 					})
 					.join(' · ');
@@ -309,7 +311,7 @@
 				return WHERES.find(([v]) => v === value)?.[1]() ?? null;
 			case 'foods':
 				return Array.isArray(value)
-					? value.map((f) => app.foodName((f as { food_id: string }).food_id)).join(', ')
+					? value.map((f) => mealFoodLabel(f as MealFood, (id) => app.foodName(id))).join(', ')
 					: null;
 			default:
 				return typeof value === 'string' && value.length > 0 ? value : null;

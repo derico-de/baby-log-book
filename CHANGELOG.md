@@ -9,6 +9,12 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Added
+
+- Trends draw a head circumference card beside weight and height.
+- A meal says how much of each food she ate — `Carrot (lots), Pear (tasted)` —
+  on the timeline, in the day grid and in the entry sheet.
+
 ## [1.41.0] - 2026-10-07
 
 ### Added
