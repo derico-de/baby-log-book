@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.42.0] - 2026-10-10
+
 ### Added
 
 - Trends draw a head circumference card beside weight and height.
