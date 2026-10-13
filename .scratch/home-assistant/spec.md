@@ -508,7 +508,9 @@ There is **no wake-and-feed compound write**: the fan's *Feed while asleep* row 
 - `baby_log_book.log_bottle_feed` — `volume_ml`, optional `contents`, optional `leftover_ml`
 - `baby_log_book.log_nappy` — `pee`, `poop`, optional `where`, optional `consistency`
 
-Both **target the Baby's HA device** — there is **never a raw `baby_id` field in the call schema**. The integration resolves device → `baby_id` through the device registry and passes it down the wire. Registered in **`async_setup`**, not `async_setup_entry`, so automations validate even when no entry is loaded (Bronze rule `action-setup`). `services.yaml` describes the target and the fields with selectors; **names and descriptions live in translations**, never in `services.yaml`.
+Both **name the Baby's HA device** in a required `device_id` field — there is **never a raw `baby_id` field in the call schema**. The integration resolves device → `baby_id` through the device registry and passes it down the wire. Registered in **`async_setup`**, not `async_setup_entry`, so automations validate even when no entry is loaded (Bronze rule `action-setup`). `services.yaml` describes every field with a selector — the device with a device selector filtered to this integration's Baby devices, several allowed; **names and descriptions live in translations**, never in `services.yaml`.
+
+> **Correction — a field, not a `target`.** [Ticket 07](issues/07-the-action-surface.md) had both actions *target* the Baby's device, and the integration shipped a `target` with a device filter. hassfest has since refused a device filter under `target` and asks for a device selector instead; a `target` would also have taken entities, areas and labels the actions cannot resolve to a Baby. The call itself did not change: Home Assistant merges a `target` into the call data, so a script that names the device under `target:` keeps working.
 
 The [ADR-0020](../../docs/adr/0020-one-deployment-many-households.md) sentence, carried verbatim into the build: **the `baby_id` the Hub sends is a client-supplied id, and the server's `entityBelongsElsewhere` is the only thing that makes it safe. The id is never a capability.**
 
@@ -733,9 +735,8 @@ script:
     alias: Emma — 120 ml
     sequence:
       - action: baby_log_book.log_bottle_feed
-        target:
-          device_id: !input emma_device      # the Baby's device, not a baby_id
         data:
+          device_id: !input emma_device      # the Baby's device, not a baby_id
           volume_ml: 120
 ```
 
