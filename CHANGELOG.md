@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.42.1] - 2026-10-28
+
 ### Fixed
 
 - After a trip, the timeline asks right away whether to move the household's
