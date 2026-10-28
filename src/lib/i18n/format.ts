@@ -167,6 +167,19 @@ export function dayLabel(dayKey: string, todayKey: string, yesterdayKey: string,
 	return dateFull(instant, zone);
 }
 
+/** `Bucharest` for `Europe/Bucharest` — the place a zone id names, which is
+    how a Member knows the clock a time is read on. */
+export function zoneName(zone: string): string {
+	return (zone.split('/').pop() ?? zone).replace(/_/g, ' ');
+}
+
+/** The label of a field that takes a clock time, naming the Household Zone
+    when this Device's clock reads differently — an unnamed field invites the
+    phone's time, an hour off the one it is read in (ADR-0048). */
+export function timeLabel(label: string, zone: string, differs: boolean): string {
+	return differs ? m.time_in_zone({ label, zone: zoneName(zone) }) : label;
+}
+
 /** The wall time of an instant as `HH:MM`, for a time input's value. */
 export function timeInputValue(instant: number, zone: string): string {
 	const p = wallPartsOf(instant, zone);

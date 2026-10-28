@@ -12,7 +12,7 @@
 	   backwards from now while an end reads forwards from its Sleep's start. */
 	import { app } from '$client/state.svelte';
 	import type { FacetKey } from '$domain/filter';
-	import { timeInputValue } from '$lib/i18n/format';
+	import { timeInputValue, timeLabel } from '$lib/i18n/format';
 	import * as m from '$lib/paraglide/messages';
 	import Sheet from './Sheet.svelte';
 	import WhenRow from './WhenRow.svelte';
@@ -38,7 +38,7 @@
 		<WhenRow bind:time bind:date />
 	{:else}
 		<label class="field">
-			{m.sheet_time()}
+			{timeLabel(m.sheet_time(), app.zone, app.zoneDiffers)}
 			<input type="time" bind:value={time} />
 		</label>
 	{/if}

@@ -20,7 +20,7 @@ import type { Baby, Entry, Food, Household, MemberRecord, Target } from '$domain
 import { checkReplicaSchema, getMeta, META, replica, setMeta, type ReplicaDb } from './db';
 import { bottleChime, deviceZone, mirrorDayStart } from './device';
 import { SyncEngine, type SyncStatus } from './sync';
-import type { Writer } from './mutate';
+import { setHouseholdZone, type Writer } from './mutate';
 import { adoptLocale, installLocaleStrategy } from '$lib/i18n/locale.svelte';
 import { playChime } from './chime';
 
@@ -77,8 +77,8 @@ class AppState {
 	/** Set when the local replica was written by a newer build and could not be
 	    dropped because the outbox still holds Entries that exist nowhere else. */
 	schemaBlocked = $state<number | null>(null);
-	/** The zone this Device has been reporting, and since when. A layover must
-	    not move a Household, so the suggestion waits 48 hours (spec §7.3). */
+	/** The zone this Device is in, when it is not the Household Zone and nobody
+	    has said to keep that one (ADR-0048). */
 	zoneSuggestion = $state<string | null>(null);
 
 	private db: ReplicaDb | null = null;
@@ -107,6 +107,12 @@ class AppState {
 	    timeline, stats and export (spec §7.3). */
 	get zone(): string {
 		return this.household?.zone ?? deviceZone();
+	}
+
+	/** Whether a time typed here speaks another clock than this Device's —
+	    the case a time field has to name its zone in (ADR-0048). */
+	get zoneDiffers(): boolean {
+		return this.zone !== deviceZone();
 	}
 
 	get liveBabies(): Baby[] {
@@ -317,9 +323,10 @@ class AppState {
 
 	/* --- the Household Zone suggestion -------------------------------- */
 
-	/** Suggested, never applied. A Parent's Device reporting a different zone on
-	    every sync for 48 hours prompts once, dismissibly, and never again for
-	    that zone. */
+	/** Suggested, never applied, and suggested on arrival: until the Household
+	    moves, every time a Member reads or types is another zone's clock, so
+	    waiting out a layover cost two days of wrong times (ADR-0048). Keeping
+	    the Household Zone silences it for that zone for good. */
 	async trackZone(): Promise<void> {
 		const db = this.db;
 		const household = this.household;
@@ -328,21 +335,19 @@ class AppState {
 		const zone = deviceZone();
 		if (zone === household.zone) {
 			this.zoneSuggestion = null;
-			await setMeta(db, META.zoneSeenSince, null);
 			return;
 		}
-
-		const seen = await getMeta<{ zone: string; since: number } | null>(db, META.zoneSeenSince, null);
-		const now = Date.now();
-		if (!seen || seen.zone !== zone) {
-			await setMeta(db, META.zoneSeenSince, { zone, since: now });
-			this.zoneSuggestion = null;
-			return;
-		}
-
 		const dismissed = await getMeta<string[]>(db, META.zoneSuggestionDismissed, []);
-		const longEnough = now - seen.since >= 48 * 60 * 60_000;
-		this.zoneSuggestion = longEnough && !dismissed.includes(zone) ? zone : null;
+		this.zoneSuggestion = dismissed.includes(zone) ? null : zone;
+	}
+
+	/** Moving is not dismissing: the trip home asks about the home zone, and
+	    the next trip here asks again. */
+	async moveToSuggestedZone(): Promise<void> {
+		const zone = this.zoneSuggestion;
+		if (!zone) return;
+		await this.edit((w) => setHouseholdZone(w, zone));
+		this.zoneSuggestion = null;
 	}
 
 	async dismissZoneSuggestion(): Promise<void> {
@@ -482,6 +487,9 @@ class AppState {
 			if (!document.hidden) {
 				this.now = Date.now();
 				this.checkBottleChime();
+				/* A phone that slept through the flight wakes up in the new zone
+				   without ever starting cold. */
+				void this.trackZone();
 			}
 		});
 	}

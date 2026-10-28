@@ -9,6 +9,13 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- After a trip, the timeline asks right away whether to move the household's
+  time zone, not after two days in Settings. Until it moves, time fields name
+  the zone they are read in, `Time (Bucharest)`. A time typed from the phone's
+  clock no longer lands an hour off, and a bottle no longer ends itself.
+
 ## [1.42.0] - 2026-10-10
 
 ### Added

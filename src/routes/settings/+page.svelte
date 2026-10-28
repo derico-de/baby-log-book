@@ -488,13 +488,8 @@
 						<!-- Suggested, never applied: a layover must not move a Household. -->
 						<p class="notice">
 							{m.settings_zone_suggest({ zone: app.zoneSuggestion })}
-							<button
-								type="button"
-								onclick={async () => {
-									const zone = app.zoneSuggestion;
-									if (zone) await app.edit((w) => setHouseholdZone(w, zone));
-									await app.dismissZoneSuggestion();
-								}}>{m.settings_zone_suggest_move()}</button
+							<button type="button" onclick={() => void app.moveToSuggestedZone()}
+								>{m.settings_zone_suggest_move()}</button
 							>
 							<button type="button" onclick={() => void app.dismissZoneSuggestion()}>
 								{m.settings_zone_suggest_keep({ zone: household.zone })}

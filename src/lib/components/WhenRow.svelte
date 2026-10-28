@@ -4,7 +4,7 @@
 	   note. A chip turns into its field where it stood, so the time never moves
 	   under the thumb; once the date takes the slot, the note goes below. */
 	import { app } from '$client/state.svelte';
-	import { dateInputValue } from '$lib/i18n/format';
+	import { dateInputValue, timeLabel } from '$lib/i18n/format';
 	import { loggedAt } from '$domain/time';
 	import * as m from '$lib/paraglide/messages';
 	import Icon from './Icon.svelte';
@@ -31,7 +31,7 @@
 
 <div class="field when">
 	<label class="time">
-		{m.sheet_time()}
+		{timeLabel(m.sheet_time(), app.zone, app.zoneDiffers)}
 		<input type="time" bind:value={time} />
 	</label>
 	{#if date != null}

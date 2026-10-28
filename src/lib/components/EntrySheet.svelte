@@ -31,6 +31,7 @@
 		dateShort,
 		millilitres,
 		timeInputValue,
+		timeLabel,
 		weight,
 		length
 	} from '$lib/i18n/format';
@@ -489,7 +490,7 @@
 			<input type="date" bind:value={startDate} />
 		</label>
 		<label>
-			{m.sheet_time()}
+			{timeLabel(m.sheet_time(), zone, app.zoneDiffers)}
 			<input type="time" bind:value={startTime} />
 		</label>
 	</div>

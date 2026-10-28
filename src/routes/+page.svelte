@@ -29,6 +29,7 @@
 	import StaleBanner from '$lib/components/StaleBanner.svelte';
 	import TimelineRow from '$lib/components/TimelineRow.svelte';
 	import TimeSheet from '$lib/components/TimeSheet.svelte';
+	import ZoneBanner from '$lib/components/ZoneBanner.svelte';
 
 	type SheetName =
 		| 'feed'
@@ -193,6 +194,11 @@
 			     the filter header is up and returns when the filter clears. -->
 			{#if stale.stale && stale.sleep && !app.filterHeaderShown}
 				<StaleBanner sleep={stale.sleep} />
+			{/if}
+
+			<!-- Only a Parent can move the Household, so only a Parent is asked. -->
+			{#if app.zoneSuggestion && app.isParent && !app.filterHeaderShown}
+				<ZoneBanner zone={app.zoneSuggestion} />
 			{/if}
 
 			{#if groups.length === 0}

@@ -19,6 +19,8 @@ import DayGrid from './DayGrid.svelte';
 import GrowthCard from './GrowthCard.svelte';
 import Fan from './Fan.svelte';
 import StaleBanner from './StaleBanner.svelte';
+import ZoneBanner from './ZoneBanner.svelte';
+import { deviceZone } from '$client/device';
 import { statsFor } from '$domain/stats';
 import { growthFor } from '$domain/growth';
 
@@ -665,6 +667,28 @@ describe('the time sheet', () => {
 		draw(TimeSheet, { title: "She's awake", onsave: () => {}, onclose: () => {} });
 		flushSync();
 		expect(host.querySelector('button[aria-label="Add a date"]')).toBeNull();
+	});
+
+	/* The test Device runs on UTC, the Household on Berlin (ADR-0048). */
+	it('names the clock a time is read on while the Device is elsewhere', () => {
+		const text = draw(TimeSheet, { title: 'Fell asleep', onsave: () => {}, onclose: () => {} });
+		expect(text).toContain('Time (Berlin)');
+	});
+
+	it('names no clock while the Device is where the Household is', () => {
+		app.household = { ...household, zone: deviceZone() };
+		const text = draw(TimeSheet, { title: 'Fell asleep', onsave: () => {}, onclose: () => {} });
+		expect(text).toContain('Time');
+		expect(text).not.toContain('Time (');
+	});
+});
+
+describe('the zone banner', () => {
+	it('asks to move the Household, and says whose clock the times are on until then', () => {
+		const text = draw(ZoneBanner, { zone: 'Europe/Rome' });
+		expect(text).toContain('Move the household to Rome?');
+		expect(text).toContain('every time is shown and typed in Berlin time');
+		expect(text).toContain('Keep Berlin');
 	});
 });
 

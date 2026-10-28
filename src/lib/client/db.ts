@@ -106,10 +106,9 @@ export const META = {
 	staleAck: 'stale_ack',
 	/** The Baby the timeline is showing, when there is more than one. */
 	selectedBaby: 'selected_baby',
-	/** The Household Zone this Device last suggested changing to, so a layover
+	/** The zones a Parent has said to keep the Household Zone in, so a layover
 	    prompts once and never again for that zone. */
 	zoneSuggestionDismissed: 'zone_suggestion_dismissed',
-	zoneSeenSince: 'zone_seen_since',
 	/** The REPLICA_SCHEMA of the build that last wrote this replica. */
 	replicaSchema: 'replica_schema'
 } as const;
