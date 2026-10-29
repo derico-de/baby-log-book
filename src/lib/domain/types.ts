@@ -129,8 +129,9 @@ export interface Entry<T extends EntryType = EntryType> {
 	/** When it happened to the Baby, not when a Member got round to logging it. */
 	occurred_at: number;
 	ended_at: number | null;
-	/** The IANA zone id of the Device that created it. Nothing in v1 reads
-	    it; it is captured because it is unrecoverable later (spec §7.3). */
+	/** The IANA zone id of the Device that created it, captured because it is
+	    unrecoverable later (spec §7.3). Read only to tell where caretaking is
+	    (ADR-0049), never to show or bucket a time. */
 	recording_zone: string;
 	note: string | null;
 	payload: PayloadOf[T];

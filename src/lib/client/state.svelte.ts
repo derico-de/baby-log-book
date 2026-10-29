@@ -5,6 +5,7 @@
    stored: the day bucket, the header, nap-vs-night, the stale banner, the stats.
    Nothing in this file materialises anything (spec §3.5). */
 
+import { caretakingStaysIn } from '$domain/caretaking';
 import { EMPTY_FILTER, filterEntries, isFiltered, type Filter, type FilterContext } from '$domain/filter';
 import {
 	bottleTargetOf,
@@ -326,14 +327,17 @@ class AppState {
 	/** Suggested, never applied, and suggested on arrival: until the Household
 	    moves, every time a Member reads or types is another zone's clock, so
 	    waiting out a layover cost two days of wrong times (ADR-0048). Keeping
-	    the Household Zone silences it for that zone for good. */
+	    the Household Zone silences it for that zone for good. Nothing is asked
+	    while another Member still logs from home: only this phone has moved,
+	    not caretaking (ADR-0049). */
 	async trackZone(): Promise<void> {
 		const db = this.db;
 		const household = this.household;
-		if (!db || !household) return;
+		const memberId = this.identity?.memberId;
+		if (!db || !household || !memberId) return;
 
 		const zone = deviceZone();
-		if (zone === household.zone) {
+		if (zone === household.zone || caretakingStaysIn(household.zone, this.entries, memberId, Date.now())) {
 			this.zoneSuggestion = null;
 			return;
 		}
@@ -408,7 +412,10 @@ class AppState {
 				householdId: this.identity.householdId,
 				onStatus: (status) => {
 					this.sync = status;
-					if (status.state === 'idle' || status.state === 'catching_up') void this.refresh();
+					/* Another Member's Entries say where caretaking is, and they
+					   arrive by sync (ADR-0049). */
+					if (status.state === 'idle' || status.state === 'catching_up')
+						void this.refresh().then(() => this.trackZone());
 				}
 			});
 			await this.engine.load();

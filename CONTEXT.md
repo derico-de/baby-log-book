@@ -213,11 +213,11 @@ When something happened to the Baby — as distinct from when a Member got round
 _Avoid_: Timestamp, created at, date
 
 **Household Zone**:
-The time zone the Household's days are cut in — what turns the Day Start from an hour into an instant. One zone for everyone, so "yesterday" means one thing however far apart Members are. Changing it re-reads the whole past through the new lens.
+The time zone the Household's days are cut in — what turns the Day Start from an hour into an instant. One zone for everyone, so "yesterday" means one thing however far apart Members are. It is where caretaking happens, so it moves with the Baby and never with one Member. Changing it re-reads the whole past through the new lens.
 _Avoid_: Timezone (unqualified), local time, device time
 
 **Recording Zone**:
-Where a Device was when an Entry was created. Kept because it can never be recovered afterwards, and never rewritten when someone corrects that Entry from somewhere else.
+Where a Device was when an Entry was created. Kept because it can never be recovered afterwards, and never rewritten when someone corrects that Entry from somewhere else. Read only to tell whether caretaking is still in the Household Zone (ADR-0049).
 _Avoid_: Entry timezone, offset, device timezone
 
 ### Getting data out

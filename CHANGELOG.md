@@ -9,6 +9,14 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The time zone prompt asks whether to move caretaking, not the household, so
+  a parent travelling without the baby knows to keep the household's clock.
+- A parent travelling without the baby is no longer asked at all while
+  someone at home keeps logging. The prompt comes when home has gone quiet for
+  twelve hours, or when the others log from the new zone too.
+
 ## [1.42.1] - 2026-10-28
 
 ### Fixed

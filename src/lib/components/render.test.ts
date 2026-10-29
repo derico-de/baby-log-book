@@ -684,9 +684,9 @@ describe('the time sheet', () => {
 });
 
 describe('the zone banner', () => {
-	it('asks to move the Household, and says whose clock the times are on until then', () => {
+	it('asks to move caretaking, and says whose clock the times are on until then', () => {
 		const text = draw(ZoneBanner, { zone: 'Europe/Rome' });
-		expect(text).toContain('Move the household to Rome?');
+		expect(text).toContain('Move caretaking to Rome?');
 		expect(text).toContain('every time is shown and typed in Berlin time');
 		expect(text).toContain('Keep Berlin');
 	});

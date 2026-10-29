@@ -42,6 +42,7 @@ beforeEach(async () => {
 	app.identity = { memberId: 'mum', householdId: 'h1', role: 'parent', displayName: 'Mama' };
 	app.household = household;
 	app.zoneSuggestion = null;
+	app.entries = [];
 	here.zone = ROME;
 });
 
@@ -54,6 +55,30 @@ describe('the Household Zone suggestion', () => {
 	it('asks the moment the Device is somewhere else, not two days later', async () => {
 		await app.trackZone();
 		expect(app.zoneSuggestion).toBe(ROME);
+	});
+
+	it('asks nothing while another Member still logs from the Household Zone', async () => {
+		app.entries = [
+			{
+				id: 'e1',
+				household_id: 'h1',
+				baby_id: 'b1',
+				type: 'nappy',
+				occurred_at: Date.now() - 60_000,
+				ended_at: null,
+				recording_zone: BUCHAREST,
+				note: null,
+				payload: { pee: true, poop: false, consistency: null, where: null },
+				logged_by: 'tata',
+				logged_at: Date.now() - 60_000,
+				edited_by: null,
+				edited_at: null,
+				deleted_at: null,
+				merged_into: null
+			}
+		];
+		await app.trackZone();
+		expect(app.zoneSuggestion).toBeNull();
 	});
 
 	it('asks nothing while the Device is where the Household is', async () => {
