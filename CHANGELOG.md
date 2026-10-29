@@ -9,6 +9,8 @@ release moves that section under its version number.
 
 ## [Unreleased]
 
+## [1.43.0] - 2026-10-29
+
 ### Changed
 
 - The time zone prompt asks whether to move caretaking, not the household, so
